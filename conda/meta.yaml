@@ -1,5 +1,5 @@
 {% set name = "dymoval" %}
-{% set version = "0.8.6" %}
+{% set version = "0.8.7" %}
 
 package:
   name: {{ name|lower }}
@@ -7,7 +7,7 @@ package:
 
 source:
   url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/dymoval-{{ version }}.tar.gz
-  sha256: cde77c3b2baaf6303d6f36d4b69049f1d669bf9a208742eeb698a16b3faacb12
+  sha256: 2933c14f4b88aa5c477eb72edd10e92153dcef090f84450d5d0b362cdb1e9883
 
 build:
   noarch: python
