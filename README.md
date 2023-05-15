@@ -103,7 +103,10 @@ This will copy the `dymoval_tutorial.ipynb` Jupyter notebook from your installat
 For more info on what is model validation and what is implemented in *dymoval* along with the *dymoval* complete API, you can check the [docs](https://volvogroup.github.io/dymoval/).
 
 > **Note**
-> If your tutorial won't start, you can manually download the tutorial Jupyter notebook from this repo.
+> If your system don't have a default app for opening `.ipynb` files, then the
+> tutorial won't automatically open.
+> However, you have a copy of it in your
+> home folder that you can manually open with your preferred app.
 
 ## License
 Dymoval is licensed under [BSD 3](https://github.com/VolvoGroup/dymoval/blob/main/LICENSE) license.
