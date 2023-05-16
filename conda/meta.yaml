@@ -1,5 +1,5 @@
 {% set name = "dymoval" %}
-{% set version = "0.8.7" %}
+{% set version = "0.8.8" %}
 
 package:
   name: {{ name|lower }}
@@ -7,7 +7,7 @@ package:
 
 source:
   url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/dymoval-{{ version }}.tar.gz
-  sha256: 2933c14f4b88aa5c477eb72edd10e92153dcef090f84450d5d0b362cdb1e9883
+  sha256: d590c5c1da55b08f0cbe69794bbe71e0bd107e5c7fd231fd5ba2862bd625f1cd
 
 build:
   noarch: python
@@ -35,10 +35,13 @@ test:
     - dymoval
   commands:
     - pip check
+    - pytest .
   requires:
     - pip
+    - pytest
 
 about:
+  home: https://github.com/ubaldot/dymoval
   summary: Dymoval is a Python package for validating models and analyzing datasets.
   license: BSD-3-Clause
   license_file: LICENSE
