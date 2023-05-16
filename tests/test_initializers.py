@@ -11,7 +11,7 @@ import pytest
 import dymoval as dmv
 from dymoval.dataset import Signal
 import numpy as np
-from .fixture_data import *  # NOQA
+from fixture_data import *  # NOQA
 
 
 class TestInitializerFromSignals:

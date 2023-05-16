@@ -3,7 +3,7 @@ import dymoval as dmv
 from dymoval.validation import XCorrelation
 import numpy as np
 from matplotlib import pyplot as plt
-from .fixture_data import *  # noqa
+from fixture_data import *  # noqa
 import scipy.signal as signal
 
 
