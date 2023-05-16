@@ -3,7 +3,7 @@
 
 import dymoval as dmv
 import numpy as np
-from .fixture_data import *  # noqa
+from fixture_data import *  # noqa
 from dymoval.dataset import Signal
 from dymoval import NUM_DECIMALS
 from typing import Any
