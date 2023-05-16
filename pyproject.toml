@@ -5,7 +5,7 @@ build-backend = "pdm.backend"
 [project]
 # General info
 name = "dymoval"
-version = "0.8.82"
+version = "0.8.83"
 
 # Requirements
 requires-python = ">=3.10"
@@ -16,7 +16,6 @@ dependencies = [
     "matplotlib",
     "scipy",
     "control",
-    "pathlib",
     "numpy",
     "tomli",
     "h5py",
