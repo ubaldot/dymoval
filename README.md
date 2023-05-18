@@ -74,6 +74,7 @@ following:
 
     pip install dymoval
     conda install -c ubaldot dymoval
+    conda install -c conda-forge dymoval
 
 <!-- comment
 #### Installation From this repo
