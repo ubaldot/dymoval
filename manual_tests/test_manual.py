@@ -5,10 +5,12 @@
 # and analyze the result.
 # ===========================================================================
 
+
 from copy import deepcopy
 import dymoval as dmv
 import numpy as np
 import matplotlib.pyplot as plt
+
 
 # ===========================================================================
 # Assume that we have some measurements from some experiment.
