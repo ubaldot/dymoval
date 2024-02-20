@@ -32,10 +32,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4.7.0
+        uses: actions/setup-python@v5.0.0
         with:
             python-version: ${{ matrix.python-version }}
 
@@ -79,10 +79,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4.7.0
+        uses: actions/setup-python@v5.0.0
         with:
             python-version: ${{ matrix.python-version }}
 
@@ -108,8 +108,10 @@ jobs:
         os: ["ubuntu-latest", "macos-latest", "windows-latest"]
         python-version: ["3.10", "3.11"]
     steps:
+dependabot/github_actions/conda-incubator/setup-miniconda-3
       - uses: actions/checkout@v3
       - uses: conda-incubator/setup-miniconda@v3
+
         with:
           python-version: ${{ matrix.python-version }}
           channels: conda-forge,defaults
@@ -170,10 +172,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@v4.7.0
+        uses: actions/setup-python@v5.0.0
         with:
             python-version: '3.10'
 
