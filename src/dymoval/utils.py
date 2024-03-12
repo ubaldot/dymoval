@@ -68,6 +68,23 @@ def _get_tutorial() -> Union[str, os.PathLike]:
     return tutorial_file_path
 
 
+def _get_tutorial_files(dymoval_tutorial_folder: str) -> None:
+
+    # Delete everything inside the destination folder if it exists
+    if os.path.exists(dymoval_tutorial_folder):
+        shutil.rmtree(dymoval_tutorial_folder)
+
+    # Create the destination folder
+    os.makedirs(dymoval_tutorial_folder, exist_ok=True)
+
+    # Iterate over each file in the "tutorial" package and move it to the destination folder
+    with resources.files("tutorial") as tutorial_files:
+        for filename in tutorial_files:
+            source_file = tutorial_files.joinpath(filename)
+            destination_file = os.path.join(dymoval_tutorial_folder, filename)
+            shutil.copyfile(str(source_file), destination_file)
+
+
 def open_tutorial() -> tuple[Any, Any]:
     """It copies a Jupyter notebook named
     dymoval_tutorial.ipynb from your installation folder
@@ -77,16 +94,20 @@ def open_tutorial() -> tuple[Any, Any]:
     folder, it will be overwritten.
     """
 
-    filename = str(_get_tutorial())
     home = str(Path.home())
+    dymoval_tutorial_folder = home + "/dymoval_tutorial"
+
+    _get_tutorial_files(dymoval_tutorial_folder)
+    filename = str(_get_tutorial())
+
     if sys.platform == "win32":
         destination = shutil.copyfile(
-            filename, home + "\\dymoval_tutorial.ipynb"
+            filename, dymoval_tutorial_folder + "\\dymoval_tutorial.ipynb"
         )
         shell_process = subprocess.run(["explorer.exe", destination])
     else:
         destination = shutil.copyfile(
-            filename, home + "/dymoval_tutorial.ipynb"
+            filename, dymoval_tutorial_folder + "/dymoval_tutorial.ipynb"
         )
         opener = "open" if sys.platform == "darwin" else "xdg-open"
         shell_process = subprocess.run([opener, destination])
