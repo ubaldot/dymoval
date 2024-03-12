@@ -60,14 +60,6 @@ def str2list(x: str | list[str]) -> list[str]:
     return x
 
 
-def _get_tutorial() -> Union[str, os.PathLike]:
-    with resources.as_file(
-        resources.files("tutorial").joinpath("tutorial.ipynb")
-    ) as f:
-        tutorial_file_path = f
-    return tutorial_file_path
-
-
 def _get_tutorial_files(dymoval_tutorial_folder: str) -> None:
 
     # Delete everything inside the destination folder if it exists
@@ -78,38 +70,36 @@ def _get_tutorial_files(dymoval_tutorial_folder: str) -> None:
     os.makedirs(dymoval_tutorial_folder, exist_ok=True)
 
     # Iterate over each file in the "tutorial" package and move it to the destination folder
-    with resources.files("tutorial") as tutorial_files:
-        for filename in tutorial_files:
-            source_file = tutorial_files.joinpath(filename)
-            destination_file = os.path.join(dymoval_tutorial_folder, filename)
+    tutorial_contents = resources.contents("dymoval_tutorial")
+
+    for content in tutorial_contents:
+        if resources.is_resource("dymoval_tutorial", content):
+            source_file = resources.files("dymoval_tutorial").joinpath(
+                content
+            )
+            destination_file = os.path.join(dymoval_tutorial_folder, content)
             shutil.copyfile(str(source_file), destination_file)
 
 
-def open_tutorial() -> tuple[Any, Any]:
-    """It copies a Jupyter notebook named
-    dymoval_tutorial.ipynb from your installation folder
-    to your home folder and it will try to open it.
+def open_tutorial() -> Any:
+    """Create a dymoval_tutorial folder containing all the files needed to
+    run the tutorial. All you have to do is to run Jupyter notebook named
+    dymoval_tutorial.ipynb. You need an app for opening .ipynb files.
 
-    If a dymoval_tutorial.ipynb file already exists in your home
-    folder, it will be overwritten.
+    The content of the dymoval_tutorial folder will be overwritten every time this function is
+    called.
     """
 
     home = str(Path.home())
-    dymoval_tutorial_folder = home + "/dymoval_tutorial"
-
+    dymoval_tutorial_folder = os.path.join(home, "dymoval_tutorial")
     _get_tutorial_files(dymoval_tutorial_folder)
-    filename = str(_get_tutorial())
 
     if sys.platform == "win32":
-        destination = shutil.copyfile(
-            filename, dymoval_tutorial_folder + "\\dymoval_tutorial.ipynb"
-        )
+        destination = dymoval_tutorial_folder + "\\dymoval_tutorial.ipynb"
         shell_process = subprocess.run(["explorer.exe", destination])
     else:
-        destination = shutil.copyfile(
-            filename, dymoval_tutorial_folder + "/dymoval_tutorial.ipynb"
-        )
+        destination = dymoval_tutorial_folder + "/dymoval_tutorial.ipynb"
         opener = "open" if sys.platform == "darwin" else "xdg-open"
         shell_process = subprocess.run([opener, destination])
 
-    return shell_process, filename
+    return shell_process
