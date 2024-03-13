@@ -10,7 +10,7 @@ The best way to take familiarity with *Dymoval* is to run any tutorial by typing
     dmv.open_tutorial()
 
 Create a `dymoval_tutorial` folder containing all the files needed to
-run the tutorial. All you have to do is to run Jupyter notebook named
+run the tutorial in your `home` folder. All you have to do is to run Jupyter notebook named
 `dymoval_tutorial.ipynb`. You need an app for opening `.ipynb` files.
 
 The content of the `dymoval_tutorial` folder will be overwritten every time this function is
