@@ -76,13 +76,13 @@ dev = [
 # ===================================
 # black
          [tool.black]
-         target-version = ['py310']
+         target-version = ['py312']
          line-length = 80
          exclude = '''/(manual_tests|docs)/'''
 
 # mypy
          [tool.mypy]
-         python_version = "3.11"
+         python_version = "3.12"
          disallow_untyped_defs = true
          show_error_codes = true
          no_implicit_optional = true
@@ -100,6 +100,15 @@ dev = [
              "utils",
              "config",
          ]
+
+        [[tool.mypy.overrides]]
+        module = "matplotlib.*"
+        ignore_errors = true
+
+# flake 8
+
+         # [tool.flake8]
+         # exclude = F403, F405
 
 
 # pytest
