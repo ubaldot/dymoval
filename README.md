@@ -76,20 +76,6 @@ following:
     conda install -c ubaldot dymoval
     conda install -c conda-forge dymoval
 
-<!-- comment
-#### Installation From this repo
-Clone this repo and run
-
-	cd /path/to/where/you/cloned/this/repo
-	conda env update --name env_name --file environment.yml
-    conda actiate env_name
-	pip install .
-
-or
-
-	cd /path/to/where/you/cloned/this/repo
-	pip install .
--->
 
 ## Getting started
 
@@ -99,7 +85,10 @@ If you are already familiar with model validation, then the best way to get star
 	dmv.open_tutorial()
 
 
-This will copy the `dymoval_tutorial.ipynb` Jupyter notebook from your installation folder to your `home` folder.
+This create a `dymoval_tutorial` folder containing all the files needed to
+run the tutorial in your `home` folder. All you have to do is to run Jupyter notebook named
+`dymoval_tutorial.ipynb`. You need an app for opening `.ipynb` files.
+
 
 For more info on what is model validation and what is implemented in *dymoval* along with the *dymoval* complete API, you can check the [docs](https://volvogroup.github.io/dymoval/).
 
