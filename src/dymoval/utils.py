@@ -62,23 +62,15 @@ def str2list(x: str | list[str]) -> list[str]:
 
 def _get_tutorial_files(dymoval_tutorial_folder: str) -> None:
 
-    # Delete everything inside the destination folder if it exists
-    if os.path.exists(dymoval_tutorial_folder):
-        shutil.rmtree(dymoval_tutorial_folder)
+    tutorial_site_package_dir = resources.files("dymoval_tutorial")
 
-    # Create the destination folder
-    os.makedirs(dymoval_tutorial_folder, exist_ok=True)
-
-    # Iterate over each file in the "tutorial" package and move it to the destination folder
-    tutorial_contents = resources.contents("dymoval_tutorial")
-
-    for content in tutorial_contents:
-        if resources.is_resource("dymoval_tutorial", content):
-            source_file = resources.files("dymoval_tutorial").joinpath(
-                content
+    # Iterate over each file in the "dymoval_tutorial" package and move it to the destination folder
+    for file_path in tutorial_site_package_dir.iterdir():
+        if file_path.is_file():
+            destination_file = os.path.join(
+                dymoval_tutorial_folder, file_path.name
             )
-            destination_file = os.path.join(dymoval_tutorial_folder, content)
-            shutil.copyfile(str(source_file), destination_file)
+            shutil.copyfile(str(file_path), destination_file)
 
 
 def open_tutorial() -> Any:
@@ -92,6 +84,14 @@ def open_tutorial() -> Any:
 
     home = str(Path.home())
     dymoval_tutorial_folder = os.path.join(home, "dymoval_tutorial")
+
+    # Delete everything inside the destination folder if it exists
+    if os.path.exists(dymoval_tutorial_folder):
+        shutil.rmtree(dymoval_tutorial_folder)
+
+    # Create the destination folder
+    os.makedirs(dymoval_tutorial_folder, exist_ok=True)
+
     _get_tutorial_files(dymoval_tutorial_folder)
 
     if sys.platform == "win32":
@@ -102,4 +102,4 @@ def open_tutorial() -> Any:
         opener = "open" if sys.platform == "darwin" else "xdg-open"
         shell_process = subprocess.run([opener, destination])
 
-    return shell_process
+    return shell_process, destination
