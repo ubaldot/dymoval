@@ -466,9 +466,7 @@ class Test_Dataset_nominal:
         df_actual = ds.dataset
         assert np.allclose(df_actual.to_numpy(), df.to_numpy(), atol=ATOL)
 
-    def test_remove_offset(
-        self, constant_ones_dataframe: pd.DataFrame
-    ) -> None:
+    def test_remove_offset(self, constant_ones_dataframe: pd.DataFrame) -> None:
         df, u_names, y_names, _, _, fixture = constant_ones_dataframe
 
         # Test values, i.e. offset to be removed from the specified signal.
@@ -940,9 +938,7 @@ class Test_Dataset_nominal:
         # Act.
         ds_actual = ds.apply(*test_values[fixture])
         print("actual_units", ds_actual.dataset.columns)
-        actual_units = list(
-            ds_actual.dataset.columns.get_level_values("units")
-        )
+        actual_units = list(ds_actual.dataset.columns.get_level_values("units"))
 
         # Assert
         assert np.allclose(ds_actual.dataset, df_expected, atol=ATOL)
@@ -1068,9 +1064,7 @@ class Test_Dataset_plots:
         self, good_signals: list[Signal], tmp_path: str
     ) -> None:
         # You should just get a plot.
-        signal_list, u_names, y_names, u_units, y_units, fixture = (
-            good_signals
-        )
+        signal_list, u_names, y_names, u_units, y_units, fixture = good_signals
 
         # Actual value
         ds = dmv.dataset.Dataset(
@@ -1299,9 +1293,7 @@ class Test_Dataset_plots:
     @pytest.mark.plots
     def test_plot_Signals(self, good_signals: list[Signal]) -> None:
         # You should just get a plot.
-        signal_list, u_names, y_names, u_units, y_units, fixture = (
-            good_signals
-        )
+        signal_list, u_names, y_names, u_units, y_units, fixture = good_signals
         _ = dmv.plot_signals(*signal_list)
         plt.close("all")
 
@@ -1498,9 +1490,7 @@ class Test_validate_dataframe:
 
 
 class Test_fix_sampling_periods:
-    def test_excluded_signals_no_args(
-        self, good_signals: list[Signal]
-    ) -> None:
+    def test_excluded_signals_no_args(self, good_signals: list[Signal]) -> None:
         # Nominal values
         (
             signal_list,
@@ -1536,9 +1526,7 @@ class Test_fix_sampling_periods:
             expected_excluded = []
 
         expected_resampled = [
-            s["name"]
-            for s in signal_list
-            if s["name"] not in expected_excluded
+            s["name"] for s in signal_list if s["name"] not in expected_excluded
         ]
 
         # Assert. Check that all signals are either re-sampled or excluded.
@@ -1589,9 +1577,7 @@ class Test_fix_sampling_periods:
             expected_excluded = []
 
         expected_resampled = [
-            s["name"]
-            for s in signal_list
-            if s["name"] not in expected_excluded
+            s["name"] for s in signal_list if s["name"] not in expected_excluded
         ]
 
         # Assert. Check that all signals are either re-sampled or excluded.

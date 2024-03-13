@@ -114,11 +114,12 @@ jobs:
 
         with:
           python-version: ${{ matrix.python-version }}
-          channels: conda-forge,defaults
+          channels: conda-forge
           channel-priority: true
           # environment.yml has no version specified so it will pick the last
           # one.
           environment-file: ./environment.yml
+          miniforge-version: latest
 
       - name: (bash) Install dymoval through pip (unfortunately)
         shell: bash -l {0}
