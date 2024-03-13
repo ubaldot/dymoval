@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from typing import TypedDict, Literal
+
 """
 Created on Thu Jul 14 11:43:21 2022
 
@@ -30,7 +32,11 @@ class Test_difference_lists_of_str:
                 ["iguana", "dog", "cat", "donkey", "snake", "cow"],
                 ["banana", "orange", "apple"],
             ),
-            ("iguana", ["iguana", "dog", "cat", "donkey", "snake", "cow"], []),
+            (
+                "iguana",
+                ["iguana", "dog", "cat", "donkey", "snake", "cow"],
+                [],
+            ),
             (
                 "orange",
                 ["iguana", "dog", "cat", "donkey", "snake", "cow"],

@@ -2159,10 +2159,12 @@ class Dataset:
         # Switch between the kind
         if kind == "amplitude":
             # Add another level to specify abs and phase
-            df_freq = df_freq.agg([np.abs, lambda x: np.angle(x, deg=True)])
+            df_freq = df_freq.transform(
+                [np.abs, lambda x: np.angle(x, deg=True)]
+            )
             df_freq = df_freq.rename(columns={"<lambda>": "angle"}, level=3)
             df_freq = df_freq.rename(columns={"absolute": "abs"}, level=3)
-            # df_freq = df_freq.agg([np.abs, np.angle])
+            # df_freq = df_freq.transform([np.abs, np.angle])
 
         elif kind == "power":
             df_freq = df_freq.abs() ** 2
@@ -2170,13 +2172,13 @@ class Dataset:
             # also the negative frequencies with the exception of the DC compontent
             # because that is not mirrored. This is why we multiply by 2.
             # The same happens for the psd.
-            df_freq[1:-1] = 2 * df_freq[1:-1]
+            df_freq.loc[1:-1] = 2 * df_freq.loc[1:-1]
         elif kind == "psd":
             Ts = self.sampling_period
             N = len(self.dataset.index)  # number of samples
             Delta_f = 1 / (Ts * N)  # Size of each frequency bin
             df_freq = df_freq.abs() ** 2 / Delta_f
-            df_freq[1:-1] = 2 * df_freq[1:-1]
+            df_freq.loc[1:-1] = 2 * df_freq.loc[1:-1]
 
         # ===================================================
         # Arrange colors, ylabels (=units) and linestyles
