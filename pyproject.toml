@@ -101,6 +101,7 @@ dev = [
              "config",
          ]
 
+
 # pytest
          [tool.pytest.ini_options]
          norecursedirs = ["manual_tests"] # Exclude folders
