@@ -101,9 +101,9 @@ dev = [
              "config",
          ]
 
-        [[tool.mypy.overrides]]
-        module = "matplotlib.*"
-        ignore_errors = true
+        # [[tool.mypy.overrides]]
+        # module = "matplotlib.*"
+        # ignore_errors = true
 
 # flake 8
 
