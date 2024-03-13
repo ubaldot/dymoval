@@ -92,11 +92,5 @@ run the tutorial in your `home` folder. All you have to do is to run Jupyter not
 
 For more info on what is model validation and what is implemented in *dymoval* along with the *dymoval* complete API, you can check the [docs](https://volvogroup.github.io/dymoval/).
 
-> **Note**
-> If your system don't have a default app for opening `.ipynb` files, then the
-> tutorial won't automatically open.
-> However, you have a copy of it in your
-> `home` folder that you can manually open with your preferred app.
-
 ## License
 Dymoval is licensed under [BSD 3](https://github.com/VolvoGroup/dymoval/blob/main/LICENSE) license.
