@@ -29,7 +29,9 @@ class XCorrelation(TypedDict):
 
     """
 
-    values: np.ndarray  # values collide with values() method of dict and won't be rendered
+    values: (
+        np.ndarray
+    )  # values collide with values() method of dict and won't be rendered
     lags: np.ndarray
     """Lags of the cross-correlation.
     It is a vector of length *N*, where *N* is the number of lags."""
