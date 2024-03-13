@@ -4,7 +4,7 @@
 import numpy as np
 from .config import *  # noqa
 import scipy.signal as signal  # noqa
-from typing import Any, Union
+from typing import Any
 import sys
 import os
 import subprocess
