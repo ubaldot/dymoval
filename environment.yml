@@ -1,6 +1,5 @@
 channels:
   - conda-forge
-  - defaults
 dependencies:
   - pandas
   - matplotlib
@@ -20,3 +19,4 @@ dependencies:
   - coverage
   - grayskull
   - h5py
+  - pip
