@@ -73,7 +73,6 @@ Dymoval exists on both `pip` and `conda`, so you can choose between the
 following:
 
     pip install dymoval
-    conda install -c ubaldot dymoval
     conda install -c conda-forge dymoval
 
 
