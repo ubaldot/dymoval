@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.abspath("../../src"))
 
 project = "dymoval"
 copyright = "2024, U. Tiberi"
-author = "U. Tiberi"
+author = "U. Tiberi "
 
 # The full version, including alpha/beta/rc tags
 release = "0.8.84"
