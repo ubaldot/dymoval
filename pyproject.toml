@@ -5,7 +5,7 @@ build-backend = "pdm.backend"
 [project]
 # General info
 name = "dymoval"
-version = "0.8.83"
+version = "0.8.84"
 
 # Requirements
 requires-python = ">=3.10"
@@ -60,9 +60,9 @@ dev = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/VolvoGroup/dymoval"
-"Documentation" = "https://volvogroup.github.io/dymoval/"
-"Bug Tracker" = "https://github.com/VolvoGroup/dymoval/issues"
+"Homepage" = "https://github.com/ubaldot/dymoval"
+"Documentation" = "https://ubaldot.github.io/dymoval/"
+"Bug Tracker" = "https://github.com/ubaldot/dymoval/issues"
 
 # ===================================
 # PDM settings
@@ -101,11 +101,7 @@ dev = [
              "config",
          ]
 
-        # [[tool.mypy.overrides]]
-        # module = "matplotlib.*"
-        # ignore_errors = true
-
-# flake 8
+# flake 8 does not work with pyproject files
 
          # [tool.flake8]
          # exclude = F403, F405

@@ -48,10 +48,11 @@ jobs:
         run: |
           python -m pip install ".[dev]"
 
-      - name: Run tests (flake8, mypy, pytest, sphinx)
+      - name: Run tests (flake8, pytest, sphinx)
         run: |
           flake8 .
-          mypy .
+          # Re-enable once matplotlib and mypy get along better
+          # mypy .
           coverage run -m pytest ./tests/
           cd docs
           make clean
@@ -90,7 +91,7 @@ jobs:
         run: |
           python -m pip install .
 
-      - name: Run tests (flake8, mypy, pytest, sphinx)
+      - name: Run tests (flake8, pytest, sphinx)
         run: |
           python -m pip install pytest
           python -m pip install coverage
@@ -131,11 +132,12 @@ jobs:
         with:
             src: "./src/dymoval"
 
-      - name: (bash) Run all the tests on bash (flake8, mypy, pytest, sphinx)
+      - name: (bash) Run all the tests on bash (flake8, pytest, sphinx)
         shell: bash -l {0}
         run: |
           flake8 .
-          mypy .
+          # Re-enable once matplotlib and mypy get along
+          # mypy .
           coverage run -m pytest ./tests/
           cd docs
           make clean
@@ -152,11 +154,12 @@ jobs:
         with:
             src: "./src/dymoval"
 
-      - name: (powershell) Run all the tests on Powershell (flake8, mypy, pytest, sphinx)
+      - name: (powershell) Run all the tests on Powershell (flake8, pytest, sphinx)
         shell: pwsh
         run: |
           flake8 .
-          mypy .
+          # Re-enable once mypy and matplotlib get along better
+          # mypy .
           coverage run -m pytest ./tests/
           cd docs
           make clean
