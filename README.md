@@ -89,7 +89,7 @@ run the tutorial in your `home` folder. All you have to do is to run Jupyter not
 `dymoval_tutorial.ipynb`. You need an app for opening `.ipynb` files.
 
 
-For more info on what is model validation and what is implemented in *dymoval* along with the *dymoval* complete API, you can check the [docs](https://volvogroup.github.io/dymoval/).
+For more info on what is model validation and what is implemented in *dymoval* along with the *dymoval* complete API, you can check the [docs](https://ubaldot.github.io/dymoval/).
 
 ## License
-Dymoval is licensed under [BSD 3](https://github.com/VolvoGroup/dymoval/blob/main/LICENSE) license.
+Dymoval is licensed under [BSD 3](https://github.com/ubaldot/dymoval/blob/main/LICENSE) license.
