@@ -10,6 +10,7 @@ from copy import deepcopy
 import dymoval as dmv
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib
 
 
 # ===========================================================================
@@ -34,7 +35,9 @@ import matplotlib.pyplot as plt
 
 
 # %%
+matplotlib.use("qtagg")
 plt.ion()
+
 # Let's create some Signal
 nan_intervals = np.empty(200)
 nan_intervals[:] = np.NaN
@@ -44,7 +47,12 @@ input_signal_names = ["u1", "u2", "u3"]
 input_sampling_periods = [0.01, 0.1, 0.1]
 input_signal_values = [
     np.hstack(
-        (np.random.rand(50), nan_intervals, np.random.rand(400), nan_intervals)
+        (
+            np.random.rand(50),
+            nan_intervals,
+            np.random.rand(400),
+            nan_intervals,
+        )
     ),
     np.hstack(
         (
@@ -77,7 +85,12 @@ output_signal_names = ["y1", "y2", "y3", "y4"]
 output_sampling_periods = [0.3, 0.2, 0.1, 0.05]
 output_signal_values = [
     np.hstack(
-        (np.random.rand(50), nan_intervals, np.random.rand(100), nan_intervals)
+        (
+            np.random.rand(50),
+            nan_intervals,
+            np.random.rand(100),
+            nan_intervals,
+        )
     ),
     np.hstack(
         (

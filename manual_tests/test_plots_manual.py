@@ -10,9 +10,11 @@ import dymoval as dmv
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib
 
 
 plt.ion()
+matplotlib.use("qtagg")
 
 # ===========================================================================
 # Arange: SELECT THE FIXTURE TYPE
@@ -28,7 +30,9 @@ nan_thing[:] = np.NaN
 input_signal_names = ["u1", "u2", "u3"]
 input_sampling_periods = [0.01, 0.1, 0.1]
 input_signal_values = [
-    np.hstack((np.random.rand(50), nan_thing, np.random.rand(400), nan_thing)),
+    np.hstack(
+        (np.random.rand(50), nan_thing, np.random.rand(400), nan_thing)
+    ),
     np.hstack(
         (np.random.rand(20), nan_thing[0:5], np.random.rand(30), nan_thing)
     ),
@@ -51,7 +55,9 @@ for ii, val in enumerate(input_signal_names):
 output_signal_names = ["y1", "y2", "y3", "y4"]
 output_sampling_periods = [0.1, 0.1, 0.1, 0.1]
 output_signal_values = [
-    np.hstack((np.random.rand(50), nan_thing, np.random.rand(100), nan_thing)),
+    np.hstack(
+        (np.random.rand(50), nan_thing, np.random.rand(100), nan_thing)
+    ),
     np.hstack(
         (np.random.rand(100), nan_thing[0:50], np.random.rand(150), nan_thing)
     ),
@@ -145,7 +151,9 @@ ds.plot(save_as="c:/vas/github/dymoval/dataset_plot")
 # ===========================================================================
 # %% Coverage
 ds.plot_coverage()
-ds.plot_coverage(line_color_input="r", line_color_output="c", alpha_output=0.5)
+ds.plot_coverage(
+    line_color_input="r", line_color_output="c", alpha_output=0.5
+)
 
 # Conditional plot
 if fixture_type == "MIMO" or fixture_type == "MISO":
@@ -165,7 +173,9 @@ ds.plot_coverage(save_as="./coverage_test")
 # Act: plot_spectrum test
 # ===========================================================================
 ds.plot_spectrum()
-ds.plot_spectrum(line_color_input="r", line_color_output="c", alpha_output=0.5)
+ds.plot_spectrum(
+    line_color_input="r", line_color_output="c", alpha_output=0.5
+)
 
 # %%
 ds.plot_spectrum(kind="psd")
