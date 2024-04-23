@@ -1,6 +1,5 @@
 import control as ct
 import numpy as np
-import dymoval as dmv
 
 # El motor SS representation
 # define motor parameters
