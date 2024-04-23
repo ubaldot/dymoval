@@ -867,7 +867,9 @@ class ValidationSession:
         else:  # pragma: no cover
             # TODO: implement graph_selection
             # tin_sel, tout_sel = _graph_selection(self, *signals, **kwargs)
-            print("Graphical selection not implemented yet. No cha")
+            print(
+                "Graphical selection not implemented yet. You must specify tin and/or tout"
+            )
             return vs
 
         # Now you can trim the dataset and update all the
@@ -877,7 +879,7 @@ class ValidationSession:
         ds.coverage = ds._find_dataset_coverage()
 
         # ... and shift everything such that tin = 0.0
-        print(f"tin_sel = {tin_sel}, tout_sel {tout_sel}")
+        # print(f"tin_sel = {tin_sel}, tout_sel {tout_sel}")
         ds._shift_dataset_tin_to_zero()
         ds.dataset = ds.dataset.round(NUM_DECIMALS)
 
@@ -898,8 +900,10 @@ class ValidationSession:
         vs.simulations_results.index = new_index
         vs.simulations_results = vs.simulations_results.round(NUM_DECIMALS)
 
-        # clear and readd simulations OR update validation results.
-
+        # Update residuals auto-correlation and cross-correlation attributes
+        for sim_name in list(vs.simulations_names()):
+            vs._append_correlations_tensors(sim_name)
+            vs._append_validation_results(sim_name)
         return vs
 
     def drop_simulation(self, *sims: str) -> ValidationSession:
