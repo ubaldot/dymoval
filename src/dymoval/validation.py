@@ -210,6 +210,8 @@ def xcorr_norm(
     where :math:`R_{x,y}(\tau)` is the input tensor.
     Then, it computes the matrix-norm of the resulting matrix :math:`\hat R_{x,y}`.
 
+    Note that the returned values are NOT normalized.
+
     Parameters
     ----------
     Rxy :
