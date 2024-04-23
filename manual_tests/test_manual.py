@@ -231,4 +231,4 @@ plt.pause(0.0001)
 vs.validation_results
 
 # %% At this point we can clear the simulations list
-vs.clear()
+# vs.clear()

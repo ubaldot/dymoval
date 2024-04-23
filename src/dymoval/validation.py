@@ -117,7 +117,10 @@ def rsquared(x: np.ndarray, y: np.ndarray) -> float:
     # Compute r-square fit (%)
     x_mean = np.mean(x, axis=0)
     r2 = np.round(
-        (1.0 - np.linalg.norm(eps, 2) ** 2 / np.linalg.norm(x - x_mean, 2) ** 2)
+        (
+            1.0
+            - np.linalg.norm(eps, 2) ** 2 / np.linalg.norm(x - x_mean, 2) ** 2
+        )
         * 100,
         NUM_DECIMALS,  # noqa
     )
@@ -251,7 +254,9 @@ class ValidationSession:
     it is recommended to create a new *ValidationSession* instance.
     """
 
-    def __init__(self, name: str, validation_dataset: Dataset) -> None:  # noqa
+    def __init__(
+        self, name: str, validation_dataset: Dataset
+    ) -> None:  # noqa
         # Once you created a ValidationSession you should not change the validation dataset.
         # Create another ValidationSession with another validation dataset
         # By using the constructors, you should have no types problems because the check is done there.
@@ -385,7 +390,9 @@ class ValidationSession:
         # Cam be a positional or a keyword arg
         list_sims: str | list[str] | None = None,
         dataset: Literal["in", "out", "both"] | None = None,
-        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
+        layout: Literal[
+            "constrained", "compressed", "tight", "none"
+        ] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> matplotlib.figure.Figure:
@@ -616,7 +623,9 @@ class ValidationSession:
         self,
         list_sims: str | list[str] | None = None,
         *,
-        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
+        layout: Literal[
+            "constrained", "compressed", "tight", "none"
+        ] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> tuple[matplotlib.figure.Figure, matplotlib.figure.Figure]:
@@ -806,11 +815,15 @@ class ValidationSession:
         vs_temp._simulation_validation(sim_name, y_names, y_data)
 
         y_units = list(
-            vs_temp.Dataset.dataset["OUTPUT"].columns.get_level_values("units")
+            vs_temp.Dataset.dataset["OUTPUT"].columns.get_level_values(
+                "units"
+            )
         )
 
         # Initialize sim df
-        df_sim = pd.DataFrame(data=y_data, index=vs_temp.Dataset.dataset.index)
+        df_sim = pd.DataFrame(
+            data=y_data, index=vs_temp.Dataset.dataset.index
+        )
         multicols = list(zip([sim_name] * len(y_names), y_names, y_units))
         df_sim.columns = pd.MultiIndex.from_tuples(
             multicols, names=["sim_names", "signal_names", "units"]
@@ -826,6 +839,68 @@ class ValidationSession:
         vs_temp._append_validation_results(sim_name)
 
         return vs_temp
+
+    def trim(
+        self: ValidationSession,
+        tin: float | None = None,
+        tout: float | None = None,
+    ) -> ValidationSession:
+
+        # =============================================
+        # Trim ValidationSession main function
+        # The user can either pass the pair (tin,tout) or
+        # he/she can select it graphically if nothing has passed
+        # =============================================
+        vs = deepcopy(self)
+        ds = vs.Dataset
+        # Check if info on (tin,tout) is passed
+        if tin is None and tout is not None:
+            tin_sel = ds.dataset.index[0]
+            tout_sel = tout
+        # If only tin is passed, then set tout to the last time sample.
+        elif tin is not None and tout is None:
+            tin_sel = tin
+            tout_sel = ds.dataset.index[-1]
+        elif tin is not None and tout is not None:
+            tin_sel = np.round(tin, NUM_DECIMALS)
+            tout_sel = np.round(tout, NUM_DECIMALS)
+        else:  # pragma: no cover
+            # TODO: implement graph_selection
+            # tin_sel, tout_sel = _graph_selection(self, *signals, **kwargs)
+            print("Graphical selection not implemented yet. No cha")
+            return vs
+
+        # Now you can trim the dataset and update all the
+        # other time-related attributes
+        ds.dataset = ds.dataset.loc[tin_sel:tout_sel, :]  # type:ignore
+        ds._nan_intervals = ds._find_nan_intervals()
+        ds.coverage = ds._find_dataset_coverage()
+
+        # ... and shift everything such that tin = 0.0
+        print(f"tin_sel = {tin_sel}, tout_sel {tout_sel}")
+        ds._shift_dataset_tin_to_zero()
+        ds.dataset = ds.dataset.round(NUM_DECIMALS)
+
+        # Update validation results:
+        vs.simulations_results = vs.simulations_results.loc[
+            tin_sel:tout_sel, :  # type:ignore
+        ]
+
+        long_tin: float = vs.simulations_results.index[0]
+        timeVectorFromZero: np.ndarray = (
+            vs.simulations_results.index - long_tin
+        )
+        new_index = pd.Index(
+            np.round(timeVectorFromZero, NUM_DECIMALS),
+            name=vs.simulations_results.index.name,
+        )
+        # Update the index
+        vs.simulations_results.index = new_index
+        vs.simulations_results = vs.simulations_results.round(NUM_DECIMALS)
+
+        # clear and readd simulations OR update validation results.
+
+        return vs
 
     def drop_simulation(self, *sims: str) -> ValidationSession:
         """Drop simulation results from the validation session.
