@@ -12,6 +12,8 @@ from .config import *  # noqa
 from .utils import *  # noqa
 from .dataset import *  # noqa
 from typing import TypedDict, Literal
+from scipy.stats import chi2
+from scipy import signal
 
 
 class XCorrelation(TypedDict):
@@ -38,7 +40,7 @@ class XCorrelation(TypedDict):
 
 
 def xcorr(X: np.ndarray, Y: np.ndarray) -> XCorrelation:
-    """Return the normalized cross-correlation of two MIMO signals.
+    """Return the normalized, single-sided cross-correlation of two MIMO signals.
 
     If X = Y then it return the normalized auto-correlation of X.
 
@@ -59,37 +61,95 @@ def xcorr(X: np.ndarray, Y: np.ndarray) -> XCorrelation:
     p = X.shape[1]
     q = Y.shape[1]
 
-    lags = signal.correlation_lags(len(X), len(Y))  # noqa
-    Rxy = np.zeros([len(lags), p, q])
+    # Number of observations
+    N = min(len(X), len(Y))
+
+    # Lags coreography
+    lags = signal.correlation_lags(N, N)
+    # Find the idx where lag = 0
+    # zero_lag_idx = np.where(lags == 0)[0][0]
+    # n_lags: rule-of-thumbs: n_lags = sqrt(N)
+    n_lags = len(lags)
+
+    Rxy = np.zeros([n_lags, p, q])
     for ii in range(p):
         for jj in range(q):
-            # Classic correlation definition from Probability.
-            # Rxy = E[(X-mu_x)^T(Y-mu_y))]/(sigma_x*sigma_y),
-            # check normalized cross-correlation for stochastic processes on Wikipedia.
+            # What follows is the actual cross-correlation definition for
+            # stochastic processes (see Wikipedia)
+            #    Rxy = E[(X-mu_x)^T(Y-mu_y))]/(sigma_x*sigma_y),
             # Nevertheless, the cross-correlation is in-fact the same as E[].
             # More specifically, the cross-correlation generate a sequence
             # [E[XY(\tau=0))] E[XY(\tau=1))], ...,E[XY(\tau=N))]] and this is
             # the reason why in the computation below we use signal.correlation.
             #
-            # Another way of seeing it, is that to secure that the cross-correlation
-            # is always between -1 and 1, we "normalize" the observations X and Y
+            # If you don't divide by the std, then you don't have a
+            # cross-correlation but a cross-covariance.
+            #
+            # Furthermore, the scipy.signal.correlate does not multiply the
+            # result for 1/N (contrary to the cross-correlation definition for
+            # stochastic processes, where you must divide by the number of
+            # observations) and therefore we divide by min(len(X), len(Y)).
+            #
+            # Note that cross-correlation value shall be between -1 and 1
             # Google for "Standard score"
             #
-            # At the end, for each pair (ii,jj) you have Rxy = r_{x_ii,y_jj}(\tau), therefore
+            # In this implementation, for each pair (ii,jj) we have Rxy = r_{x_ii,y_jj}(\tau), therefore
             # for each (ii,jj) we compute a correlation.
             Rxy[:, ii, jj] = (
-                signal.correlate(
+                1
+                / N
+                * signal.correlate(
                     (X[:, ii] - np.mean(X[:, ii])) / np.std(X[:, ii]),
                     (Y[:, jj] - np.mean(Y[:, jj])) / np.std(Y[:, jj]),
                 )
-                / min(len(X), len(Y))
-            ).round(NUM_DECIMALS)
+            )
 
     xcorr_result: XCorrelation = {
         "values": Rxy,
         "lags": lags,
     }
     return xcorr_result
+
+
+def ljung_box_test(
+    Rxx: XCorrelation, N: int
+) -> tuple[np.ndarray, float, np.ndarray]:
+
+    #  N observation and n_lags considered. Due to signal.correlate
+    n_lags = int(np.sqrt(N))
+    zero_lag_idx = np.where(Rxx["lags"] == 0)[0][0]
+
+    #
+    p = Rxx["values"].shape[1]
+    q = Rxx["values"].shape[2]
+
+    significance_level = 0.05
+
+    decision_matrix = np.zeros([p, q])
+    for ii in range(p):
+        for jj in range(q):
+            # Single-sided autocorrelations
+            autocorrelations = Rxx["values"][
+                zero_lag_idx : zero_lag_idx + n_lags, ii, jj
+            ]
+
+            Q = (
+                N
+                * (N + 2)
+                * np.sum((autocorrelations**2) / (N - np.arange(1, n_lags + 1)))
+            )
+
+            # p-value test
+            p_value = chi2.sf(Q, df=n_lags)
+            if p_value < significance_level:
+                # Significant autocorrelation in the residuals. Test FAILED.
+                decision_matrix[ii, jj] = True
+            else:
+                # No significant autocorrelation in the residuals. Test PASSED."
+                decision_matrix[ii, jj] = False
+
+    # Return the Q-statistic, p-value, and decision
+    return Q, p_value, decision_matrix
 
 
 def rsquared(x: np.ndarray, y: np.ndarray) -> float:
@@ -151,7 +211,7 @@ def _xcorr_norm_validation(
 
 def acorr_norm(
     Rxx: XCorrelation,
-    l_norm: float | Literal["fro", "nuc"] | None = np.inf,
+    l_norm: float | Literal["fro", "nuc"] | None = 2,
     matrix_norm: float | Literal["fro", "nuc"] | None = 2,
 ) -> float:
     r"""Return the norm of the auto-correlation tensor.
@@ -187,8 +247,8 @@ def acorr_norm(
     # Auto-correlation for lags = 0 of the same component is 1 or -1
     # therefore may jeopardize the results, especially if the l-inf norm
     # is used.
-    lags0_idx = np.nonzero(Rxx["lags"] == 0)[0][0]
-    np.fill_diagonal(Rxx["values"][lags0_idx, :, :], 0.0)
+    # lags0_idx = np.nonzero(Rxx["lags"] == 0)[0][0]
+    # np.fill_diagonal(Rxx["values"][lags0_idx, :, :], 0.0)
 
     R_norm = xcorr_norm(Rxx, l_norm, matrix_norm)
 
@@ -227,13 +287,45 @@ def xcorr_norm(
     nrows = R.shape[1]
     ncols = R.shape[2]
 
+    # significance level alpha
+    alpha = 0.05
+
+    # n_lags: rule-of-thumbs: n_lags = sqrt(N)
+    # OBS! The degrees of freedom expressed as lags may be wrong!
+    n_lags = len(R[:, 0, 0])
+
+    # Calculate the (1-alpha) quantile of the chi-squared distribution with h
+    # degrees of freedom (h is equal to the number of lags)
+    chi_alpha_h = chi2.ppf(1 - alpha, n_lags)
+    print(f"chi_alpha_h = {chi_alpha_h}")
+
     R_matrix = np.zeros((nrows, ncols))
     for ii in range(nrows):
         for jj in range(ncols):
             # R_matrix[ii, jj] = np.linalg.norm(R[:, ii, jj], l_norm) / len(
             #    R[:, ii, jj]
             # )
-            R_matrix[ii, jj] = np.linalg.norm(R[:, ii, jj], l_norm)
+            # Compute ||r_{ij}(tau)||
+            # print(max(R[:, ii, jj]))
+            # TODO: Implement Ljung-Box test.
+            r_ij_tau = R[:, ii, jj]
+            # compute Q = r_ij_tau' @ W @ r_ij_tau
+            # Calculate the weighted squared norm
+            Q_statistic = sum((w_i * x_i) ** 2 for x_i, w_i in zip(r_ij_tau, w))
+            p_value = chi2.sf(Q_statistic, df=h)
+            R_matrix[ii, jj] = p > alpha  # R_matrix is made by true and
+            # false values
+            # R_matrix[ii, jj] = np.linalg.norm(R[:, ii, jj], l_norm)
+
+            # In matrix form:
+            # Create a diagonal matrix W from the weights w
+            # W = np.diag(w)
+
+            # Compute x' @ W @ x using the @ operator for matrix multiplication
+            # weighted_squared_norm_value = x.T @ W @ x
+
+            # Verify if R_matrix[ii, jj] < chi_alpha_h, then there data are
+            # uncorrelated (OK!)
 
     R_norm = np.linalg.norm(R_matrix, matrix_norm).round(NUM_DECIMALS)
     return R_norm  # type: ignore
