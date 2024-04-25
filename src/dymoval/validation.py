@@ -112,44 +112,60 @@ def xcorr(X: np.ndarray, Y: np.ndarray) -> XCorrelation:
 
 
 def ljung_box_test(
-    Rxx: XCorrelation, N: int
-) -> tuple[np.ndarray, float, np.ndarray]:
+    Rxx: XCorrelation, N: int, n_lags: int, alpha: float
+) -> tuple[np.ndarray, np.ndarray]:
 
     #  N observation and n_lags considered. Due to signal.correlate
-    n_lags = int(np.sqrt(N))
     zero_lag_idx = np.where(Rxx["lags"] == 0)[0][0]
 
-    #
+    # Number of inputs
     p = Rxx["values"].shape[1]
-    q = Rxx["values"].shape[2]
 
-    significance_level = 0.05
-
-    decision_matrix = np.zeros([p, q])
+    decision_matrix = np.zeros([p, p], dtype=bool)
     for ii in range(p):
-        for jj in range(q):
+        for jj in range(p):
             # Single-sided autocorrelations
             autocorrelations = Rxx["values"][
-                zero_lag_idx : zero_lag_idx + n_lags, ii, jj
+                zero_lag_idx + 1 : zero_lag_idx + n_lags + 1, ii, jj
             ]
 
-            Q = (
+            lags_positive = Rxx["lags"][
+                zero_lag_idx + 1 : zero_lag_idx + n_lags + 1
+            ]
+
+            # Ljung-box
+            Q_lb = (
                 N
                 * (N + 2)
                 * np.sum((autocorrelations**2) / (N - np.arange(1, n_lags + 1)))
             )
 
-            # p-value test
-            p_value = chi2.sf(Q, df=n_lags)
-            if p_value < significance_level:
-                # Significant autocorrelation in the residuals. Test FAILED.
-                decision_matrix[ii, jj] = True
-            else:
-                # No significant autocorrelation in the residuals. Test PASSED."
-                decision_matrix[ii, jj] = False
+            plt.plot(lags_positive, autocorrelations)
 
-    # Return the Q-statistic, p-value, and decision
-    return Q, p_value, decision_matrix
+            print(f"r(0) = {autocorrelations[0]}")
+            # Calculate the degrees of freedom.
+            #  this choice includes all possible combinations of pairs
+            # (including the same signal with itself) and avoids double-counting
+            degrees_of_freedom = n_lags * p * (p + 1) // 2
+
+            # Higher values of significance_level leads to lower values of the
+            # critical values, i.e. it is easier to reject the null-hypothesis
+            # as the significance_level increases
+            critical_value = chi2.ppf(1 - alpha, df=degrees_of_freedom)
+            print(f"Q_lb = {Q_lb}, critical_value = {critical_value}")
+
+            # False => You accept H0 (there is no correlation)
+            decision_matrix[ii, jj] = Q_lb > critical_value
+
+            #  ALTERNATIVE: p-value test
+            # p_value = chi2.sf(Q_lb, df=degrees_of_freedom)
+            # decision_matrix[ii, jj] = p_value < significance_level
+            # print(
+            #     f"p-value = {p_value}, significance_level = {significance_level}"
+            # )
+
+    # Return the Q-statistic and decision matrix
+    return Q_lb, decision_matrix
 
 
 def rsquared(x: np.ndarray, y: np.ndarray) -> float:
@@ -209,50 +225,50 @@ def _xcorr_norm_validation(
     return Rxy
 
 
-def acorr_norm(
-    Rxx: XCorrelation,
-    l_norm: float | Literal["fro", "nuc"] | None = 2,
-    matrix_norm: float | Literal["fro", "nuc"] | None = 2,
-) -> float:
-    r"""Return the norm of the auto-correlation tensor.
+# def acorr_norm(
+#     Rxx: XCorrelation,
+#     l_norm: float | Literal["fro", "nuc"] | None = 2,
+#     matrix_norm: float | Literal["fro", "nuc"] | None = 2,
+# ) -> float:
+#     r"""Return the norm of the auto-correlation tensor.
 
-    It first compute the :math:`\ell`-norm of each component
-    :math:`r_{i,j}(\tau) \in R_{x,x}(\tau), i=1,\,\dots\, q, j=1,\dots,q`,
-    where :math:`R_{x,x}(\tau)` is the input tensor.
-    Then, it computes the matrix-norm of the resulting matrix :math:`\hat R_{x,x}`.
-
-
-    Note
-    ----
-    Given that the auto-correlation of the same components for lags = 0
-    is always 1 or -1, then the validation metrics could be jeopardized,
-    especially if the :math:`\ell`-inf norm is used.
-    Therefore, the diagonal entries of the sampled auto-correlation matrix
-    for lags = 0 is set to 0.0
+#     It first compute the :math:`\ell`-norm of each component
+#     :math:`r_{i,j}(\tau) \in R_{x,x}(\tau), i=1,\,\dots\, q, j=1,\dots,q`,
+#     where :math:`R_{x,x}(\tau)` is the input tensor.
+#     Then, it computes the matrix-norm of the resulting matrix :math:`\hat R_{x,x}`.
 
 
-    Parameters
-    ----------
-    Rxx :
-        Auto-correlation input tensor.
-    l_norm :
-        Type of :math:`\ell`-norm.
-        This parameter is passed to *numpy.linalg.norm()* method.
-    matrix_norm :
-        Type of matrx norm with respect to :math:`\ell`-normed covariance matrix.
-        This parameter is passed to *numpy.linalg.norm()* method.
-    """
-    Rxx = deepcopy(_xcorr_norm_validation(Rxx))
+#     Note
+#     ----
+#     Given that the auto-correlation of the same components for lags = 0
+#     is always 1 or -1, then the validation metrics could be jeopardized,
+#     especially if the :math:`\ell`-inf norm is used.
+#     Therefore, the diagonal entries of the sampled auto-correlation matrix
+#     for lags = 0 is set to 0.0
 
-    # Auto-correlation for lags = 0 of the same component is 1 or -1
-    # therefore may jeopardize the results, especially if the l-inf norm
-    # is used.
-    # lags0_idx = np.nonzero(Rxx["lags"] == 0)[0][0]
-    # np.fill_diagonal(Rxx["values"][lags0_idx, :, :], 0.0)
 
-    R_norm = xcorr_norm(Rxx, l_norm, matrix_norm)
+#     Parameters
+#     ----------
+#     Rxx :
+#         Auto-correlation input tensor.
+#     l_norm :
+#         Type of :math:`\ell`-norm.
+#         This parameter is passed to *numpy.linalg.norm()* method.
+#     matrix_norm :
+#         Type of matrx norm with respect to :math:`\ell`-normed covariance matrix.
+#         This parameter is passed to *numpy.linalg.norm()* method.
+#     """
+#     Rxx = deepcopy(_xcorr_norm_validation(Rxx))
 
-    return R_norm
+#     # Auto-correlation for lags = 0 of the same component is 1 or -1
+#     # therefore may jeopardize the results, especially if the l-inf norm
+#     # is used.
+#     # lags0_idx = np.nonzero(Rxx["lags"] == 0)[0][0]
+#     # np.fill_diagonal(Rxx["values"][lags0_idx, :, :], 0.0)
+
+#     R_norm = xcorr_norm(Rxx, l_norm, matrix_norm)
+
+#     return R_norm
 
 
 def xcorr_norm(
@@ -424,12 +440,23 @@ class ValidationSession:
         r2 = rsquared(y_values, y_sim_values)
         # ||Ree[sim_name]||
         Ree = self.auto_correlation[sim_name]
-        Ree_norm = acorr_norm(Ree, l_norm, matrix_norm)
+        _, decision_matrix = ljung_box_test(
+            Ree,
+            N=len(y_values),
+            n_lags=int(np.sqrt(len(y_values))),
+            alpha=0.05,
+        )
+
+        # 0 outcome means test passed
+        print(f"decision_matrix = {decision_matrix}")
+        Ree_outcome = "PASSED" if np.all(decision_matrix == False) else "FAILED"
+
         # ||Rue[sim_name]||
         Rue = self.cross_correlation[sim_name]
-        Rue_norm = xcorr_norm(Rue, l_norm, matrix_norm)
+        # Rue_norm = xcorr_norm(Rue, l_norm, matrix_norm)
 
-        self.validation_results[sim_name] = [r2, Ree_norm, Rue_norm]
+        # self.validation_results[sim_name] = [r2, Ree_outcome, Rue_norm]
+        self.validation_results[sim_name] = [r2, Ree_outcome, 999]
 
     def _sim_list_validate(self) -> None:
         if not self.simulations_names():
