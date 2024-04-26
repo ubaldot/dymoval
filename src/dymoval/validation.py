@@ -213,10 +213,7 @@ def rsquared(x: np.ndarray, y: np.ndarray) -> float:
     # Compute r-square fit (%)
     x_mean = np.mean(x, axis=0)
     r2 = np.round(
-        (
-            1.0
-            - np.linalg.norm(eps, 2) ** 2 / np.linalg.norm(x - x_mean, 2) ** 2
-        )
+        (1.0 - np.linalg.norm(eps, 2) ** 2 / np.linalg.norm(x - x_mean, 2) ** 2)
         * 100,
         NUM_DECIMALS,  # noqa
     )
@@ -308,9 +305,7 @@ class ValidationSession:
     it is recommended to create a new *ValidationSession* instance.
     """
 
-    def __init__(
-        self, name: str, validation_dataset: Dataset
-    ) -> None:  # noqa
+    def __init__(self, name: str, validation_dataset: Dataset) -> None:  # noqa
         # Once you created a ValidationSession you should not change the validation dataset.
         # Create another ValidationSession with another validation dataset
         # By using the constructors, you should have no types problems because the check is done there.
@@ -401,9 +396,7 @@ class ValidationSession:
             f"decision_matrix = \n {decision_matrix}\n",
             f"p_values = \n {p_values}\n",
         )
-        Ree_outcome = (
-            "PASSED" if np.all(decision_matrix) is False else "FAILED"
-        )
+        Ree_outcome = "PASSED" if np.all(decision_matrix) is False else "FAILED"
 
         # ||Rue[sim_name]||
         # Rue = self.cross_correlation[sim_name]
@@ -460,9 +453,7 @@ class ValidationSession:
         # Cam be a positional or a keyword arg
         list_sims: str | list[str] | None = None,
         dataset: Literal["in", "out", "both"] | None = None,
-        layout: Literal[
-            "constrained", "compressed", "tight", "none"
-        ] = "tight",
+        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> matplotlib.figure.Figure:
@@ -693,9 +684,7 @@ class ValidationSession:
         self,
         list_sims: str | list[str] | None = None,
         *,
-        layout: Literal[
-            "constrained", "compressed", "tight", "none"
-        ] = "tight",
+        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> tuple[matplotlib.figure.Figure, matplotlib.figure.Figure]:
@@ -885,15 +874,11 @@ class ValidationSession:
         vs_temp._simulation_validation(sim_name, y_names, y_data)
 
         y_units = list(
-            vs_temp.Dataset.dataset["OUTPUT"].columns.get_level_values(
-                "units"
-            )
+            vs_temp.Dataset.dataset["OUTPUT"].columns.get_level_values("units")
         )
 
         # Initialize sim df
-        df_sim = pd.DataFrame(
-            data=y_data, index=vs_temp.Dataset.dataset.index
-        )
+        df_sim = pd.DataFrame(data=y_data, index=vs_temp.Dataset.dataset.index)
         multicols = list(zip([sim_name] * len(y_names), y_names, y_units))
         df_sim.columns = pd.MultiIndex.from_tuples(
             multicols, names=["sim_names", "signal_names", "units"]
@@ -959,9 +944,7 @@ class ValidationSession:
         ]
 
         long_tin: float = vs.simulations_results.index[0]
-        timeVectorFromZero: np.ndarray = (
-            vs.simulations_results.index - long_tin
-        )
+        timeVectorFromZero: np.ndarray = vs.simulations_results.index - long_tin
         new_index = pd.Index(
             np.round(timeVectorFromZero, NUM_DECIMALS),
             name=vs.simulations_results.index.name,
