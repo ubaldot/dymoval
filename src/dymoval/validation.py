@@ -15,6 +15,8 @@ from typing import TypedDict, Literal
 from scipy.stats import chi2
 from scipy import signal
 
+# import statsmodels.api as sm
+
 
 class XCorrelation(TypedDict):
     # You have to manually write the type in TypedDicts docstrings
@@ -39,7 +41,9 @@ class XCorrelation(TypedDict):
     It is a vector of length *N*, where *N* is the number of lags."""
 
 
-def xcorr(X: np.ndarray, Y: np.ndarray) -> XCorrelation:
+def xcorr(
+    X: np.ndarray, Y: np.ndarray, n_lags: int | None = None
+) -> XCorrelation:
     """Return the normalized, single-sided cross-correlation of two MIMO signals.
 
     If X = Y then it return the normalized auto-correlation of X.
@@ -64,14 +68,13 @@ def xcorr(X: np.ndarray, Y: np.ndarray) -> XCorrelation:
     # Number of observations
     N = min(len(X), len(Y))
 
-    # Lags coreography
-    lags = signal.correlation_lags(N, N)
-    # Find the idx where lag = 0
-    # zero_lag_idx = np.where(lags == 0)[0][0]
-    # n_lags: rule-of-thumbs: n_lags = sqrt(N)
-    n_lags = len(lags)
+    if n_lags is None:
+        n_lags = N
 
-    Rxy = np.zeros([n_lags, p, q])
+    # Lags
+    lags = signal.correlation_lags(n_lags, n_lags)
+
+    Rxy = np.zeros([len(lags), p, q])
     for ii in range(p):
         for jj in range(q):
             # What follows is the actual cross-correlation definition for
@@ -95,14 +98,31 @@ def xcorr(X: np.ndarray, Y: np.ndarray) -> XCorrelation:
             #
             # In this implementation, for each pair (ii,jj) we have Rxy = r_{x_ii,y_jj}(\tau), therefore
             # for each (ii,jj) we compute a correlation.
-            Rxy[:, ii, jj] = (
-                1
-                / N
-                * signal.correlate(
+            r_ij_tau = (
+                signal.correlate(
                     (X[:, ii] - np.mean(X[:, ii])) / np.std(X[:, ii]),
                     (Y[:, jj] - np.mean(Y[:, jj])) / np.std(Y[:, jj]),
                 )
+                / N
             )
+
+            # Adjust r to use only the desired range of lags
+            # Find the indices corresponding to the specified lag range
+            center_idx = len(r_ij_tau) // 2
+            start_idx = center_idx - n_lags + 1
+            end_idx = center_idx + n_lags
+
+            # Update Rxy using only the desired range of lags
+            Rxy[:, ii, jj] = r_ij_tau[start_idx:end_idx]
+
+            # DEBUG
+            # df = sm.stats.acorr_ljungbox(
+            #     Rxy[:, ii, jj],
+            #     lags=[n_lags],
+            #     model_df=p * (p + 1) // 2 * n_lags,
+            #     return_df=True,
+            # )
+            # print(df)
 
     xcorr_result: XCorrelation = {
         "values": Rxy,
@@ -111,61 +131,61 @@ def xcorr(X: np.ndarray, Y: np.ndarray) -> XCorrelation:
     return xcorr_result
 
 
-def ljung_box_test(
-    Rxx: XCorrelation, N: int, n_lags: int, alpha: float
-) -> tuple[np.ndarray, np.ndarray]:
+def ljung_box_test_multivariate(
+    Rxy: XCorrelation, N: int, alpha: float = 0.05
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
-    #  N observation and n_lags considered. Due to signal.correlate
-    zero_lag_idx = np.where(Rxx["lags"] == 0)[0][0]
+    # Determine the number of lags and signals from Rxy shape
 
-    # Number of inputs
-    p = Rxx["values"].shape[1]
+    n_lags, p, q = Rxy["values"].shape
+    # We consider only non_negative lags
+    # n_lags //= 2
 
-    decision_matrix = np.zeros([p, p], dtype=bool)
-    for ii in range(p):
-        for jj in range(p):
-            # Single-sided autocorrelations
-            autocorrelations = Rxx["values"][
-                zero_lag_idx + 1 : zero_lag_idx + n_lags + 1, ii, jj
-            ]
+    # Find the index where lag = 0
+    lags = Rxy["lags"]
+    zero_lag_idx = np.where(lags == 0)[0][0]
+    # positive_lags_idx = np.arange(zero_lag_idx + 1, zero_lag_idx + n_lags + 1)
+    # positive_lags_idx = np.arange(zero_lag_idx + 1, zero_lag_idx + n_lags + 1)
 
-            lags_positive = Rxx["lags"][
-                zero_lag_idx + 1 : zero_lag_idx + n_lags + 1
-            ]
+    # Calculate the degrees of freedom as p*(p + 1)/2 * n_lags
+    # df = p * (q + 1) // 2 * (len(lags) // 2 - 1)
+    df = p * (q + 1) // 2 * (len(lags) // 2)
 
-            # Ljung-box
-            Q_lb = (
-                N
-                * (N + 2)
-                * np.sum((autocorrelations**2) / (N - np.arange(1, n_lags + 1)))
-            )
+    # Initialize matrices to store the Q values, p-values, and decision matrix
+    Q_values = np.zeros((p, q))
+    p_values = np.zeros((p, q))
+    decision_matrix = np.zeros((p, q), dtype=bool)
 
-            plt.plot(lags_positive, autocorrelations)
+    # Create the weight matrix W (diagonal matrix with weights 1/(N - j))
+    weights = 1 / (N - lags[zero_lag_idx + 1 :])
+    W = np.diag(weights)
 
-            print(f"r(0) = {autocorrelations[0]}")
-            # Calculate the degrees of freedom.
-            #  this choice includes all possible combinations of pairs
-            # (including the same signal with itself) and avoids double-counting
-            degrees_of_freedom = n_lags * p * (p + 1) // 2
+    # Iterate through each pair of signals
+    for i in range(p):
+        for j in range(q):
 
-            # Higher values of significance_level leads to lower values of the
-            # critical values, i.e. it is easier to reject the null-hypothesis
-            # as the significance_level increases
-            critical_value = chi2.ppf(1 - alpha, df=degrees_of_freedom)
-            print(f"Q_lb = {Q_lb}, critical_value = {critical_value}")
+            # Get the vector of correlations for the current pair
+            # r_ij = Rxy["values"][positive_lags_idx, i, j]
+            r_ij = Rxy["values"][zero_lag_idx + 1 :, i, j]
 
-            # False => You accept H0 (there is no correlation)
-            decision_matrix[ii, jj] = Q_lb > critical_value
+            # Calculate the Ljung-Box Q statistic as a quadratic form
+            Q = N * (N + 2) * r_ij.T @ W @ r_ij  # Quadratic form: r^T W r
 
-            #  ALTERNATIVE: p-value test
-            # p_value = chi2.sf(Q_lb, df=degrees_of_freedom)
-            # decision_matrix[ii, jj] = p_value < significance_level
-            # print(
-            #     f"p-value = {p_value}, significance_level = {significance_level}"
-            # )
+            # Debug
+            # Chi2 = chi2.ppf(1 - alpha, df=df)
+            # print(f"Q = {Q} > Chi2 = {Chi2}")
 
-    # Return the Q-statistic and decision matrix
-    return Q_lb, decision_matrix
+            # Calculate the p-value using the chi-squared distribution
+            p_value = chi2.sf(Q, df)
+
+            # Store the Q statistic and p-value in the matrices
+            Q_values[i, j] = Q
+            p_values[i, j] = p_value
+
+            # Determine whether to reject the null hypothesis
+            decision_matrix[i, j] = p_value < alpha
+
+    return Q_values, p_values, decision_matrix
 
 
 def rsquared(x: np.ndarray, y: np.ndarray) -> float:
@@ -193,7 +213,10 @@ def rsquared(x: np.ndarray, y: np.ndarray) -> float:
     # Compute r-square fit (%)
     x_mean = np.mean(x, axis=0)
     r2 = np.round(
-        (1.0 - np.linalg.norm(eps, 2) ** 2 / np.linalg.norm(x - x_mean, 2) ** 2)
+        (
+            1.0
+            - np.linalg.norm(eps, 2) ** 2 / np.linalg.norm(x - x_mean, 2) ** 2
+        )
         * 100,
         NUM_DECIMALS,  # noqa
     )
@@ -271,82 +294,6 @@ def _xcorr_norm_validation(
 #     return R_norm
 
 
-def xcorr_norm(
-    Rxy: XCorrelation,
-    l_norm: float | Literal["fro", "nuc"] | None = np.inf,
-    matrix_norm: float | Literal["fro", "nuc"] | None = 2,
-) -> float:
-    r"""Return the norm of the cross-correlation tensor.
-
-    It first compute the :math:`\ell`-norm of each component
-    :math:`r_{i,j}(\tau) \in R_{x,y}(\tau), i=1,\,\dots\, p, j=1,\dots,q`,
-    where :math:`R_{x,y}(\tau)` is the input tensor.
-    Then, it computes the matrix-norm of the resulting matrix :math:`\hat R_{x,y}`.
-
-    Note that the returned values are NOT normalized.
-
-    Parameters
-    ----------
-    Rxy :
-        Cross-correlation input tensor.
-    l_norm :
-        Type of :math:`\ell`-norm.
-        This parameter is passed to *numpy.linalg.norm()* method.
-    matrix_norm :
-        Type of matrx norm with respect to :math:`\ell`-normed covariance matrix.
-        This parameter is passed to *numpy.linalg.norm()* method.
-    """
-
-    Rxy = _xcorr_norm_validation(Rxy)
-
-    R = Rxy["values"]
-    nrows = R.shape[1]
-    ncols = R.shape[2]
-
-    # significance level alpha
-    alpha = 0.05
-
-    # n_lags: rule-of-thumbs: n_lags = sqrt(N)
-    # OBS! The degrees of freedom expressed as lags may be wrong!
-    n_lags = len(R[:, 0, 0])
-
-    # Calculate the (1-alpha) quantile of the chi-squared distribution with h
-    # degrees of freedom (h is equal to the number of lags)
-    chi_alpha_h = chi2.ppf(1 - alpha, n_lags)
-    print(f"chi_alpha_h = {chi_alpha_h}")
-
-    R_matrix = np.zeros((nrows, ncols))
-    for ii in range(nrows):
-        for jj in range(ncols):
-            # R_matrix[ii, jj] = np.linalg.norm(R[:, ii, jj], l_norm) / len(
-            #    R[:, ii, jj]
-            # )
-            # Compute ||r_{ij}(tau)||
-            # print(max(R[:, ii, jj]))
-            # TODO: Implement Ljung-Box test.
-            r_ij_tau = R[:, ii, jj]
-            # compute Q = r_ij_tau' @ W @ r_ij_tau
-            # Calculate the weighted squared norm
-            Q_statistic = sum((w_i * x_i) ** 2 for x_i, w_i in zip(r_ij_tau, w))
-            p_value = chi2.sf(Q_statistic, df=h)
-            R_matrix[ii, jj] = p > alpha  # R_matrix is made by true and
-            # false values
-            # R_matrix[ii, jj] = np.linalg.norm(R[:, ii, jj], l_norm)
-
-            # In matrix form:
-            # Create a diagonal matrix W from the weights w
-            # W = np.diag(w)
-
-            # Compute x' @ W @ x using the @ operator for matrix multiplication
-            # weighted_squared_norm_value = x.T @ W @ x
-
-            # Verify if R_matrix[ii, jj] < chi_alpha_h, then there data are
-            # uncorrelated (OK!)
-
-    R_norm = np.linalg.norm(R_matrix, matrix_norm).round(NUM_DECIMALS)
-    return R_norm  # type: ignore
-
-
 class ValidationSession:
     # TODO: Save validation session.
     """The *ValidationSession* class is used to validate models against a given dataset.
@@ -361,7 +308,9 @@ class ValidationSession:
     it is recommended to create a new *ValidationSession* instance.
     """
 
-    def __init__(self, name: str, validation_dataset: Dataset) -> None:  # noqa
+    def __init__(
+        self, name: str, validation_dataset: Dataset
+    ) -> None:  # noqa
         # Once you created a ValidationSession you should not change the validation dataset.
         # Create another ValidationSession with another validation dataset
         # By using the constructors, you should have no types problems because the check is done there.
@@ -417,7 +366,9 @@ class ValidationSession:
 
         # Residuals auto-correlation
         # xcorr returns a Xcorrelation object
-        self.auto_correlation[sim_name] = xcorr(eps, eps)
+        self.auto_correlation[sim_name] = xcorr(
+            eps, eps, int(np.sqrt(len(eps)))
+        )
 
         # Input-residuals cross-correlation
         # xcorr returns a Xcorrelation object
@@ -440,16 +391,18 @@ class ValidationSession:
         r2 = rsquared(y_values, y_sim_values)
         # ||Ree[sim_name]||
         Ree = self.auto_correlation[sim_name]
-        _, decision_matrix = ljung_box_test(
-            Ree,
-            N=len(y_values),
-            n_lags=int(np.sqrt(len(y_values))),
-            alpha=0.05,
+        Q_values, p_values, decision_matrix = ljung_box_test_multivariate(
+            Ree, N=len(y_values), alpha=0.05
         )
 
         # 0 outcome means test passed
-        print(f"decision_matrix = {decision_matrix}")
-        Ree_outcome = "PASSED" if np.all(decision_matrix == False) else "FAILED"
+        print(
+            f"decision_matrix = \n {decision_matrix}\n",
+            f"p_values = \n {p_values}\n",
+        )
+        Ree_outcome = (
+            "PASSED" if np.all(decision_matrix == False) else "FAILED"
+        )
 
         # ||Rue[sim_name]||
         Rue = self.cross_correlation[sim_name]
@@ -506,7 +459,9 @@ class ValidationSession:
         # Cam be a positional or a keyword arg
         list_sims: str | list[str] | None = None,
         dataset: Literal["in", "out", "both"] | None = None,
-        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
+        layout: Literal[
+            "constrained", "compressed", "tight", "none"
+        ] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> matplotlib.figure.Figure:
@@ -737,7 +692,9 @@ class ValidationSession:
         self,
         list_sims: str | list[str] | None = None,
         *,
-        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
+        layout: Literal[
+            "constrained", "compressed", "tight", "none"
+        ] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> tuple[matplotlib.figure.Figure, matplotlib.figure.Figure]:
@@ -927,11 +884,15 @@ class ValidationSession:
         vs_temp._simulation_validation(sim_name, y_names, y_data)
 
         y_units = list(
-            vs_temp.Dataset.dataset["OUTPUT"].columns.get_level_values("units")
+            vs_temp.Dataset.dataset["OUTPUT"].columns.get_level_values(
+                "units"
+            )
         )
 
         # Initialize sim df
-        df_sim = pd.DataFrame(data=y_data, index=vs_temp.Dataset.dataset.index)
+        df_sim = pd.DataFrame(
+            data=y_data, index=vs_temp.Dataset.dataset.index
+        )
         multicols = list(zip([sim_name] * len(y_names), y_names, y_units))
         df_sim.columns = pd.MultiIndex.from_tuples(
             multicols, names=["sim_names", "signal_names", "units"]
@@ -997,7 +958,9 @@ class ValidationSession:
         ]
 
         long_tin: float = vs.simulations_results.index[0]
-        timeVectorFromZero: np.ndarray = vs.simulations_results.index - long_tin
+        timeVectorFromZero: np.ndarray = (
+            vs.simulations_results.index - long_tin
+        )
         new_index = pd.Index(
             np.round(timeVectorFromZero, NUM_DECIMALS),
             name=vs.simulations_results.index.name,
