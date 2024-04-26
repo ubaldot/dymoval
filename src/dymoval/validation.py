@@ -136,20 +136,19 @@ def ljung_box_test_multivariate(
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
     # Determine the number of lags and signals from Rxy shape
-
     n_lags, p, q = Rxy["values"].shape
-    # We consider only non_negative lags
-    # n_lags //= 2
 
     # Find the index where lag = 0
     lags = Rxy["lags"]
     zero_lag_idx = np.where(lags == 0)[0][0]
-    # positive_lags_idx = np.arange(zero_lag_idx + 1, zero_lag_idx + n_lags + 1)
-    # positive_lags_idx = np.arange(zero_lag_idx + 1, zero_lag_idx + n_lags + 1)
 
     # Calculate the degrees of freedom as p*(p + 1)/2 * n_lags
     # df = p * (q + 1) // 2 * (len(lags) // 2 - 1)
-    df = p * (q + 1) // 2 * (len(lags) // 2)
+    # df = p * (q + 1) // 2 * (len(lags) - 1)
+    # df = (len(lags) // 2 - 1) - p - q
+    df = q * p * (len(lags) // 2 - 1)
+    df = 224
+    # df = len(lags) // 2 - 1
 
     # Initialize matrices to store the Q values, p-values, and decision matrix
     Q_values = np.zeros((p, q))
@@ -160,13 +159,14 @@ def ljung_box_test_multivariate(
     weights = 1 / (N - lags[zero_lag_idx + 1 :])
     W = np.diag(weights)
 
+    print(f" df = {df}")
     # Iterate through each pair of signals
     for i in range(p):
         for j in range(q):
 
             # Get the vector of correlations for the current pair
-            # r_ij = Rxy["values"][positive_lags_idx, i, j]
             r_ij = Rxy["values"][zero_lag_idx + 1 :, i, j]
+            # plt.plot(lags[zero_lag_idx + 1 :], r_ij)
 
             # Calculate the Ljung-Box Q statistic as a quadratic form
             Q = N * (N + 2) * r_ij.T @ W @ r_ij  # Quadratic form: r^T W r
@@ -383,6 +383,7 @@ class ValidationSession:
         # Extact dataset output values
         df_val = self.Dataset.dataset
         y_values = df_val["OUTPUT"].to_numpy()
+        print(f"y_bals = {len(y_values)}")
 
         # Simulation results
         y_sim_values = self.simulations_results[sim_name].to_numpy()
@@ -401,11 +402,11 @@ class ValidationSession:
             f"p_values = \n {p_values}\n",
         )
         Ree_outcome = (
-            "PASSED" if np.all(decision_matrix == False) else "FAILED"
+            "PASSED" if np.all(decision_matrix) is False else "FAILED"
         )
 
         # ||Rue[sim_name]||
-        Rue = self.cross_correlation[sim_name]
+        # Rue = self.cross_correlation[sim_name]
         # Rue_norm = xcorr_norm(Rue, l_norm, matrix_norm)
 
         # self.validation_results[sim_name] = [r2, Ree_outcome, Rue_norm]
