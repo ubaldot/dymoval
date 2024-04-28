@@ -2,9 +2,9 @@
     "$schema": "https://puremourning.github.io/vimspector/schema/gadgets.schema.json#",
 
     "adapters": {
-        "my-python-remote": {
-            "port": "localhost",
-            "host": "5678",
+        "python-remote": {
+            "port": 5678,
+            "host":"localhost",
             "launch": {
                 "remote": {
                     "runCommand": [
@@ -25,6 +25,7 @@
             "default": true,
             "remote-request": "launch",
             "remote-cmdLine": [
+                // This is the value of %CMD% in the adapter
                 "${RemoteRoot}/${fileBasename}", "*${args}"
             ],
             "configuration": {
