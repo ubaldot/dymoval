@@ -1,13 +1,17 @@
 {
     "adapters": {
         "python-remote": {
-            "port": 5678,
-            "host":"localhost",
+            "variables" : {
+                "Host":"localhost",
+                "Port":"5678"
+            },
+            "port": "${Port}",
+            "host":"${Host}",
             "launch": {
                 "remote": {
                     "runCommand": [
                         "python", "-m", "debugpy",
-                        "--listen", "${host}:${port}",
+                        "--listen", "${Host}:${Port}",
                         "--wait-for-client",
                         "%CMD%"
                     ]
