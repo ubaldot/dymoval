@@ -1,6 +1,4 @@
 {
-    "$schema": "https://puremourning.github.io/vimspector/schema/gadgets.schema.json#",
-
     "adapters": {
         "python-remote": {
             "port": 5678,
