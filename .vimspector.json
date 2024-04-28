@@ -1,0 +1,35 @@
+{
+    "$schema": "https://puremourning.github.io/vimspector/schema/gadgets.schema.json#",
+
+    "adapters": {
+        "my-python-remote": {
+            "port": "localhost",
+            "host": "5678",
+            "launch": {
+                "remote": {
+                    "runCommand": [
+                        "python", "-m", "debugpy",
+                        "--listen", "${host}:${port}",
+                        "--wait-for-client",
+                        "%CMD%"
+                    ]
+                }
+            }
+        }
+    },
+
+    "configurations": {
+        "my-Python-remote-launch": {
+            "adapter": "python-remote",
+            "filetypes": [ "python" ],
+            "default": true,
+            "remote-request": "launch",
+            "remote-cmdLine": [
+                "${RemoteRoot}/${fileBasename}", "*${args}"
+            ],
+            "configuration": {
+                "request": "launch"}
+
+        }
+    }
+}
