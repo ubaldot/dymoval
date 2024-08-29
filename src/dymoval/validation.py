@@ -12,10 +12,6 @@ from .config import *  # noqa
 from .utils import *  # noqa
 from .dataset import *  # noqa
 from typing import TypedDict, Literal
-from scipy.stats import chi2
-from scipy import signal
-
-# import statsmodels.api as sm
 
 
 class XCorrelation(TypedDict):
@@ -41,10 +37,8 @@ class XCorrelation(TypedDict):
     It is a vector of length *N*, where *N* is the number of lags."""
 
 
-def xcorr(
-    X: np.ndarray, Y: np.ndarray, n_lags: int | None = None
-) -> XCorrelation:
-    """Return the normalized, single-sided cross-correlation of two MIMO signals.
+def xcorr(X: np.ndarray, Y: np.ndarray) -> XCorrelation:
+    """Return the normalized cross-correlation of two MIMO signals.
 
     If X = Y then it return the normalized auto-correlation of X.
 
@@ -65,126 +59,37 @@ def xcorr(
     p = X.shape[1]
     q = Y.shape[1]
 
-    # Number of observations
-    N = min(len(X), len(Y))
-
-    if n_lags is None:
-        n_lags = N
-
-    # Lags
-    lags = signal.correlation_lags(n_lags, n_lags)
-
+    lags = signal.correlation_lags(len(X), len(Y))  # noqa
     Rxy = np.zeros([len(lags), p, q])
     for ii in range(p):
         for jj in range(q):
-            # What follows is the actual cross-correlation definition for
-            # stochastic processes (see Wikipedia)
-            #    Rxy = E[(X-mu_x)^T(Y-mu_y))]/(sigma_x*sigma_y),
+            # Classic correlation definition from Probability.
+            # Rxy = E[(X-mu_x)^T(Y-mu_y))]/(sigma_x*sigma_y),
+            # check normalized cross-correlation for stochastic processes on Wikipedia.
             # Nevertheless, the cross-correlation is in-fact the same as E[].
             # More specifically, the cross-correlation generate a sequence
             # [E[XY(\tau=0))] E[XY(\tau=1))], ...,E[XY(\tau=N))]] and this is
             # the reason why in the computation below we use signal.correlation.
             #
-            # If you don't divide by the std, then you don't have a
-            # cross-correlation but a cross-covariance.
-            #
-            # Furthermore, the scipy.signal.correlate does not multiply the
-            # result for 1/N (contrary to the cross-correlation definition for
-            # stochastic processes, where you must divide by the number of
-            # observations) and therefore we divide by min(len(X), len(Y)).
-            #
-            # Note that cross-correlation value shall be between -1 and 1
+            # Another way of seeing it, is that to secure that the cross-correlation
+            # is always between -1 and 1, we "normalize" the observations X and Y
             # Google for "Standard score"
             #
-            # In this implementation, for each pair (ii,jj) we have Rxy = r_{x_ii,y_jj}(\tau), therefore
+            # At the end, for each pair (ii,jj) you have Rxy = r_{x_ii,y_jj}(\tau), therefore
             # for each (ii,jj) we compute a correlation.
-            r_ij_tau = (
+            Rxy[:, ii, jj] = (
                 signal.correlate(
                     (X[:, ii] - np.mean(X[:, ii])) / np.std(X[:, ii]),
                     (Y[:, jj] - np.mean(Y[:, jj])) / np.std(Y[:, jj]),
                 )
-                / N
-            )
-
-            # Adjust r to use only the desired range of lags
-            # Find the indices corresponding to the specified lag range
-            center_idx = len(r_ij_tau) // 2
-            start_idx = center_idx - n_lags + 1
-            end_idx = center_idx + n_lags
-
-            # Update Rxy using only the desired range of lags
-            Rxy[:, ii, jj] = r_ij_tau[start_idx:end_idx]
-
-            # DEBUG
-            # df = sm.stats.acorr_ljungbox(
-            #     Rxy[:, ii, jj],
-            #     lags=[n_lags],
-            #     model_df=p * (p + 1) // 2 * n_lags,
-            #     return_df=True,
-            # )
-            # print(df)
+                / min(len(X), len(Y))
+            ).round(NUM_DECIMALS)
 
     xcorr_result: XCorrelation = {
         "values": Rxy,
         "lags": lags,
     }
     return xcorr_result
-
-
-def ljung_box_test_multivariate(
-    Rxy: XCorrelation, N: int, alpha: float = 0.05
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    # Determine the number of lags and signals from Rxy shape
-    n_lags, p, q = Rxy["values"].shape
-
-    # Find the index where lag = 0
-    lags = Rxy["lags"]
-    zero_lag_idx = np.where(lags == 0)[0][0]
-
-    # Calculate the degrees of freedom as p*(p + 1)/2 * n_lags
-    # df = p * (q + 1) // 2 * (len(lags) // 2 - 1)
-    # df = p * (q + 1) // 2 * (len(lags) - 1)
-    # df = (len(lags) // 2 - 1) - p - q
-    df = q * p * (len(lags) // 2 - 1)
-    # df = 224
-    df = len(lags) // 2 - 1
-
-    # Initialize matrices to store the Q values, p-values, and decision matrix
-    Q_values = np.zeros((p, q))
-    p_values = np.zeros((p, q))
-    decision_matrix = np.zeros((p, q), dtype=bool)
-
-    # Create the weight matrix W (diagonal matrix with weights 1/(N - j))
-    weights = 1 / (N - lags[zero_lag_idx + 1 :])
-    W = np.diag(weights)
-
-    # Degrees of freedom for the chi-squared distribution
-    df = len(lags) // 2 - 1
-    alpha = 0.05
-    # Iterate through each pair of signals
-    for i in range(p):
-        for j in range(q):
-            # Get the vector of correlations for the current pair
-            r_ij = Rxy["values"][zero_lag_idx + 1 :, i, j]
-
-            # Calculate the Ljung-Box Q statistic as a quadratic form
-            Q = N * (N + 2) * r_ij.T @ W @ r_ij  # Quadratic form: r^T W r
-
-            # Debug
-            Chi2 = chi2.ppf(1 - alpha, df=df)
-            print(f"Q = {Q} > Chi2 = {Chi2}")
-
-            # Calculate the p-value using the chi-squared distribution
-            p_value = chi2.sf(Q, df)
-
-            # Store the Q statistic and p-value in the matrices
-            Q_values[i, j] = Q
-            p_values[i, j] = p_value
-
-            # Determine whether to reject the null hypothesis
-            decision_matrix[i, j] = p_value < alpha
-
-    return Q_values, p_values, decision_matrix
 
 
 def rsquared(x: np.ndarray, y: np.ndarray) -> float:
@@ -212,10 +117,7 @@ def rsquared(x: np.ndarray, y: np.ndarray) -> float:
     # Compute r-square fit (%)
     x_mean = np.mean(x, axis=0)
     r2 = np.round(
-        (
-            1.0
-            - np.linalg.norm(eps, 2) ** 2 / np.linalg.norm(x - x_mean, 2) ** 2
-        )
+        (1.0 - np.linalg.norm(eps, 2) ** 2 / np.linalg.norm(x - x_mean, 2) ** 2)
         * 100,
         NUM_DECIMALS,  # noqa
     )
@@ -247,50 +149,92 @@ def _xcorr_norm_validation(
     return Rxy
 
 
-# def acorr_norm(
-#     Rxx: XCorrelation,
-#     l_norm: float | Literal["fro", "nuc"] | None = 2,
-#     matrix_norm: float | Literal["fro", "nuc"] | None = 2,
-# ) -> float:
-#     r"""Return the norm of the auto-correlation tensor.
+def acorr_norm(
+    Rxx: XCorrelation,
+    l_norm: float | Literal["fro", "nuc"] | None = np.inf,
+    matrix_norm: float | Literal["fro", "nuc"] | None = 2,
+) -> float:
+    r"""Return the norm of the auto-correlation tensor.
 
-#     It first compute the :math:`\ell`-norm of each component
-#     :math:`r_{i,j}(\tau) \in R_{x,x}(\tau), i=1,\,\dots\, q, j=1,\dots,q`,
-#     where :math:`R_{x,x}(\tau)` is the input tensor.
-#     Then, it computes the matrix-norm of the resulting matrix :math:`\hat R_{x,x}`.
-
-
-#     Note
-#     ----
-#     Given that the auto-correlation of the same components for lags = 0
-#     is always 1 or -1, then the validation metrics could be jeopardized,
-#     especially if the :math:`\ell`-inf norm is used.
-#     Therefore, the diagonal entries of the sampled auto-correlation matrix
-#     for lags = 0 is set to 0.0
+    It first compute the :math:`\ell`-norm of each component
+    :math:`r_{i,j}(\tau) \in R_{x,x}(\tau), i=1,\,\dots\, q, j=1,\dots,q`,
+    where :math:`R_{x,x}(\tau)` is the input tensor.
+    Then, it computes the matrix-norm of the resulting matrix :math:`\hat R_{x,x}`.
 
 
-#     Parameters
-#     ----------
-#     Rxx :
-#         Auto-correlation input tensor.
-#     l_norm :
-#         Type of :math:`\ell`-norm.
-#         This parameter is passed to *numpy.linalg.norm()* method.
-#     matrix_norm :
-#         Type of matrx norm with respect to :math:`\ell`-normed covariance matrix.
-#         This parameter is passed to *numpy.linalg.norm()* method.
-#     """
-#     Rxx = deepcopy(_xcorr_norm_validation(Rxx))
+    Note
+    ----
+    Given that the auto-correlation of the same components for lags = 0
+    is always 1 or -1, then the validation metrics could be jeopardized,
+    especially if the :math:`\ell`-inf norm is used.
+    Therefore, the diagonal entries of the sampled auto-correlation matrix
+    for lags = 0 is set to 0.0
 
-#     # Auto-correlation for lags = 0 of the same component is 1 or -1
-#     # therefore may jeopardize the results, especially if the l-inf norm
-#     # is used.
-#     # lags0_idx = np.nonzero(Rxx["lags"] == 0)[0][0]
-#     # np.fill_diagonal(Rxx["values"][lags0_idx, :, :], 0.0)
 
-#     R_norm = xcorr_norm(Rxx, l_norm, matrix_norm)
+    Parameters
+    ----------
+    Rxx :
+        Auto-correlation input tensor.
+    l_norm :
+        Type of :math:`\ell`-norm.
+        This parameter is passed to *numpy.linalg.norm()* method.
+    matrix_norm :
+        Type of matrx norm with respect to :math:`\ell`-normed covariance matrix.
+        This parameter is passed to *numpy.linalg.norm()* method.
+    """
+    Rxx = deepcopy(_xcorr_norm_validation(Rxx))
 
-#     return R_norm
+    # Auto-correlation for lags = 0 of the same component is 1 or -1
+    # therefore may jeopardize the results, especially if the l-inf norm
+    # is used.
+    lags0_idx = np.nonzero(Rxx["lags"] == 0)[0][0]
+    np.fill_diagonal(Rxx["values"][lags0_idx, :, :], 0.0)
+
+    R_norm = xcorr_norm(Rxx, l_norm, matrix_norm)
+
+    return R_norm
+
+
+def xcorr_norm(
+    Rxy: XCorrelation,
+    l_norm: float | Literal["fro", "nuc"] | None = np.inf,
+    matrix_norm: float | Literal["fro", "nuc"] | None = 2,
+) -> float:
+    r"""Return the norm of the cross-correlation tensor.
+
+    It first compute the :math:`\ell`-norm of each component
+    :math:`r_{i,j}(\tau) \in R_{x,y}(\tau), i=1,\,\dots\, p, j=1,\dots,q`,
+    where :math:`R_{x,y}(\tau)` is the input tensor.
+    Then, it computes the matrix-norm of the resulting matrix :math:`\hat R_{x,y}`.
+
+    Parameters
+    ----------
+    Rxy :
+        Cross-correlation input tensor.
+    l_norm :
+        Type of :math:`\ell`-norm.
+        This parameter is passed to *numpy.linalg.norm()* method.
+    matrix_norm :
+        Type of matrx norm with respect to :math:`\ell`-normed covariance matrix.
+        This parameter is passed to *numpy.linalg.norm()* method.
+    """
+
+    Rxy = _xcorr_norm_validation(Rxy)
+
+    R = Rxy["values"]
+    nrows = R.shape[1]
+    ncols = R.shape[2]
+
+    R_matrix = np.zeros((nrows, ncols))
+    for ii in range(nrows):
+        for jj in range(ncols):
+            # R_matrix[ii, jj] = np.linalg.norm(R[:, ii, jj], l_norm) / len(
+            #    R[:, ii, jj]
+            # )
+            R_matrix[ii, jj] = np.linalg.norm(R[:, ii, jj], l_norm)
+
+    R_norm = np.linalg.norm(R_matrix, matrix_norm).round(NUM_DECIMALS)
+    return R_norm  # type: ignore
 
 
 class ValidationSession:
@@ -307,9 +251,7 @@ class ValidationSession:
     it is recommended to create a new *ValidationSession* instance.
     """
 
-    def __init__(
-        self, name: str, validation_dataset: Dataset
-    ) -> None:  # noqa
+    def __init__(self, name: str, validation_dataset: Dataset) -> None:  # noqa
         # Once you created a ValidationSession you should not change the validation dataset.
         # Create another ValidationSession with another validation dataset
         # By using the constructors, you should have no types problems because the check is done there.
@@ -365,9 +307,7 @@ class ValidationSession:
 
         # Residuals auto-correlation
         # xcorr returns a Xcorrelation object
-        self.auto_correlation[sim_name] = xcorr(
-            eps, eps, int(np.sqrt(len(eps)))
-        )
+        self.auto_correlation[sim_name] = xcorr(eps, eps)
 
         # Input-residuals cross-correlation
         # xcorr returns a Xcorrelation object
@@ -382,7 +322,6 @@ class ValidationSession:
         # Extact dataset output values
         df_val = self.Dataset.dataset
         y_values = df_val["OUTPUT"].to_numpy()
-        print(f"y_bals = {len(y_values)}")
 
         # Simulation results
         y_sim_values = self.simulations_results[sim_name].to_numpy()
@@ -391,25 +330,12 @@ class ValidationSession:
         r2 = rsquared(y_values, y_sim_values)
         # ||Ree[sim_name]||
         Ree = self.auto_correlation[sim_name]
-        Q_values, p_values, decision_matrix = ljung_box_test_multivariate(
-            Ree, N=len(y_values), alpha=0.05
-        )
-
-        # 0 outcome means test passed
-        print(
-            f"decision_matrix = \n {decision_matrix}\n",
-            f"p_values = \n {p_values}\n",
-        )
-        Ree_outcome = (
-            "PASSED" if np.all(decision_matrix) is False else "FAILED"
-        )
-
+        Ree_norm = acorr_norm(Ree, l_norm, matrix_norm)
         # ||Rue[sim_name]||
-        # Rue = self.cross_correlation[sim_name]
-        # Rue_norm = xcorr_norm(Rue, l_norm, matrix_norm)
+        Rue = self.cross_correlation[sim_name]
+        Rue_norm = xcorr_norm(Rue, l_norm, matrix_norm)
 
-        # self.validation_results[sim_name] = [r2, Ree_outcome, Rue_norm]
-        self.validation_results[sim_name] = [r2, Ree_outcome, 999]
+        self.validation_results[sim_name] = [r2, Ree_norm, Rue_norm]
 
     def _sim_list_validate(self) -> None:
         if not self.simulations_names():
@@ -459,9 +385,7 @@ class ValidationSession:
         # Cam be a positional or a keyword arg
         list_sims: str | list[str] | None = None,
         dataset: Literal["in", "out", "both"] | None = None,
-        layout: Literal[
-            "constrained", "compressed", "tight", "none"
-        ] = "tight",
+        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> matplotlib.figure.Figure:
@@ -692,9 +616,7 @@ class ValidationSession:
         self,
         list_sims: str | list[str] | None = None,
         *,
-        layout: Literal[
-            "constrained", "compressed", "tight", "none"
-        ] = "tight",
+        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> tuple[matplotlib.figure.Figure, matplotlib.figure.Figure]:
@@ -884,15 +806,11 @@ class ValidationSession:
         vs_temp._simulation_validation(sim_name, y_names, y_data)
 
         y_units = list(
-            vs_temp.Dataset.dataset["OUTPUT"].columns.get_level_values(
-                "units"
-            )
+            vs_temp.Dataset.dataset["OUTPUT"].columns.get_level_values("units")
         )
 
         # Initialize sim df
-        df_sim = pd.DataFrame(
-            data=y_data, index=vs_temp.Dataset.dataset.index
-        )
+        df_sim = pd.DataFrame(data=y_data, index=vs_temp.Dataset.dataset.index)
         multicols = list(zip([sim_name] * len(y_names), y_names, y_units))
         df_sim.columns = pd.MultiIndex.from_tuples(
             multicols, names=["sim_names", "signal_names", "units"]
@@ -908,71 +826,6 @@ class ValidationSession:
         vs_temp._append_validation_results(sim_name)
 
         return vs_temp
-
-    def trim(
-        self: ValidationSession,
-        tin: float | None = None,
-        tout: float | None = None,
-    ) -> ValidationSession:
-        # =============================================
-        # Trim ValidationSession main function
-        # The user can either pass the pair (tin,tout) or
-        # he/she can select it graphically if nothing has passed
-        # =============================================
-        vs = deepcopy(self)
-        ds = vs.Dataset
-        # Check if info on (tin,tout) is passed
-        if tin is None and tout is not None:
-            tin_sel = ds.dataset.index[0]
-            tout_sel = tout
-        # If only tin is passed, then set tout to the last time sample.
-        elif tin is not None and tout is None:
-            tin_sel = tin
-            tout_sel = ds.dataset.index[-1]
-        elif tin is not None and tout is not None:
-            tin_sel = np.round(tin, NUM_DECIMALS)
-            tout_sel = np.round(tout, NUM_DECIMALS)
-        else:  # pragma: no cover
-            # TODO: implement graph_selection
-            # tin_sel, tout_sel = _graph_selection(self, *signals, **kwargs)
-            print(
-                "Graphical selection not implemented yet. You must specify tin and/or tout"
-            )
-            return vs
-
-        # Now you can trim the dataset and update all the
-        # other time-related attributes
-        ds.dataset = ds.dataset.loc[tin_sel:tout_sel, :]  # type:ignore
-        ds._nan_intervals = ds._find_nan_intervals()
-        ds.coverage = ds._find_dataset_coverage()
-
-        # ... and shift everything such that tin = 0.0
-        # print(f"tin_sel = {tin_sel}, tout_sel {tout_sel}")
-        ds._shift_dataset_tin_to_zero()
-        ds.dataset = ds.dataset.round(NUM_DECIMALS)
-
-        # Update validation results:
-        vs.simulations_results = vs.simulations_results.loc[
-            tin_sel:tout_sel, :  # type:ignore
-        ]
-
-        long_tin: float = vs.simulations_results.index[0]
-        timeVectorFromZero: np.ndarray = (
-            vs.simulations_results.index - long_tin
-        )
-        new_index = pd.Index(
-            np.round(timeVectorFromZero, NUM_DECIMALS),
-            name=vs.simulations_results.index.name,
-        )
-        # Update the index
-        vs.simulations_results.index = new_index
-        vs.simulations_results = vs.simulations_results.round(NUM_DECIMALS)
-
-        # Update residuals auto-correlation and cross-correlation attributes
-        for sim_name in list(vs.simulations_names()):
-            vs._append_correlations_tensors(sim_name)
-            vs._append_validation_results(sim_name)
-        return vs
 
     def drop_simulation(self, *sims: str) -> ValidationSession:
         """Drop simulation results from the validation session.
