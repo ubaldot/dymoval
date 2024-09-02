@@ -1162,26 +1162,22 @@ class Dataset:
             figure = ds.plot(*signals, **kwargs)
             axes = figure.get_axes()
 
-            # Figure closure handler
-            # It can be better done perhaps.
-            def close_event(event):  # type:ignore
-                time_interval = np.round(
-                    axes[0].get_xlim(), NUM_DECIMALS
-                )  # noqa
-                close_event.tin, close_event.tout = time_interval
-                close_event.tin = max(close_event.tin, 0.0)
-                close_event.tout = max(close_event.tout, 0.0)
-                plt.pause(0.1)
-                if is_interactive:
-                    plt.ion()
-                else:
-                    plt.ioff()
+            # NEW
+            def on_xlim_changed(event_ax):  # type:ignore
+                time_interval = np.round(event_ax.get_xlim(), NUM_DECIMALS)
+                on_xlim_changed.tin, on_xlim_changed.tout = time_interval
+                on_xlim_changed.tin = max(on_xlim_changed.tin, 0.0)
+                on_xlim_changed.tout = max(on_xlim_changed.tout, 0.0)
+                print(
+                    f"Updated time interval: {on_xlim_changed.tin} to {on_xlim_changed.tout}"
+                )
 
-            close_event.tin = 0.0  # type:ignore
-            close_event.tout = 0.0  # type:ignore
+            on_xlim_changed.tin = 0.0
+            on_xlim_changed.tout = 0.0
+            # Connect the event handler to the xlim_changed event
+            cid = axes[0].callbacks.connect("xlim_changed", on_xlim_changed)
             fig = axes[0].get_figure()
-            cid = fig.canvas.mpl_connect("close_event", close_event)
-            fig.canvas.draw()
+            # fig.canvas.draw()
             plt.show()
 
             fig.suptitle(
@@ -1195,16 +1191,16 @@ class Dataset:
             # This is needed for Spyder to block the prompt while
             # the figure is opened.
             # An alternative better solution is welcome!
-            try:
-                while fig.number in plt.get_fignums():
-                    plt.pause(0.1)
-            except Exception as e:  # noqa
-                plt.close(fig.number)
+            # try:
+            #     while fig.number in plt.get_fignums():
+            #         plt.pause(0.1)
+            # except Exception as e:  # noqa
+            #     plt.close(fig.number)
             # =======================================================
-
-            fig.canvas.mpl_disconnect(cid)
-            tin_sel = close_event.tin  # type:ignore
-            tout_sel = close_event.tout  # type:ignore
+            axes[0].remove_callback(cid)
+            # fig.canvas.mpl_disconnect(cid)
+            tin_sel = on_xlim_changed.tin  # type:ignore
+            tout_sel = on_xlim_changed.tout  # type:ignore
 
             return np.round(tin_sel, NUM_DECIMALS), np.round(
                 tout_sel, NUM_DECIMALS
