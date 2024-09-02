@@ -1077,7 +1077,7 @@ class Dataset:
                 s["values"] = s["values"][:ds_length]
             else:
                 nan_vec = np.empty(ds_length - s["values"].size)
-                nan_vec[:] = np.NaN
+                nan_vec[:] = np.nan
                 s["values"] = np.concatenate((s["values"], nan_vec))
 
         # Create DataFrame from signals to be appended (concatenated) to

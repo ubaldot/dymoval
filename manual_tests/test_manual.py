@@ -40,7 +40,7 @@ plt.ion()
 
 # Let's create some Signal
 nan_intervals = np.empty(200)
-nan_intervals[:] = np.NaN
+nan_intervals[:] = np.nan
 
 # INPUT signals
 input_signal_names = ["u1", "u2", "u3"]

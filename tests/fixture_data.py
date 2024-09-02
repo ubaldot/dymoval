@@ -22,7 +22,7 @@ def good_signals(request):  # type: ignore
     fixture_type = request.param
     # General case (MIMO)
     nan_thing = np.empty(200)
-    nan_thing[:] = np.NaN
+    nan_thing[:] = np.nan
 
     # Signals creation
     input_signal_names = ["u1", "u2", "u3"]
