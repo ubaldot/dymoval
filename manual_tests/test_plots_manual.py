@@ -12,7 +12,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
 
-
 # plt.ion()
 matplotlib.use("qtagg")
 
@@ -26,6 +25,7 @@ fixture_type = "MIMO"
 # Set test data
 nan_thing = np.empty(200)
 nan_thing[:] = np.nan
+nan_thing[:] = 0.5
 
 input_signal_names = ["u1", "u2", "u3"]
 input_sampling_periods = [0.01, 0.1, 0.1]
@@ -130,9 +130,9 @@ ds.plot()
 
 # Test some colors, etc.
 ds.plot(
-    line_color_input="r",
-    linestyle_input=":",
-    line_color_output="c",
+    linecolor_input="r",
+    linestyle_fg=":",
+    linecolor_output="c",
     alpha_output=0.5,
     overlap=True,
 )
@@ -147,18 +147,12 @@ if fixture_type == "MIMO" or fixture_type == "MISO":
 else:
     ds.plot("u1", "y1")
 
-# %% Save
-ds.plot(save_as="c:/vas/github/dymoval/dataset_plot")
-
-
 # ===========================================================================
 # Act: plot_coverage test
 # ===========================================================================
 # %% Coverage
 ds.plot_coverage()
-ds.plot_coverage(
-    line_color_input="r", line_color_output="c", alpha_output=0.5
-)
+ds.plot_coverage(linecolor_input="r", linecolor_output="c", alpha_output=0.5)
 
 # Conditional plot
 if fixture_type == "MIMO" or fixture_type == "MISO":
@@ -169,32 +163,26 @@ if fixture_type == "MIMO" or fixture_type == "MISO":
 else:
     ds.plot_coverage("u1", "y1")
 
-
-# %% Save again
-ds.plot_coverage(save_as="./coverage_test")
-
-
+# %%
 # ===========================================================================
 # Act: plot_spectrum test
 # ===========================================================================
 ds.plot_spectrum()
-ds.plot_spectrum(
-    line_color_input="r", line_color_output="c", alpha_output=0.5
-)
+ds.plot_spectrum(linecolor_input="r", linecolor_output="c", alpha_output=0.5)
 
 # %%
 ds.plot_spectrum(kind="psd")
 ds.plot_spectrum(
-    kind="psd", line_color_input="r", line_color_output="c", alpha_output=0.5
+    kind="psd", linecolor_input="r", linecolor_output="c", alpha_output=0.5
 )
 
 # %%
 ds.plot_spectrum(kind="amplitude")
 ds.plot_spectrum(
     kind="amplitude",
-    line_color_input="r",
-    line_color_output="c",
-    alpha_output=0.5,
+    linecolor_input="r",
+    linecolor_output="c",
+    alpha_fg=0.5,
 )
 
 # %%

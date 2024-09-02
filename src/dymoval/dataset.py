@@ -1432,6 +1432,9 @@ class Dataset:
         fig.set_size_inches(ncols * ax_width, nrows * ax_height + 1.25)
         fig.set_layout_engine(layout)
 
+        if not plt.isinteractive():
+            fig.show()
+
         return fig
 
     def plot(
@@ -1750,6 +1753,9 @@ class Dataset:
         ncols = fig.get_axes()[0].get_gridspec().get_geometry()[1]
         fig.set_size_inches(ncols * ax_width, nrows * ax_height + 1.25)
         fig.set_layout_engine(layout)
+
+        if not plt.isinteractive():
+            fig.show()
 
         return fig
 
@@ -2256,6 +2262,9 @@ class Dataset:
         else:
             fig.set_size_inches(ncols * ax_width, nrows * ax_height + 1.25)
         fig.set_layout_engine(layout)
+
+        if not plt.isinteractive():
+            fig.show()
 
         return fig
 
@@ -3051,6 +3060,9 @@ def plot_signals(*signals: Signal) -> matplotlib.figure.Figure:
 
     for ii in range(n, len(ax)):
         ax[ii].remove()
+
+    if not plt.isinteractive():
+        fig.show()
 
     return fig
 
