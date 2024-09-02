@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 
 
-plt.ion()
+# plt.ion()
 matplotlib.use("qtagg")
 
 # ===========================================================================
@@ -114,7 +114,10 @@ ds = dmv.Dataset(
     overlap=True,
 )
 
-# ds.plot()
+
+# %%
+
+ds.plot()
 
 # This shall raise because there are NaNs
 # ds.plot_spectrum()

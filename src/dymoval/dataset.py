@@ -1155,30 +1155,29 @@ class Dataset:
 
             # The following code is needed because not all IDE:s
             # have interactive plot set to ON as default.
-            is_interactive = plt.isinteractive()
-            plt.ion()
 
             # Get axes from the plot and use them to extract tin and tout
             figure = ds.plot(*signals, **kwargs)
             axes = figure.get_axes()
 
             # NEW
-            def on_xlim_changed(event_ax):  # type:ignore
-                time_interval = np.round(event_ax.get_xlim(), NUM_DECIMALS)
-                on_xlim_changed.tin, on_xlim_changed.tout = time_interval
-                on_xlim_changed.tin = max(on_xlim_changed.tin, 0.0)
-                on_xlim_changed.tout = max(on_xlim_changed.tout, 0.0)
+            # Define the selection dictionary
+            selection = {"tin": 0.0, "tout": 0.0}
+
+            def update_time_interval(ax):  # type:ignore
+                time_interval = np.round(ax.get_xlim(), NUM_DECIMALS)
+                selection["tin"], selection["tout"] = time_interval
+                selection["tin"] = max(selection["tin"], 0.0)
+                selection["tout"] = max(selection["tout"], 0.0)
                 print(
-                    f"Updated time interval: {on_xlim_changed.tin} to {on_xlim_changed.tout}"
+                    f"Updated time interval: {selection['tin']} to {selection['tout']}"
                 )
 
-            on_xlim_changed.tin = 0.0
-            on_xlim_changed.tout = 0.0
             # Connect the event handler to the xlim_changed event
-            cid = axes[0].callbacks.connect("xlim_changed", on_xlim_changed)
+            cid = axes[0].callbacks.connect(
+                "xlim_changed", update_time_interval
+            )
             fig = axes[0].get_figure()
-            # fig.canvas.draw()
-            plt.show()
 
             fig.suptitle(
                 "Sampling time "
@@ -1190,17 +1189,18 @@ class Dataset:
             # =======================================================
             # This is needed for Spyder to block the prompt while
             # the figure is opened.
+            # Otherwise the control comes back to the prompt and the figure
+            # may get stuck, i.e. user cannot interact with it.
             # An alternative better solution is welcome!
-            # try:
-            #     while fig.number in plt.get_fignums():
-            #         plt.pause(0.1)
-            # except Exception as e:  # noqa
-            #     plt.close(fig.number)
+            try:
+                while fig.number in plt.get_fignums():
+                    plt.pause(0.1)
+            except Exception as e:  # noqa
+                plt.close(fig.number)
             # =======================================================
             axes[0].remove_callback(cid)
-            # fig.canvas.mpl_disconnect(cid)
-            tin_sel = on_xlim_changed.tin  # type:ignore
-            tout_sel = on_xlim_changed.tout  # type:ignore
+            tin_sel = selection["tin"]  # type:ignore
+            tout_sel = selection["tout"]  # type:ignore
 
             return np.round(tin_sel, NUM_DECIMALS), np.round(
                 tout_sel, NUM_DECIMALS
@@ -1601,6 +1601,9 @@ class Dataset:
         ncols = fig.get_axes()[0].get_gridspec().get_geometry()[1]
         fig.set_size_inches(ncols * ax_width, nrows * ax_height + 1.25)
         fig.set_layout_engine(layout)
+
+        if not plt.isinteractive():
+            fig.show()
 
         return fig
 
