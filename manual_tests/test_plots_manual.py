@@ -12,7 +12,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
 
-plt.ion()
+# plt.ion()
+plt.ioff()
+# matplotlib.use("TkAgg")
 matplotlib.use("qtagg")
 
 # ===========================================================================
@@ -30,10 +32,20 @@ input_signal_names = ["u1", "u2", "u3"]
 input_sampling_periods = [0.01, 0.1, 0.1]
 input_signal_values = [
     np.hstack(
-        (np.random.rand(50), nan_thing, np.random.rand(400), nan_thing)
+        (
+            10 * np.random.rand(50),
+            nan_thing,
+            5 * np.random.rand(400),
+            nan_thing,
+        )
     ),
     np.hstack(
-        (np.random.rand(20), nan_thing[0:5], np.random.rand(30), nan_thing)
+        (
+            15 * np.random.rand(20),
+            nan_thing[0:5],
+            30 * np.random.rand(30),
+            nan_thing,
+        )
     ),
     np.hstack((np.random.rand(80), nan_thing, np.random.rand(100))),
 ]
@@ -117,6 +129,7 @@ ds = dmv.Dataset(
 # %%
 
 ds.plot()
+# plt.pause(1)
 
 # This shall raise because there are NaNs
 # ds.plot_spectrum()
@@ -127,7 +140,7 @@ ds = ds.remove_NaNs()
 
 ds.plot()
 
-# Test some colors, etc.
+# %% Test some colors, etc. OBS! 4 plots!
 ds.plot(
     linecolor_input="r",
     linestyle_fg=":",
@@ -149,7 +162,7 @@ else:
 # ===========================================================================
 # Act: plot_coverage test
 # ===========================================================================
-# %% Coverage
+# %% Coverage. OBS 5 plots!
 ds.plot_coverage()
 ds.plot_coverage(linecolor_input="r", linecolor_output="c", alpha=0.5)
 

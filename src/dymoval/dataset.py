@@ -1153,9 +1153,6 @@ class Dataset:
             # manual action from the user (resize window).
             # Hence, you must test this manually.
 
-            # The following code is needed because not all IDE:s
-            # have interactive plot set to ON as default.
-
             # Get axes from the plot and use them to extract tin and tout
             figure = ds.plot(*signals, **kwargs)
             axes = figure.get_axes()
@@ -1187,16 +1184,20 @@ class Dataset:
             )
 
             # =======================================================
-            # This is needed for Spyder to block the prompt while
-            # the figure is opened.
-            # Otherwise the control comes back to the prompt and the figure
-            # may get stuck, i.e. user cannot interact with it.
+            # By using this while loop we never give back the control to the
+            # prompt. In this way user is constrained to graphically select a
+            # time interval or to close the figure window if it wants the
+            # control back.
             # An alternative better solution is welcome!
             try:
                 while fig.number in plt.get_fignums():
                     plt.pause(0.1)
             except Exception as e:  # noqa
+                print(f"An error occurred {e}")
                 plt.close(fig.number)
+            finally:
+                plt.close(fig.number)
+
             # =======================================================
             axes[0].remove_callback(cid)
             tin_sel = selection["tin"]  # type:ignore
