@@ -12,7 +12,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
 
-# plt.ion()
+plt.ion()
 matplotlib.use("qtagg")
 
 # ===========================================================================
@@ -25,7 +25,6 @@ fixture_type = "MIMO"
 # Set test data
 nan_thing = np.empty(200)
 nan_thing[:] = np.nan
-nan_thing[:] = 0.5
 
 input_signal_names = ["u1", "u2", "u3"]
 input_sampling_periods = [0.01, 0.1, 0.1]
@@ -133,7 +132,7 @@ ds.plot(
     linecolor_input="r",
     linestyle_fg=":",
     linecolor_output="c",
-    alpha_output=0.5,
+    alpha_bg=0.5,
     overlap=True,
 )
 
