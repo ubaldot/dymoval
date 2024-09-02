@@ -152,7 +152,7 @@ else:
 # ===========================================================================
 # %% Coverage
 ds.plot_coverage()
-ds.plot_coverage(linecolor_input="r", linecolor_output="c", alpha_output=0.5)
+ds.plot_coverage(linecolor_input="r", linecolor_output="c", alpha=0.5)
 
 # Conditional plot
 if fixture_type == "MIMO" or fixture_type == "MISO":
@@ -168,12 +168,12 @@ else:
 # Act: plot_spectrum test
 # ===========================================================================
 ds.plot_spectrum()
-ds.plot_spectrum(linecolor_input="r", linecolor_output="c", alpha_output=0.5)
+ds.plot_spectrum(linecolor_input="r", linecolor_output="c", alpha_fg=0.5)
 
 # %%
 ds.plot_spectrum(kind="psd")
 ds.plot_spectrum(
-    kind="psd", linecolor_input="r", linecolor_output="c", alpha_output=0.5
+    kind="psd", linecolor_input="r", linecolor_output="c", alpha_fg=0.5
 )
 
 # %%
@@ -222,6 +222,8 @@ sim2_values = vs.Dataset.dataset["OUTPUT"].values + np.random.rand(
 
 vs.append_simulation(sim1_name, sim1_labels, sim1_values)
 vs.append_simulation(sim2_name, sim2_labels, sim2_values)
+
+# %%
 
 vs.plot_simulations(["Model 1", "Model 2"])
 vs.plot_simulations("Model 1", save_as="./sim_test")

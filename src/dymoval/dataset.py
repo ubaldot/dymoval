@@ -1162,7 +1162,7 @@ class Dataset:
 
             # NEW
             # Define the selection dictionary
-            selection = {"tin": 0.0, "tout": 0.0}
+            selection = {"tin": 0.0, "tout": ds.dataset.index[-1]}
 
             def update_time_interval(ax):  # type:ignore
                 time_interval = np.round(ax.get_xlim(), NUM_DECIMALS)
