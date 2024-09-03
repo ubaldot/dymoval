@@ -31,7 +31,7 @@ modeling tool. All you need to do is to feed _Dymoval_ with real-world
 measurements and model-generated data and you will get a model quality
 evaluation in r-squared fit, residuals norms and coverage region.
 
-<div align="center" >
+<div align="center"
 	<br>
 	<br>
 <img src="https://github.com/VolvoGroup/dymoval/blob/main/docs/source/figures/DymovalNutshell.svg" data-canonical-src="[https://github.com/VolvoGroup/dymoval/blob/main/docs/source/figures/DymovalNutshell.svg](https://github.com/VolvoGroup/dymoval/blob/main/docs/source/DymovalNutshell.svg)" width="600" class="center"  />
@@ -51,29 +51,50 @@ dataset analysis and manipulation.
 Although the tool has been thought with engineers in mind, no one prevents you
 to use it in other application domains.
 
+## Why dymoval?
+
+There plenty of amazing packages out there like _matplotlib_, _pandas_,
+_numpy_, _scipy_, etc for analyzing data, compute statistics, and so on, but
+they are huge and the plethora of functionalities they offer may be
+overwhelming.
+
+_Dymoval_ has been built on top of these tools and it aims at providing an
+extremely easy and intuitive API that shall serve most of the tasks an
+engineer typically face in his/her daily job in a simple and comprehensive
+way.
+
+However, _Dymoval_ leaves the door open: most of the functions return objects
+that can be used straight away with the aforementioned tools without any extra
+steps. Hence, if you need more power, you always get an object that can be
+immediately handled by some other more powerful tool while using _Dymoval_.
+
 ## Main Features
 
-**Datasets analysis and manipulation**
+**Measurement data analysis and manipulation**
 
-- Time and frequency analysis
-- Physical units
-- Easy plotting of signals
-- Missing data handling
-- Linear filtering
-- Means and offsets removal
-- Re-sampling
+* Time and frequency analysis
+* Easy plotting
+* Missing data handling
+* Linear filtering
+* Means and offsets removal
+* Re-sampling
+* Physical units
 
 **Model validation**
 
-- Validation metrics:
-  - R-square fit
-  - Residuals auto-correlation
-  - Input-Residuals cross-correlation
-- Coverage region
-- Enable model unit-tests
-- Work for both SISO and MIMO models
-- Modeling tool independence
-- Easily integrate with CI/CD pipelines.
+* Validation metrics:
+  * R-square fit
+  * Residuals auto-correlation statistics
+  * Input-Residuals cross-correlation statistics
+* Coverage region
+* Enable model unit-tests
+* Work for both SISO and MIMO models
+* Modeling tool independence
+* Easily integrate with CI/CD pipelines.
+
+The residuals x-correlation statistics are expressed in terms of weighted
+quadratic forms, thus allowing model quality evaluation in terms of known
+tests such as Ljung-Box, Box-Pierce, etc.
 
 ## Installation
 
