@@ -12,8 +12,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
 
-# plt.ion()
-plt.ioff()
+plt.ion()
+# plt.ioff()
 # matplotlib.use("TkAgg")
 matplotlib.use("qtagg")
 

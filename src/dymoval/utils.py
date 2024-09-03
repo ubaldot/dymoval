@@ -11,6 +11,21 @@ import subprocess
 from importlib import resources
 import shutil
 from pathlib import Path
+import matplotlib.pyplot as plt
+
+
+def is_interactive_shell():
+    isinteractive = False
+    try:
+        from IPython import get_ipython
+
+        if get_ipython():
+            isinteractive = True
+    except ImportError:
+        pass
+    if hasattr(sys, "ps1"):
+        isinteractive = True
+    return isinteractive
 
 
 def factorize(n: int) -> tuple[int, int]:
