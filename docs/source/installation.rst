@@ -90,3 +90,6 @@ A :code:`~/.dymoval/config.toml` could for example include the following content
 
     num_decimals = 4
     color_map = "tab20"
+
+It is also suggested to have `plt.ioff()` in your script as interactive
+methods may create problems in different environments.
