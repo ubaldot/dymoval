@@ -238,7 +238,7 @@ class Dataset:
         # ==============================
         # Instance attributes
         # ==============================
-        # Here are declared but they will be initialized
+        # Here attributes are declared but they will be initialized
         # in the method _new_dataset_from_dataframe()
         self.name: str = "foo"
         self.dataset: pd.DataFrame = pd.DataFrame()
@@ -308,7 +308,7 @@ class Dataset:
             lines_labels_filt = []
             for line_label in lines_labels_all:
                 for s in available_signals:
-                    if s in line_label[1]:  # check if s is in the legend
+                    if s in line_label[1]:  # check if 's' is in the legend
                         # if so, we save the associated line (to get the color)
                         lines_labels_filt.append((line_label[0], s))
 
@@ -384,7 +384,6 @@ class Dataset:
         self.dataset = self.dataset.round(NUM_DECIMALS)
 
         # Shift also the NaN_intervals to tin = 0.0.
-        # Create a reference to self._nan_intervals
         NaN_intervals = self._nan_intervals
 
         for k in NaN_intervals.keys():
@@ -678,7 +677,7 @@ class Dataset:
         df = self.dataset
 
         # Separate in from out.
-        # By default, u_names and y_names are all the possible names.
+        # By default, 'u_names' and 'y_names' are all the possible names.
         # If the user passes some signals, then the full list is.
         u_names = list(df["INPUT"].columns.get_level_values("names"))
         y_names = list(df["OUTPUT"].columns.get_level_values("names"))
