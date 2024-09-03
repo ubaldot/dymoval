@@ -104,7 +104,6 @@ def main():
         }
         out_lst.append(deepcopy(temp_out))
     signal_list = [*in_lst, *out_lst]
-    first_output_idx = len(input_signal_names)
 
     # Get a dataset
     ds = dmv.Dataset(
