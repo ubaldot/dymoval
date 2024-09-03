@@ -11,7 +11,6 @@ import subprocess
 from importlib import resources
 import shutil
 from pathlib import Path
-import matplotlib.pyplot as plt
 
 
 def is_interactive_shell():
