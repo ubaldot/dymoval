@@ -1,7 +1,6 @@
 # The following are only for Spyder, otherwise things are written in
 # the pyproject.toml
 # mypy: show_error_codes
-# Ciao.
 
 """Module containing everything related to datasets.
 Here are defined special datatypes, classes and auxiliary functions.
@@ -1133,7 +1132,6 @@ class Dataset:
             figure = ds.plot(*signals, **kwargs)
             axes = figure.get_axes()
 
-            # NEW
             # Define the selection dictionary
             selection = {"tin": 0.0, "tout": ds.dataset.index[-1]}
 

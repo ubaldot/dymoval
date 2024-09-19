@@ -12,9 +12,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
 
-plt.ion()
-# plt.ioff()
-# matplotlib.use("TkAgg")
+plt.ioff()
 matplotlib.use("qtagg")
 
 # ===========================================================================
@@ -129,7 +127,7 @@ ds = dmv.Dataset(
 # %%
 
 ds.plot()
-# plt.pause(1)
+plt.pause(1)
 
 # This shall raise because there are NaNs
 # ds.plot_spectrum()
@@ -211,7 +209,7 @@ else:
 # ===========================================================================
 # Act: ValidatonSession plots test
 # ===========================================================================
-# Get a ValidationSession
+# %% Get a ValidationSession
 vs = dmv.ValidationSession("my_validation", ds)
 
 # %% Pretend that you ran two simulations of a model with two different settings.
@@ -223,7 +221,6 @@ sim1_values = vs.Dataset.dataset["OUTPUT"].values + np.random.rand(
     len(vs.Dataset.dataset["OUTPUT"].values), 1
 )
 
-
 sim2_name = "Model 2"
 sim2_labels = ["your_y1", "your_y2", "your_y3", "your_y4"]
 if fixture_type == "SISO" or fixture_type == "MISO":
@@ -232,13 +229,14 @@ sim2_values = vs.Dataset.dataset["OUTPUT"].values + np.random.rand(
     len(vs.Dataset.dataset["OUTPUT"].values), 1
 )
 
-vs.append_simulation(sim1_name, sim1_labels, sim1_values)
-vs.append_simulation(sim2_name, sim2_labels, sim2_values)
+# %%
+vs = vs.append_simulation(sim1_name, sim1_labels, sim1_values)
+vs = vs.append_simulation(sim2_name, sim2_labels, sim2_values)
 
 # %%
 
 vs.plot_simulations(["Model 1", "Model 2"])
-vs.plot_simulations("Model 1", save_as="./sim_test")
+vs.plot_simulations("Model 1")
 vs.plot_simulations(dataset="only_out")
 vs.plot_simulations(dataset="all")
 vs.plot_simulations()

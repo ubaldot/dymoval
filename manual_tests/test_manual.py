@@ -36,11 +36,11 @@ import matplotlib
 
 # %%
 matplotlib.use("qtagg")
-plt.ion()
 
 # Let's create some Signal
 nan_intervals = np.empty(200)
 nan_intervals[:] = np.nan
+nan_intervals[:] = 0.4
 
 # INPUT signals
 input_signal_names = ["u1", "u2", "u3"]
@@ -140,7 +140,7 @@ dmv.validate_signals(*signal_list)
 
 # ... and you can visually inspect them through the function dmv.plot_signals
 dmv.plot_signals(*signal_list)
-plt.pause(0.0001)
+# plt.pause(0.0001)
 
 # The signals to be included in a dataset must have the same sampling period,
 # so you may need to re-sample your signals.
@@ -223,8 +223,8 @@ vs = vs.append_simulation(sim1_name, sim1_labels, sim1_values)
 vs = vs.append_simulation(sim2_name, sim2_labels, sim2_values)
 
 # %% We can visually inspect the results...
-vs.plot_simulations()
-plt.pause(0.0001)
+fig = vs.plot_simulations()
+fig.savefig("foo.png")
 
 # %% ... or we can get validation metrics
 

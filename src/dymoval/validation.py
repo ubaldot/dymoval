@@ -610,6 +610,11 @@ class ValidationSession:
         fig.set_size_inches(ncols * ax_width, nrows * ax_height + 1.25)
         fig.set_layout_engine(layout)
 
+        if is_interactive_shell():
+            fig.show()
+        else:
+            plt.show()
+
         return fig
 
     def plot_residuals(
@@ -736,6 +741,13 @@ class ValidationSession:
         ncols = fig2.get_axes()[0].get_gridspec().get_geometry()[1]
         fig2.set_size_inches(ncols * ax_width, nrows * ax_height + 1.25)
         fig2.set_layout_engine(layout)
+
+        if is_interactive_shell():
+            fig1.show()
+            fig2.show()
+        else:
+            plt.show()
+
         return fig1, fig2
 
     def simulation_signals_list(self, sim_name: str | list[str]) -> list[str]:
