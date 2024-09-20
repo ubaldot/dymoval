@@ -466,7 +466,9 @@ class Test_Dataset_nominal:
         df_actual = ds.dataset
         assert np.allclose(df_actual.to_numpy(), df.to_numpy(), atol=ATOL)
 
-    def test_remove_offset(self, constant_ones_dataframe: pd.DataFrame) -> None:
+    def test_remove_offset(
+        self, constant_ones_dataframe: pd.DataFrame
+    ) -> None:
         df, u_names, y_names, _, _, fixture = constant_ones_dataframe
 
         # Test values, i.e. offset to be removed from the specified signal.
@@ -938,7 +940,9 @@ class Test_Dataset_nominal:
         # Act.
         ds_actual = ds.apply(*test_values[fixture])
         print("actual_units", ds_actual.dataset.columns)
-        actual_units = list(ds_actual.dataset.columns.get_level_values("units"))
+        actual_units = list(
+            ds_actual.dataset.columns.get_level_values("units")
+        )
 
         # Assert
         assert np.allclose(ds_actual.dataset, df_expected, atol=ATOL)
@@ -946,6 +950,31 @@ class Test_Dataset_nominal:
 
         # Assert that the internally stored dataset is not overwritten
         assert np.allclose(ds.dataset, df, atol=ATOL)
+
+    def test_trim(self, sine_dataframe: pd.DataFrame) -> None:
+        df, u_names, y_names, u_units, y_units, fixture = sine_dataframe
+        # Test both add an input or an output
+
+        # Expected value.
+        # If you remove a mean from a signal, then the mean of the reminder
+        # signal must be zero.
+        expected_tin = 0.0  # as per fixture
+        expected_tout = 4.0  # as per fixture
+
+        # Arrange
+        name_ds = "my_dataset"
+        ds = dmv.dataset.Dataset(
+            name_ds, df, u_names, y_names, full_time_interval=True
+        )
+
+        # act
+        ds = ds.trim(tin=1.0, tout=5.0)
+        actual_tin = ds.dataset.index[0]
+        actual_tout = ds.dataset.index[-1]
+
+        # Evaluate
+        assert np.isclose(expected_tin, actual_tin, atol=ATOL)
+        assert np.isclose(expected_tout, actual_tout, atol=ATOL)
 
 
 class Test_Dataset_raise:
@@ -1064,7 +1093,9 @@ class Test_Dataset_plots:
         self, good_signals: list[Signal], tmp_path: str
     ) -> None:
         # You should just get a plot.
-        signal_list, u_names, y_names, u_units, y_units, fixture = good_signals
+        signal_list, u_names, y_names, u_units, y_units, fixture = (
+            good_signals
+        )
 
         # Actual value
         ds = dmv.dataset.Dataset(
@@ -1293,7 +1324,9 @@ class Test_Dataset_plots:
     @pytest.mark.plots
     def test_plot_Signals(self, good_signals: list[Signal]) -> None:
         # You should just get a plot.
-        signal_list, u_names, y_names, u_units, y_units, fixture = good_signals
+        signal_list, u_names, y_names, u_units, y_units, fixture = (
+            good_signals
+        )
         _ = dmv.plot_signals(*signal_list)
         plt.close("all")
 
@@ -1490,7 +1523,9 @@ class Test_validate_dataframe:
 
 
 class Test_fix_sampling_periods:
-    def test_excluded_signals_no_args(self, good_signals: list[Signal]) -> None:
+    def test_excluded_signals_no_args(
+        self, good_signals: list[Signal]
+    ) -> None:
         # Nominal values
         (
             signal_list,
@@ -1526,7 +1561,9 @@ class Test_fix_sampling_periods:
             expected_excluded = []
 
         expected_resampled = [
-            s["name"] for s in signal_list if s["name"] not in expected_excluded
+            s["name"]
+            for s in signal_list
+            if s["name"] not in expected_excluded
         ]
 
         # Assert. Check that all signals are either re-sampled or excluded.
@@ -1577,7 +1614,9 @@ class Test_fix_sampling_periods:
             expected_excluded = []
 
         expected_resampled = [
-            s["name"] for s in signal_list if s["name"] not in expected_excluded
+            s["name"]
+            for s in signal_list
+            if s["name"] not in expected_excluded
         ]
 
         # Assert. Check that all signals are either re-sampled or excluded.
