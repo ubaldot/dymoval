@@ -34,7 +34,6 @@ import matplotlib
 # Create dymoval Dataset objects
 
 
-# %%
 matplotlib.use("qtagg")
 
 # Let's create some Signal
@@ -65,7 +64,6 @@ input_signal_values = [
     np.hstack((np.random.rand(80), nan_intervals, np.random.rand(100))),
 ]
 
-# %%
 
 input_signal_units = ["m/s", "%", "°C"]
 #
@@ -134,12 +132,11 @@ for ii, val in enumerate(output_signal_names):
 signal_list = in_lst + out_lst
 first_output_idx = len(input_signal_names)
 
-# %% You can check if your Signal are in correct format through the function
 # dmv.validate_signals
 dmv.validate_signals(*signal_list)
 
 # ... and you can visually inspect them through the function dmv.plot_signals
-dmv.plot_signals(*signal_list)
+# dmv.plot_signals(*signal_list)
 # plt.pause(0.0001)
 
 # The signals to be included in a dataset must have the same sampling period,
@@ -153,7 +150,6 @@ dmv.plot_signals(*signal_list)
 # )
 
 
-# %% At this point we can create a dymoval Dataset.
 # To do that we need to pass the signal list, and we need to specify who is the input
 # and who is the output.
 # Note that the initializer will validate the signals, will try to resample them,
@@ -171,7 +167,6 @@ ds = dmv.Dataset(
     overlap=True,
     verbosity=1,
 )
-# %%
 
 # Once the dymoval Dataset is created, it is possible to handle with the NaN:s
 # in a number of ways
@@ -179,13 +174,12 @@ ds = ds.remove_NaNs()
 
 # At this point we can visually inspect the resulting Dataset.
 # Note how the areas where the NaN:s have been replaced are shaded.
-ax = ds.plot()
-plt.pause(0.0001)
+# ax = ds.plot()
+# plt.pause(0.0001)
 
-# %% We can also inspect the Dataset coverage region
 
-ds.plot_coverage()
-plt.pause(0.0001)
+# ds.plot_coverage()
+# plt.pause(0.0001)
 
 # Other methods of the class Dataset are self-explanatory.
 #
@@ -201,7 +195,6 @@ plt.pause(0.0001)
 # To create a dymoval ValidationSession we only need to pass a dymoval Dataset.
 vs = dmv.ValidationSession("my_validation", ds)
 
-# %% Now Pretend that we built two models and we have want to validate them.
 
 sim1_name = "Model 1"
 sim1_labels = ["my_y1", "my_y2"]
@@ -221,14 +214,13 @@ sim2_values = vs.Dataset.dataset["OUTPUT"].values + np.random.rand(
 # results.
 vs = vs.append_simulation(sim1_name, sim1_labels, sim1_values)
 vs = vs.append_simulation(sim2_name, sim2_labels, sim2_values)
-
-# %% We can visually inspect the results...
+# %%
+vs = vs.trim(dataset="both")
 fig = vs.plot_simulations()
-fig.savefig("foo.png")
 
-# %% ... or we can get validation metrics
+# fig.savefig("foo.png")
 
-vs.validation_results
 
-# %% At this point we can clear the simulations list
+# vs.validation_results
+
 # vs.clear()

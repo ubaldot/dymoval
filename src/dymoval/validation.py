@@ -231,11 +231,12 @@ def xcorr_norm(
     R_matrix = np.zeros((nrows, ncols))
     for ii in range(nrows):
         for jj in range(ncols):
-            # R_matrix[ii, jj] = np.linalg.norm(R[:, ii, jj], l_norm) / len(
-            #    R[:, ii, jj]
-            # )
-            R_matrix[ii, jj] = np.linalg.norm(R[:, ii, jj], l_norm)
+            R_matrix[ii, jj] = np.linalg.norm(R[:, ii, jj], l_norm) / len(
+                R[:, ii, jj]
+            )
+            # R_matrix[ii, jj] = np.linalg.norm(R[:, ii, jj], l_norm)
 
+    # Matrix norn
     R_norm = np.linalg.norm(R_matrix, matrix_norm).round(NUM_DECIMALS)
     return R_norm  # type: ignore
 
@@ -623,6 +624,147 @@ class ValidationSession:
             plt.show()
 
         return fig
+
+    # TODO:
+    def trim(
+        self: ValidationSession,
+        tin: float | None = None,
+        tout: float | None = None,
+        verbosity: int = 0,
+        **kwargs: Any,
+    ) -> ValidationSession:
+        """
+        Trim the Validation session
+        :py:class:`ValidationSession <dymoval.validation.ValidationSession>` object.
+
+        If not *tin* or *tout* are passed, then the selection is
+        made graphically.
+
+        Parameters
+        ----------
+        *signals :
+            Signals to be plotted in case of trimming from a plot.
+        tin :
+            Initial time of the desired time interval
+        tout :
+            Final time of the desired time interval.
+        verbosity :
+            Depending on its level, more or less info is displayed.
+            The higher the value, the higher is the verbosity.
+        **kwargs:
+            kwargs to be passed to the
+            :py:meth:`ValidationSession
+            <dymoval.validation.ValidationSession.plot_simulations>` method.
+
+        """
+        # This function is similar to Dataset.trim
+
+        def _graph_selection(
+            vs: ValidationSession,
+            **kwargs: Any,
+        ) -> tuple[float, float]:  # pragma: no cover
+            # Select the time interval graphically
+            # OBS! This part cannot be automatically tested because the it require
+            # manual action from the user (resize window).
+            # Hence, you must test this manually.
+
+            # Get axes from the plot and use them to extract tin and tout
+            figure = vs.plot_simulations(**kwargs)
+            axes = figure.get_axes()
+
+            # Define the selection dictionary
+            selection = {"tin": 0.0, "tout": vs.Dataset.dataset.index[-1]}
+
+            def update_time_interval(ax):  # type:ignore
+                time_interval = np.round(ax.get_xlim(), NUM_DECIMALS)
+                selection["tin"], selection["tout"] = time_interval
+                selection["tin"] = max(selection["tin"], 0.0)
+                selection["tout"] = max(selection["tout"], 0.0)
+                print(
+                    f"Updated time interval: {selection['tin']} to {selection['tout']}"
+                )
+
+            # Connect the event handler to the xlim_changed event
+            cid = axes[0].callbacks.connect(
+                "xlim_changed", update_time_interval
+            )
+            fig = axes[0].get_figure()
+
+            fig.suptitle("Trim the simulation results.")
+
+            # =======================================================
+            # By using this while loop we never give back the control to the
+            # prompt. In this way user is constrained to graphically select a
+            # time interval or to close the figure window if it wants the
+            # control back.
+            # An alternative better solution is welcome!
+            try:
+                while fig.number in plt.get_fignums():
+                    plt.pause(0.1)
+            except Exception as e:  # noqa
+                print(f"An error occurred {e}")
+                plt.close(fig.number)
+            finally:
+                plt.close(fig.number)
+
+            # =======================================================
+            axes[0].remove_callback(cid)
+            tin_sel = selection["tin"]  # type:ignore
+            tout_sel = selection["tout"]  # type:ignore
+
+            return np.round(tin_sel, NUM_DECIMALS), np.round(
+                tout_sel, NUM_DECIMALS
+            )
+
+        # =============================================
+        # Trim ValidationSession main function
+        # The user can either pass the pair (tin,tout) or
+        # he/she can select it graphically if nothing has passed
+        # =============================================
+
+        vs = deepcopy(self)
+        # Check if info on (tin,tout) is passed
+        if tin is None and tout is not None:
+            tin_sel = vs.Dataset.dataset.index[0]
+            tout_sel = tout
+        # If only tin is passed, then set tout to the last time sample.
+        elif tin is not None and tout is None:
+            tin_sel = tin
+            tout_sel = vs.Dataset.dataset.index[-1]
+        elif tin is not None and tout is not None:
+            tin_sel = np.round(tin, NUM_DECIMALS)
+            tout_sel = np.round(tout, NUM_DECIMALS)
+        else:  # pragma: no cover
+            tin_sel, tout_sel = _graph_selection(self, **kwargs)
+
+        if verbosity != 0:
+            print(
+                f"\n tin = {tin_sel}{vs.Dataset.dataset.index.name[1]}, tout = {tout_sel}{vs.Dataset.dataset.index.name[1]}"
+            )
+
+        # Now you can trim the dataset and update all the
+        # other time-related attributes
+        vs.Dataset.dataset = vs.Dataset.dataset.loc[
+            tin_sel:tout_sel, :
+        ]  # type:ignore
+        vs.Dataset._nan_intervals = vs.Dataset._find_nan_intervals()
+        vs.Dataset.coverage = vs.Dataset._find_dataset_coverage()
+
+        # ... and shift everything such that tin = 0.0
+        vs.Dataset._shift_dataset_tin_to_zero()
+        vs.Dataset.dataset = vs.Dataset.dataset.round(NUM_DECIMALS)
+
+        # Also trim the simulations
+        vs.simulations_results = vs.simulations_results.loc[
+            tin_sel:tout_sel, :
+        ]  # type:ignore
+        vs.simulations_results.index = vs.Dataset.dataset.index
+
+        for sim_name in vs.simulations_names():
+            vs._append_correlations_tensors(sim_name)
+            vs._append_validation_results(sim_name)
+
+        return vs
 
     def plot_residuals(
         self,
