@@ -1,5 +1,5 @@
 # Here you specify the public API
-# __init__.py tells python that this is a package
+# __init__.py tell python that this is a package
 from .utils import (
     open_tutorial,
 )
