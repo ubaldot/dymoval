@@ -1,10 +1,18 @@
 import pytest
+import pandas as pd
 import dymoval as dmv
 from dymoval.validation import XCorrelation
 import numpy as np
 from matplotlib import pyplot as plt
-from fixture_data import *  # noqa
+from fixture_data import (
+    good_signals,
+    good_signals_no_nans,
+    good_dataframe,
+    sine_dataframe,
+    constant_ones_dataframe,
+)
 import scipy.signal as signal
+from dymoval.config import ATOL
 
 
 class Test_ClassValidationNominal:

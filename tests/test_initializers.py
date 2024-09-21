@@ -8,10 +8,18 @@ and 'signal validation' raise exceptions.
 Such validation functions are tested in test_utils.py.
 """
 import pytest
+import pandas as pd
 import dymoval as dmv
 from dymoval.dataset import Signal
 import numpy as np
-from fixture_data import *  # NOQA
+from fixture_data import (
+    good_signals,
+    good_signals_no_nans,
+    good_dataframe,
+    sine_dataframe,
+    constant_ones_dataframe,
+)
+from dymoval.config import ATOL
 
 
 class TestInitializerFromSignals:
@@ -122,11 +130,15 @@ class TestInitializerFromSignals:
             expected_nan_interval[0], ds._nan_intervals["y1"][0][0], atol=ATOL
         )
         assert np.isclose(
-            expected_nan_interval[1], ds._nan_intervals["y1"][0][-1], atol=ATOL
+            expected_nan_interval[1],
+            ds._nan_intervals["y1"][0][-1],
+            atol=ATOL,
         )
 
         # assert sampling period
-        assert np.isclose(ds.sampling_period, target_sampling_period, atol=ATOL)
+        assert np.isclose(
+            ds.sampling_period, target_sampling_period, atol=ATOL
+        )
 
     def test_no_leftovers(self, good_signals: list[Signal]) -> None:
         # Nominal data
@@ -258,12 +270,18 @@ class TestInitializerFromDataframe:
 
             # Assert if df has been filtered and ordered according to user needs
             assert list(ds.dataset.columns) == expected_cols
-            assert np.allclose(expected_vals, ds.dataset.to_numpy(), atol=ATOL)
+            assert np.allclose(
+                expected_vals, ds.dataset.to_numpy(), atol=ATOL
+            )
 
     @pytest.mark.parametrize(
         # Each test is ((tin,tout),(tin_expected,tout_expected))
         "test_input, expected",
-        [((4, 8), (0.0, 4.0)), ((3.2, 3.8), (0.0, 0.5)), ((None, 5), (0.0, 5))],
+        [
+            ((4, 8), (0.0, 4.0)),
+            ((3.2, 3.8), (0.0, 0.5)),
+            ((None, 5), (0.0, 5)),
+        ],
     )
     def test_nominal_tin_tout(
         self,

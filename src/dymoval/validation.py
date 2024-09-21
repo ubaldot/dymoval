@@ -8,8 +8,9 @@ import matplotlib
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
-
-# from .config import *  # noqa
+from copy import deepcopy
+import scipy.signal as signal
+from .config import NUM_DECIMALS, COLORMAP
 from .utils import (
     is_interactive_shell,
     factorize,
@@ -18,13 +19,14 @@ from .utils import (
 )
 
 from .dataset import Dataset
-from typing import TypedDict, Literal
+from typing import TypedDict, Literal, Any
 
 __all__ = [
     "XCorrelation",
     "xcorr",
     "rsquared",
     "acorr_norm",
+    "xcorr_norm",
     "ValidationSession",
 ]
 
@@ -74,7 +76,7 @@ def xcorr(X: np.ndarray, Y: np.ndarray) -> XCorrelation:
     p = X.shape[1]
     q = Y.shape[1]
 
-    lags = signal.correlation_lags(len(X), len(Y))  # noqa
+    lags = signal.correlation_lags(len(X), len(Y))
     Rxy = np.zeros([len(lags), p, q])
     for ii in range(p):
         for jj in range(q):
@@ -137,7 +139,7 @@ def rsquared(x: np.ndarray, y: np.ndarray) -> float:
             - np.linalg.norm(eps, 2) ** 2 / np.linalg.norm(x - x_mean, 2) ** 2
         )
         * 100,
-        NUM_DECIMALS,  # noqa
+        NUM_DECIMALS,
     )
     return r2  # type: ignore
 
@@ -246,10 +248,10 @@ def xcorr_norm(
     R_matrix = np.zeros((nrows, ncols))
     for ii in range(nrows):
         for jj in range(ncols):
-            R_matrix[ii, jj] = np.linalg.norm(R[:, ii, jj], l_norm) / len(
-                R[:, ii, jj]
-            )
-            # R_matrix[ii, jj] = np.linalg.norm(R[:, ii, jj], l_norm)
+            # R_matrix[ii, jj] = np.linalg.norm(R[:, ii, jj], l_norm) / len(
+            #     R[:, ii, jj]
+            # )
+            R_matrix[ii, jj] = np.linalg.norm(R[:, ii, jj], l_norm)
 
     # Matrix norn
     R_norm = np.linalg.norm(R_matrix, matrix_norm).round(NUM_DECIMALS)
@@ -270,9 +272,7 @@ class ValidationSession:
     it is recommended to create a new *ValidationSession* instance.
     """
 
-    def __init__(
-        self, name: str, validation_dataset: Dataset
-    ) -> None:  # noqa
+    def __init__(self, name: str, validation_dataset: Dataset) -> None:
         # Once you created a ValidationSession you should not change the validation dataset.
         # Create another ValidationSession with another validation dataset
         # By using the constructors, you should have no types problems because the check is done there.
@@ -469,8 +469,8 @@ class ValidationSession:
         if not list_sims:
             list_sims = self.simulations_names()
         else:
-            list_sims = str2list(list_sims)  # noqa
-            sim_not_found = difference_lists_of_str(  # noqa
+            list_sims = str2list(list_sims)
+            sim_not_found = difference_lists_of_str(
                 list_sims, self.simulations_names()
             )
             if sim_not_found:
@@ -496,7 +496,7 @@ class ValidationSession:
             n = max(p, q)
         else:
             n = q
-        nrows, ncols = factorize(n)  # noqa
+        nrows, ncols = factorize(n)
         grid = fig.add_gridspec(nrows, ncols)
         # Set a dummy initial axis
         axes = fig.add_subplot(grid[0])
@@ -716,7 +716,7 @@ class ValidationSession:
             try:
                 while fig.number in plt.get_fignums():
                     plt.pause(0.1)
-            except Exception as e:  # noqa
+            except Exception as e:
                 print(f"An error occurred {e}")
                 plt.close(fig.number)
             finally:
@@ -830,8 +830,8 @@ class ValidationSession:
         if not list_sims:
             list_sims = self.simulations_names()
         else:
-            list_sims = str2list(list_sims)  # noqa
-            sim_not_found = difference_lists_of_str(  # noqa
+            list_sims = str2list(list_sims)
+            sim_not_found = difference_lists_of_str(
                 list_sims, self.simulations_names()
             )
             if sim_not_found:
@@ -980,7 +980,7 @@ class ValidationSession:
         vs_temp = deepcopy(self)
         # df_sim = vs_temp.simulations_results
 
-        y_names = str2list(y_names)  # noqa
+        y_names = str2list(y_names)
         vs_temp._simulation_validation(sim_name, y_names, y_data)
 
         y_units = list(

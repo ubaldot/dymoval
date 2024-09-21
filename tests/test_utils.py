@@ -7,8 +7,9 @@ Created on Thu Jul 14 11:43:21 2022
 """
 
 import pytest
-import dymoval as dmv
-from fixture_data import *  # noqa
+from dymoval.utils import str2list, difference_lists_of_str, open_tutorial
+
+# from fixture_data import *  # noqa
 import os
 
 # import sys
@@ -70,7 +71,7 @@ class Test_difference_lists_of_str:
         expected: list[str],
     ) -> None:
         # Nominal
-        elements_not_found = dmv.difference_lists_of_str(A, B)
+        elements_not_found = difference_lists_of_str(A, B)
         assert sorted(elements_not_found) == sorted(expected)
 
 
@@ -86,14 +87,14 @@ class Test_str2list:
         ],
     )
     def test_str2list(self, x: str | list[str], expected: list[str]) -> None:
-        actual = dmv.str2list(x)
+        actual = str2list(x)
         assert sorted(actual) == sorted(expected)
 
 
 class Test_open_tutorial:
     @pytest.mark.open_tutorial
     def test_open_tutorial(self) -> None:
-        shell_process, filename = dmv.open_tutorial()
+        shell_process, filename = open_tutorial()
         # Check that the file exist, i.e. during the installation the folder
         # script was installed in the right place.
         assert os.path.exists(filename)

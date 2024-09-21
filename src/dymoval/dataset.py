@@ -13,6 +13,16 @@ import pandas as pd
 import matplotlib.gridspec as gridspec
 from matplotlib import pyplot as plt
 from scipy import io, fft
+from .config import (
+    NUM_DECIMALS,
+    COLORMAP,
+    SIGNAL_KEYS,
+    ATOL,
+    SIGNAL_KIND,
+    Signal_type,
+    SPECTRUM_KIND,
+    Spectrum_type,
+)
 from .utils import (
     is_interactive_shell,
     factorize,
@@ -405,7 +415,7 @@ class Dataset:
                 nan_chunk_translated = nan_chunk - tin
                 NaN_intervals[k][idx] = np.round(
                     nan_chunk_translated, NUM_DECIMALS
-                )  # noqa
+                )
                 NaN_intervals[k][idx] = nan_chunk_translated[
                     nan_chunk_translated >= 0.0
                 ]
@@ -467,15 +477,11 @@ class Dataset:
         # Check if u_names and y_names exist in the passed DataFrame
         available_names, available_units = list(zip(*df.columns))
         available_names = list(available_names)
-        input_not_found = difference_lists_of_str(
-            u_names, available_names
-        )  # noqa
+        input_not_found = difference_lists_of_str(u_names, available_names)
         if input_not_found:
             raise ValueError(f"Input(s) {input_not_found} not found.")
         # Check output
-        output_not_found = difference_lists_of_str(
-            y_names, available_names
-        )  # noqa
+        output_not_found = difference_lists_of_str(y_names, available_names)
         if output_not_found:
             raise ValueError(f"Output(s) {output_not_found} not found.")
         # ================== End of validation =======================
@@ -1204,7 +1210,7 @@ class Dataset:
             try:
                 while fig.number in plt.get_fignums():
                     plt.pause(0.1)
-            except Exception as e:  # noqa
+            except Exception as e:
                 print(f"An error occurred {e}")
                 plt.close(fig.number)
             finally:
@@ -1339,7 +1345,7 @@ class Dataset:
 
             for ii, val in enumerate(cols):
                 # The following is the syntax for defining a dymoval signal
-                temp: dmv.Signal = {
+                temp: Signal = {
                     "name": names[ii],
                     "values": df.loc[:, val].to_numpy().round(NUM_DECIMALS),
                     "signal_unit": signal_units[ii],
@@ -1412,7 +1418,7 @@ class Dataset:
         passed_names = list(a + b)
         names_not_found = difference_lists_of_str(
             passed_names, available_names
-        )  # noqa
+        )
         if names_not_found:
             raise ValueError(f"Signal(s) {names_not_found} not found.")
 
@@ -1421,7 +1427,7 @@ class Dataset:
 
         # Start the plot ritual
         n = len(signal_pairs)
-        nrows, ncols = factorize(n)  # noqa
+        nrows, ncols = factorize(n)
         fig, axes = plt.subplots(nrows, ncols, squeeze=False)
         # Flatten array for more readable code
         axes = axes.T.flat
@@ -1585,7 +1591,7 @@ class Dataset:
         if not _grid:
             fig = plt.figure()
             n = len(signals_tpl)
-            nrows, ncols = factorize(n)  # noqa
+            nrows, ncols = factorize(n)
             grid = fig.add_gridspec(nrows, ncols)
         else:
             grid = _grid
@@ -1726,7 +1732,7 @@ class Dataset:
         if not _grid:
             fig = plt.figure()
             n = len(signals_lst)
-            nrows, ncols = factorize(n)  # noqa
+            nrows, ncols = factorize(n)
             grid = fig.add_gridspec(nrows, ncols)
         else:
             grid = _grid
@@ -2232,7 +2238,7 @@ class Dataset:
         if not _grid:
             fig = plt.figure()
             n = len(signals_tpl)
-            nrows, ncols = factorize(n)  # noqa
+            nrows, ncols = factorize(n)
             grid = fig.add_gridspec(nrows, ncols)
         else:
             grid = _grid
@@ -2495,7 +2501,7 @@ class Dataset:
                     ) * u_filt[kk]
                 df_temp.loc[:, ("OUTPUT", y, y_units[ii])] = y_filt
         # Round value
-        ds_temp.dataset = df_temp.round(NUM_DECIMALS)  # noqa
+        ds_temp.dataset = df_temp.round(NUM_DECIMALS)
 
         return ds_temp
 
@@ -2550,7 +2556,7 @@ class Dataset:
         passed_names = list(a)
         names_not_found = difference_lists_of_str(
             passed_names, available_names
-        )  # noqa
+        )
         if names_not_found:
             raise ValueError(f"Signal(s) {names_not_found} not found.")
 
@@ -3058,7 +3064,7 @@ def plot_signals(*signals: Signal) -> matplotlib.figure.Figure:
     # Plot raw signals
     signal_names = [s["name"] for s in signals]
     n = len(signals)
-    nrows, ncols = factorize(n)  # noqa
+    nrows, ncols = factorize(n)
     fig, ax = plt.subplots(nrows, ncols, squeeze=False, sharex=True)
     ax = ax.T.flat
     for ii, s in enumerate(signals):
@@ -3169,7 +3175,7 @@ def compare_datasets(
 
         # Set nrows and ncols
         fig = plt.figure()
-        nrows, ncols = factorize(n)  # noqa
+        nrows, ncols = factorize(n)
         grid = fig.add_gridspec(nrows, ncols)
 
         return fig, grid

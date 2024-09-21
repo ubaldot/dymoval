@@ -3,13 +3,26 @@
 
 import dymoval as dmv
 import numpy as np
-from fixture_data import *  # noqa
+import pandas as pd
+import pytest
+
+# from fixture_data import *  # noqa
+from fixture_data import (
+    good_signals,
+    good_signals_no_nans,
+    good_dataframe,
+    sine_dataframe,
+    constant_ones_dataframe,
+)
+
 from dymoval.dataset import Signal
-from dymoval import NUM_DECIMALS
+from dymoval.config import NUM_DECIMALS, ATOL, Signal_type
+from dymoval.utils import str2list
 from typing import Any
 import random
 import matplotlib
 from matplotlib import pyplot as plt
+from copy import deepcopy
 
 
 # import warnings
@@ -33,8 +46,8 @@ class Test_Dataset_nominal:
 
         # Expected value. Create a two-levels column from normal DataFrame
         df_expected = deepcopy(df)
-        u_names = dmv.str2list(u_names)
-        y_names = dmv.str2list(y_names)
+        u_names = str2list(u_names)
+        y_names = str2list(y_names)
         u_extended_labels = list(zip(["INPUT"] * len(u_names), u_names))
         y_extended_labels = list(zip(["OUTPUT"] * len(y_names), y_names))
         df_expected.columns = pd.MultiIndex.from_tuples(

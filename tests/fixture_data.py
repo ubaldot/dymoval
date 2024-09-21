@@ -4,7 +4,7 @@ import pytest
 import dymoval as dmv
 import numpy as np
 from copy import deepcopy
-from dymoval.config import *
+from dymoval.config import NUM_DECIMALS
 import pandas as pd
 
 # For more info on parametrized fixtures, look here:
@@ -32,7 +32,12 @@ def good_signals(request):  # type: ignore
             (np.random.rand(50), nan_thing, np.random.rand(400), nan_thing)
         ),
         np.hstack(
-            (np.random.rand(20), nan_thing[0:5], np.random.rand(30), nan_thing)
+            (
+                np.random.rand(20),
+                nan_thing[0:5],
+                np.random.rand(30),
+                nan_thing,
+            )
         ),
         np.hstack((np.random.rand(80), nan_thing, np.random.rand(100))),
     ]
@@ -74,7 +79,12 @@ def good_signals(request):  # type: ignore
             )
         ),
         np.hstack(
-            (np.random.rand(20), nan_thing[0:85], np.random.rand(60), nan_thing)
+            (
+                np.random.rand(20),
+                nan_thing[0:85],
+                np.random.rand(60),
+                nan_thing,
+            )
         ),
     ]
 

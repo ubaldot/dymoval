@@ -32,9 +32,12 @@ except FileNotFoundError:  # pragma: no cover
     pass
 
 
-locals().update(config)
+# locals().update(config)
 
-ATOL = 10**-NUM_DECIMALS  # noqa
+NUM_DECIMALS = config["NUM_DECIMALS"]
+COLORMAP = config["COLORMAP"]
+
+ATOL = 10**-NUM_DECIMALS
 
 # Internal constants
 Signal_type = Literal["INPUT", "OUTPUT"]
