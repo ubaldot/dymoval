@@ -2,8 +2,7 @@
 """Module containing some useful functions."""
 
 import numpy as np
-from .config import *  # noqa
-import scipy.signal as signal  # noqa
+
 from typing import Any
 import sys
 import os
@@ -11,6 +10,14 @@ import subprocess
 from importlib import resources
 import shutil
 from pathlib import Path
+
+__all__ = [
+    "is_interactive_shell",
+    "factorize",
+    "difference_lists_of_str",
+    "str2list",
+    "open_tutorial",
+]
 
 
 def is_interactive_shell():
