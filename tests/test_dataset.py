@@ -7,13 +7,13 @@ import pandas as pd
 import pytest
 
 # from fixture_data import *  # noqa
-from fixture_data import (
-    good_signals,
-    good_signals_no_nans,
-    good_dataframe,
-    sine_dataframe,
-    constant_ones_dataframe,
-)
+# from fixture_data import (
+#     good_signals as good_signals,
+#     good_signals_no_nans as good_signals_no_nans,
+#     good_dataframe as good_dataframe,
+#     sine_dataframe as sine_dataframe,
+#     constant_ones_dataframe as constant_ones_dataframe,
+# )
 
 from dymoval.dataset import Signal
 from dymoval.config import NUM_DECIMALS, ATOL, Signal_type
@@ -365,7 +365,9 @@ class Test_Dataset_nominal:
             ds.remove_signals("potato")
 
     def test_dump_to_signals(
-        self, good_signals_no_nans: list[Signal], tmp_path: str
+        self,
+        good_signals_no_nans: list[Signal],
+        tmp_path: str,
     ) -> None:
         # You should just get a plot.
         (
@@ -1451,7 +1453,10 @@ class Test_Signal_validation:
         ],
     )
     def test_wrong_sampling_period(
-        self, good_signals: list[Signal], test_input: Any, expected: Any
+        self,
+        good_signals: list[Signal],
+        test_input: Any,
+        expected: Any,
     ) -> None:
         # Nominal values
         signal_list, _, _, _, _, _ = good_signals

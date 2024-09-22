@@ -12,13 +12,6 @@ import pandas as pd
 import dymoval as dmv
 from dymoval.dataset import Signal
 import numpy as np
-from fixture_data import (
-    good_signals,
-    good_signals_no_nans,
-    good_dataframe,
-    sine_dataframe,
-    constant_ones_dataframe,
-)
 from dymoval.config import ATOL
 
 

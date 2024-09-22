@@ -51,8 +51,7 @@ jobs:
       - name: Run tests (flake8, pytest, sphinx)
         run: |
           flake8 .
-          # Re-enable once matplotlib and mypy get along better
-          # mypy .
+          mypy .
           coverage run -m pytest ./tests/
           cd docs
           make clean
@@ -136,8 +135,7 @@ jobs:
         shell: bash -l {0}
         run: |
           flake8 .
-          # Re-enable once matplotlib and mypy get along
-          # mypy .
+          mypy .
           coverage run -m pytest ./tests/
           cd docs
           make clean
@@ -158,8 +156,7 @@ jobs:
         shell: pwsh
         run: |
           flake8 .
-          # Re-enable once mypy and matplotlib get along better
-          # mypy .
+          mypy .
           coverage run -m pytest ./tests/
           cd docs
           make clean
