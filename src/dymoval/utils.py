@@ -20,7 +20,7 @@ __all__ = [
 ]
 
 
-def is_interactive_shell():
+def is_interactive_shell() -> bool:
     isinteractive = False
     try:
         from IPython import get_ipython
