@@ -8,9 +8,7 @@
 
 from copy import deepcopy
 import dymoval as dmv
-from dymoval import NUM_DECIMALS
 import numpy as np
-import matplotlib.pyplot as plt
 import matplotlib
 
 
