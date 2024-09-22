@@ -56,8 +56,8 @@ class Test_ClassValidationNominal:
         assert sim1_name in vs.simulations_results.columns.get_level_values(
             "sim_names"
         )
-        assert sim1_name in vs.auto_correlation.keys()
-        assert sim1_name in vs.cross_correlation.keys()
+        assert sim1_name in vs._auto_correlation.keys()
+        assert sim1_name in vs._cross_correlation.keys()
         assert sim1_name in vs.validation_results.columns
 
         assert np.allclose(sim1_values, vs.simulations_results[sim1_name])
@@ -77,8 +77,8 @@ class Test_ClassValidationNominal:
         assert sim2_name in vs.simulations_results.columns.get_level_values(
             "sim_names"
         )
-        assert sim2_name in vs.auto_correlation.keys()
-        assert sim2_name in vs.cross_correlation.keys()
+        assert sim2_name in vs._auto_correlation.keys()
+        assert sim2_name in vs._cross_correlation.keys()
         assert sim2_name in vs.validation_results.columns
 
         assert np.allclose(sim2_values, vs.simulations_results[sim2_name])
@@ -105,11 +105,14 @@ class Test_ClassValidationNominal:
         # ==================================
         vs = vs.drop_simulation(sim1_name)
         # At least the names are nt there any longer.
-        assert sim1_name not in vs.simulations_results.columns.get_level_values(
-            "sim_names"
+        assert (
+            sim1_name
+            not in vs.simulations_results.columns.get_level_values(
+                "sim_names"
+            )
         )
-        assert sim1_name not in vs.auto_correlation.keys()
-        assert sim1_name not in vs.cross_correlation.keys()
+        assert sim1_name not in vs._auto_correlation.keys()
+        assert sim1_name not in vs._cross_correlation.keys()
         assert sim1_name not in vs.validation_results.columns
 
         # ============================================
@@ -120,8 +123,8 @@ class Test_ClassValidationNominal:
         vs = vs.clear()
 
         assert [] == list(vs.simulations_results.columns)
-        assert [] == list(vs.auto_correlation.keys())
-        assert [] == list(vs.cross_correlation.keys())
+        assert [] == list(vs._auto_correlation.keys())
+        assert [] == list(vs._cross_correlation.keys())
         assert [] == list(vs.validation_results.columns)
 
     def test_trim(self, good_dataframe: pd.DataFrame) -> None:
@@ -173,7 +176,9 @@ class Test_ClassValidationNominal:
         vs = vs.trim(tin=1.0, tout=5.0)
 
         # Evaluate
-        assert np.isclose(expected_tin, vs.Dataset.dataset.index[0], atol=ATOL)
+        assert np.isclose(
+            expected_tin, vs.Dataset.dataset.index[0], atol=ATOL
+        )
         assert np.isclose(
             expected_tout, vs.Dataset.dataset.index[-1], atol=ATOL
         )
@@ -241,7 +246,9 @@ class Test_ClassValidatioNominal_sim_validation:
         with pytest.raises(ValueError):
             vs.append_simulation(sim1_name, sim1_labels, sim1_values)
 
-    def test_too_many_signals_raise(self, good_dataframe: pd.DataFrame) -> None:
+    def test_too_many_signals_raise(
+        self, good_dataframe: pd.DataFrame
+    ) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
         ds = dmv.dataset.Dataset(
@@ -266,7 +273,9 @@ class Test_ClassValidatioNominal_sim_validation:
         with pytest.raises(IndexError):
             vs.append_simulation(sim1_name, sim1_labels, sim1_values)
 
-    def test_duplicate_names_raise(self, good_dataframe: pd.DataFrame) -> None:
+    def test_duplicate_names_raise(
+        self, good_dataframe: pd.DataFrame
+    ) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
         ds = dmv.dataset.Dataset(
@@ -315,7 +324,9 @@ class Test_ClassValidatioNominal_sim_validation:
         with pytest.raises(IndexError):
             vs.append_simulation(sim1_name, sim1_labels, sim1_values)
 
-    def test_too_many_values_raise(self, good_dataframe: pd.DataFrame) -> None:
+    def test_too_many_values_raise(
+        self, good_dataframe: pd.DataFrame
+    ) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
         ds = dmv.dataset.Dataset(
@@ -361,7 +372,9 @@ class Test_ClassValidatioNominal_sim_validation:
         with pytest.raises(ValueError):
             vs.append_simulation(sim1_name, sim1_labels, sim1_values)
 
-    def test_ydata_too_short_raise(self, good_dataframe: pd.DataFrame) -> None:
+    def test_ydata_too_short_raise(
+        self, good_dataframe: pd.DataFrame
+    ) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
         ds = dmv.dataset.Dataset(
@@ -384,7 +397,9 @@ class Test_ClassValidatioNominal_sim_validation:
         with pytest.raises(IndexError):
             vs.append_simulation(sim1_name, sim1_labels, sim1_values)
 
-    def test_drop_simulation_raise(self, good_dataframe: pd.DataFrame) -> None:
+    def test_drop_simulation_raise(
+        self, good_dataframe: pd.DataFrame
+    ) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
         ds = dmv.dataset.Dataset(
@@ -593,7 +608,7 @@ class Test_xcorr:
 
         # SISO
         XCorr_actual = dmv.xcorr(x1, y1)
-        Rxy_actual = XCorr_actual["values"]
+        Rxy_actual = XCorr_actual["samples"]
         lags_actual = XCorr_actual["lags"]
 
         assert np.allclose(Rxy_actual[:, 0, 0], Rx1y1_expected, atol=1e-4)
@@ -601,7 +616,7 @@ class Test_xcorr:
 
         # SIMO
         XCorr_actual = dmv.xcorr(x1, Y)
-        Rxy_actual = XCorr_actual["values"]
+        Rxy_actual = XCorr_actual["samples"]
         lags_actual = XCorr_actual["lags"]
 
         assert np.allclose(Rxy_actual[:, 0, 0], Rx1y1_expected, atol=1e-4)
@@ -610,7 +625,7 @@ class Test_xcorr:
 
         # MISO
         XCorr_actual = dmv.xcorr(X, y1)
-        Rxy_actual = XCorr_actual["values"]
+        Rxy_actual = XCorr_actual["samples"]
         lags_actual = XCorr_actual["lags"]
 
         assert np.allclose(Rxy_actual[:, 0, 0], Rx1y1_expected, atol=1e-4)
@@ -619,7 +634,7 @@ class Test_xcorr:
 
         # MIMO
         XCorr_actual = dmv.xcorr(X, Y)
-        Rxy_actual = XCorr_actual["values"]
+        Rxy_actual = XCorr_actual["samples"]
         lags_actual = XCorr_actual["lags"]
 
         assert np.allclose(Rxy_actual[:, 0, 0], Rx1y1_expected, atol=1e-4)
@@ -812,7 +827,7 @@ class Test_xcorr_norm:
         # SISO Adjust test values
         R_test = np.empty(len(lags_test))
         R_test = Rx1y1
-        Rxy_test = {"values": R_test, "lags": lags_test}
+        Rxy_test = {"samples": R_test, "lags": lags_test}
 
         # Act
         acorr_norm_actual = dmv.acorr_norm(Rxy_test)
@@ -830,7 +845,7 @@ class Test_xcorr_norm:
         R_test = np.empty((len(lags_test), 2))
         R_test[:, 0] = Rx1y1
         R_test[:, 1] = Rx1y2
-        Rxy_test = {"values": R_test, "lags": lags_test}
+        Rxy_test = {"samples": R_test, "lags": lags_test}
 
         # Act
         acorr_norm_actual = dmv.acorr_norm(Rxy_test)
@@ -848,7 +863,7 @@ class Test_xcorr_norm:
         R_test = np.empty((len(lags_test), 2))
         R_test[:, 0] = Rx1y1
         R_test[:, 1] = Rx2y1
-        Rxy_test = {"values": R_test, "lags": lags_test}
+        Rxy_test = {"samples": R_test, "lags": lags_test}
 
         # Act
         acorr_norm_actual = dmv.acorr_norm(Rxy_test)
@@ -868,7 +883,7 @@ class Test_xcorr_norm:
         R_test[:, 0, 1] = Rx1y2
         R_test[:, 1, 0] = Rx2y1
         R_test[:, 1, 1] = Rx2y2
-        Rxy_test = {"values": R_test, "lags": lags_test}
+        Rxy_test = {"samples": R_test, "lags": lags_test}
 
         # Act
         acorr_norm_actual = dmv.acorr_norm(Rxy_test)
@@ -889,6 +904,6 @@ class Test_xcorr_norm:
     def test_xcorr_norm_raise(self, R: XCorrelation) -> None:
         # Just test that it won't run any error
         # Next, remove randoms with known values.
-        Rxy = {"values": R, "lags": signal.correlation_lags(len(R), len(R))}
+        Rxy = {"samples": R, "lags": signal.correlation_lags(len(R), len(R))}
         with pytest.raises(IndexError):
             dmv.xcorr_norm(Rxy)

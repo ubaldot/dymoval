@@ -218,7 +218,7 @@ def acorr_norm(
 def xcorr_norm(
     Rxy: XCorrelation,
     l_norm: float | Literal["fro", "nuc"] | None = np.inf,
-    matrix_norm: float | Literal["fro", "nuc"] | None = 2,
+    matrix_norm: float | Literal["fro", "nuc"] | None = np.inf,
 ) -> np.floating:
     r"""Return the norm of the cross-correlation tensor.
 
@@ -246,19 +246,23 @@ def xcorr_norm(
     ncols = R.shape[2]
 
     R_matrix = np.zeros((nrows, ncols))
-    W = 1 / R.shape[0] * np.eye(R.shape[0]) ** 2
+    W = 1 / R.shape[0] * np.ones(R.shape[0])
     for ii in range(nrows):
         for jj in range(ncols):
             # R_matrix[ii, jj] = np.linalg.norm(R[:, ii, jj], l_norm) / len(
             #     R[:, ii, jj]
             # )
             # R_matrix[ii, jj] = np.linalg.norm(R[:, ii, jj], l_norm)
+            #  R_matrix[ii, jj] = evaluation_metrics(R[:, ii, jj], type, #  weight)
             # Quad form
-            R_matrix[ii, jj] = R[:, ii, jj].T @ W @ R[:, ii, jj]
+            R_matrix[ii, jj] = R[:, ii, jj].T @ np.diag(W) @ R[:, ii, jj]
             # inf norm
-            R_matrix[ii, jj] = np.max(np.abs(np.diag(W) @ R[:, ii, jj]))
+            R_matrix[ii, jj] = np.max(np.abs(W.T @ R[:, ii, jj]))
+            # mean value
+            R_matrix[ii, jj] = W.T @ R[:, ii, jj]
 
     # Matrix norn
+    # R_norm = evaluation_metric(np.flatten(R_matrix), type, weight)
     R_norm = np.linalg.norm(R_matrix, matrix_norm).round(NUM_DECIMALS)
     return R_norm
 
