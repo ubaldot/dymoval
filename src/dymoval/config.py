@@ -34,7 +34,7 @@ except FileNotFoundError:  # pragma: no cover
 
 # locals().update(config)
 
-NUM_DECIMALS = config["NUM_DECIMALS"]
+NUM_DECIMALS: int = config["NUM_DECIMALS"]
 COLORMAP = config["COLORMAP"]
 
 ATOL = 10**-NUM_DECIMALS

@@ -42,7 +42,8 @@ jobs:
       - name: Formatting source code (black)
         uses: psf/black@stable
         with:
-            src: "./src/dymoval"
+            src: "."
+            use_pyproject: true
 
       - name: Install dependencies dev (pip)
         run: |
@@ -130,7 +131,8 @@ jobs:
       - name: Formatting source code (black)
         uses: psf/black@stable
         with:
-            src: "./src/dymoval"
+            src: "."
+            use_pyproject: true
 
       - name: (bash) Run all the tests on bash (flake8, pytest, sphinx)
         shell: bash -l {0}
@@ -152,7 +154,8 @@ jobs:
       - name: Formatting source code (black)
         uses: psf/black@stable
         with:
-            src: "./src/dymoval"
+            src: "."
+            use_pyproject: true
 
       - name: (powershell) Run all the tests on Powershell (flake8, pytest, sphinx)
         shell: pwsh

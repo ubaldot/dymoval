@@ -1218,8 +1218,8 @@ class Dataset:
 
             # =======================================================
             axes[0].remove_callback(cid)
-            tin_sel = selection["tin"]  # type:ignore
-            tout_sel = selection["tout"]  # type:ignore
+            tin_sel = selection["tin"]
+            tout_sel = selection["tout"]
 
             return np.round(tin_sel, NUM_DECIMALS), np.round(
                 tout_sel, NUM_DECIMALS

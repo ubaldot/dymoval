@@ -136,9 +136,7 @@ class TestInitializerFromSignals:
         )
 
         # assert sampling period
-        assert np.isclose(
-            ds.sampling_period, target_sampling_period, atol=ATOL
-        )
+        assert np.isclose(ds.sampling_period, target_sampling_period, atol=ATOL)
 
     def test_no_leftovers(self, good_signals: list[Signal]) -> None:
         # Nominal data
@@ -270,9 +268,7 @@ class TestInitializerFromDataframe:
 
             # Assert if df has been filtered and ordered according to user needs
             assert list(ds.dataset.columns) == expected_cols
-            assert np.allclose(
-                expected_vals, ds.dataset.to_numpy(), atol=ATOL
-            )
+            assert np.allclose(expected_vals, ds.dataset.to_numpy(), atol=ATOL)
 
     @pytest.mark.parametrize(
         # Each test is ((tin,tout),(tin_expected,tout_expected))
