@@ -43,7 +43,6 @@ jobs:
         uses: psf/black@stable
         with:
             src: "."
-            use_pyproject: true
 
       - name: Install dependencies dev (pip)
         run: |
@@ -132,7 +131,6 @@ jobs:
         uses: psf/black@stable
         with:
             src: "."
-            use_pyproject: true
 
       - name: (bash) Run all the tests on bash (flake8, pytest, sphinx)
         shell: bash -l {0}
@@ -155,7 +153,6 @@ jobs:
         uses: psf/black@stable
         with:
             src: "."
-            use_pyproject: true
 
       - name: (powershell) Run all the tests on Powershell (flake8, pytest, sphinx)
         shell: pwsh
