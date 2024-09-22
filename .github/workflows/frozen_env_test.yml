@@ -54,7 +54,7 @@ jobs:
           python-version: "3.12"
           channels: conda-forge
           channel-priority: true
-          environment-file: ./conda_freeze_py3_12_5.yml
+          environment-file: ./conda_freeze_3_12_6.yml
           miniforge-version: latest
 
       - name: Install dymoval through pip
