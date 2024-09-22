@@ -134,7 +134,10 @@ def rsquared(x: np.ndarray, y: np.ndarray) -> float:
     # Compute r-square fit (%)
     x_mean = np.mean(x, axis=0)
     r2 = np.round(
-        (1.0 - np.linalg.norm(eps, 2) ** 2 / np.linalg.norm(x - x_mean, 2) ** 2)
+        (
+            1.0
+            - np.linalg.norm(eps, 2) ** 2 / np.linalg.norm(x - x_mean, 2) ** 2
+        )
         * 100,
         NUM_DECIMALS,
     )
@@ -216,7 +219,7 @@ def xcorr_norm(
     Rxy: XCorrelation,
     l_norm: float | Literal["fro", "nuc"] | None = np.inf,
     matrix_norm: float | Literal["fro", "nuc"] | None = 2,
-) -> float:
+) -> np.floating:
     r"""Return the norm of the cross-correlation tensor.
 
     It first compute the :math:`\ell`-norm of each component
@@ -243,16 +246,21 @@ def xcorr_norm(
     ncols = R.shape[2]
 
     R_matrix = np.zeros((nrows, ncols))
+    W = 1 / R.shape[0] * np.eye(R.shape[0]) ** 2
     for ii in range(nrows):
         for jj in range(ncols):
             # R_matrix[ii, jj] = np.linalg.norm(R[:, ii, jj], l_norm) / len(
             #     R[:, ii, jj]
             # )
-            R_matrix[ii, jj] = np.linalg.norm(R[:, ii, jj], l_norm)
+            # R_matrix[ii, jj] = np.linalg.norm(R[:, ii, jj], l_norm)
+            # Quad form
+            R_matrix[ii, jj] = R[:, ii, jj].T @ W @ R[:, ii, jj]
+            # inf norm
+            R_matrix[ii, jj] = np.max(np.abs(np.diag(W) @ R[:, ii, jj]))
 
     # Matrix norn
     R_norm = np.linalg.norm(R_matrix, matrix_norm).round(NUM_DECIMALS)
-    return R_norm  # type: ignore
+    return R_norm
 
 
 class ValidationSession:
@@ -403,7 +411,9 @@ class ValidationSession:
         # Cam be a positional or a keyword arg
         list_sims: str | list[str] | None = None,
         dataset: Literal["in", "out", "both"] | None = None,
-        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
+        layout: Literal[
+            "constrained", "compressed", "tight", "none"
+        ] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> matplotlib.figure.Figure:
@@ -778,7 +788,9 @@ class ValidationSession:
         self,
         list_sims: str | list[str] | None = None,
         *,
-        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
+        layout: Literal[
+            "constrained", "compressed", "tight", "none"
+        ] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> tuple[matplotlib.figure.Figure, matplotlib.figure.Figure]:
@@ -975,11 +987,15 @@ class ValidationSession:
         vs_temp._simulation_validation(sim_name, y_names, y_data)
 
         y_units = list(
-            vs_temp.Dataset.dataset["OUTPUT"].columns.get_level_values("units")
+            vs_temp.Dataset.dataset["OUTPUT"].columns.get_level_values(
+                "units"
+            )
         )
 
         # Initialize sim df
-        df_sim = pd.DataFrame(data=y_data, index=vs_temp.Dataset.dataset.index)
+        df_sim = pd.DataFrame(
+            data=y_data, index=vs_temp.Dataset.dataset.index
+        )
         multicols = list(zip([sim_name] * len(y_names), y_names, y_units))
         df_sim.columns = pd.MultiIndex.from_tuples(
             multicols, names=["sim_names", "signal_names", "units"]

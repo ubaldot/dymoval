@@ -101,6 +101,10 @@ dev = [
              "config",
          ]
 
+         [[tool.mypy.overrides]]
+         module = "matplotlib.*"
+         ignore_errors = true
+
          [tool.pylsp-mypy]
          enabled = true
          live_mode = true
