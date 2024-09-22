@@ -25,7 +25,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5.2.0
         with:
-            python-version: '3.11'
+            python-version: '3.12'
 
       - name: Install dependencies (pip)
         run: |
@@ -51,7 +51,7 @@ jobs:
       - name: Setup Minoconda
         uses: conda-incubator/setup-miniconda@v3
         with:
-          python-version: "3.11"
+          python-version: "3.12"
           channels: conda-forge
           channel-priority: true
           environment-file: ./conda_freeze_py3_12_5.yml
