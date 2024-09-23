@@ -105,11 +105,6 @@ dev = [
          module = "matplotlib.*"
          ignore_errors = true
 
-         [tool.pylsp-mypy]
-         enabled = true
-         live_mode = true
-         strict = true
-         exclude = ["tests/*", "manual_tests/*", "docs/*"]
 # flake 8 does not work with pyproject files
 
          # [tool.flake8]

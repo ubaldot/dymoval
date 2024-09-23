@@ -15,10 +15,8 @@ from .dataset import (
 
 from .validation import (
     XCorrelation,
-    xcorr,
     rsquared,
-    acorr_norm,
-    xcorr_norm,
+    whiteness_level,
     ValidationSession,
 )
 
@@ -37,10 +35,8 @@ __all__ = [
     "plot_signals",
     "compare_datasets",
     "XCorrelation",
-    "xcorr",
     "rsquared",
-    "acorr_norm",
-    "xcorr_norm",
+    "whiteness_level",
     "ValidationSession",
     "open_tutorial",
     "NUM_DECIMALS",

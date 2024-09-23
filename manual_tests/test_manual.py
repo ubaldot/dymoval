@@ -209,6 +209,8 @@ sim2_values = vs.Dataset.dataset["OUTPUT"].values + np.random.rand(
     len(vs.Dataset.dataset["OUTPUT"].values), 2
 )
 
+dmv.whiteness_level(sim1_values, sim1_values)
+
 # We use the ValidationSession's method append_simulation to append the simulation
 # results.
 vs = vs.append_simulation(sim1_name, sim1_labels, sim1_values)

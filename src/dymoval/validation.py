@@ -1,4 +1,3 @@
-# mypy: show_error_codes
 """Module containing everything related to validation."""
 
 from __future__ import annotations
@@ -19,19 +18,19 @@ from .utils import (
 )
 
 from .dataset import Dataset
-from typing import TypedDict, Literal, Any
+from typing import Literal, Any
+from dataclasses import dataclass
 
 __all__ = [
     "XCorrelation",
-    "xcorr",
+    "whiteness_level",
     "rsquared",
-    "acorr_norm",
-    "xcorr_norm",
     "ValidationSession",
 ]
 
 
-class XCorrelation(TypedDict):
+@dataclass
+class XCorrelation:
     # You have to manually write the type in TypedDicts docstrings
     # and you have to exclude them in the :automodule:
     """Type used to store MIMO cross-correlations.
@@ -44,20 +43,7 @@ class XCorrelation(TypedDict):
         It is a *Nxpxq* tensor, where *p* is the dimension of the first signals,
         *q* is the dimension of the second signal and *N* is the number of lags.
 
-    """
-
-    values: (
-        np.ndarray
-    )  # values collide with values() method of dict and won't be rendered
-    lags: np.ndarray
-    """Lags of the cross-correlation.
-    It is a vector of length *N*, where *N* is the number of lags."""
-
-
-def xcorr(
-    X: np.ndarray, Y: np.ndarray, nlags: int | None = None
-) -> XCorrelation:
-    """Return the normalized cross-correlation of two MIMO signals.
+    Return the normalized cross-correlation of two MIMO signals.
 
     If X = Y then it return the normalized auto-correlation of X.
 
@@ -70,48 +56,237 @@ def xcorr(
         MIMO signal realizations expressed as `Nxq` 2D array
         of `N` observations of `q` signals.
     """
-    # Reshape one-dimensional vector into"column" vectors.
-    if X.ndim == 1:
-        X = X.reshape(len(X), 1)
-    if Y.ndim == 1:
-        Y = Y.reshape(len(Y), 1)
-    p = X.shape[1]
-    q = Y.shape[1]
 
-    if nlags is None:
-        lags = signal.correlation_lags(len(X), len(Y))
-    else:
-        lags = np.arange(-nlags, nlags + 1)
-    Rxy = np.zeros([len(lags), p, q])
-    for ii in range(p):
-        for jj in range(q):
-            # Classic correlation definition from Probability.
-            # Rxy = E[(X-mu_x)^T(Y-mu_y))]/(sigma_x*sigma_y),
-            # check normalized cross-correlation for stochastic processes on Wikipedia.
-            # Nevertheless, the cross-correlation is in-fact the same as E[].
-            # More specifically, the cross-correlation generate a sequence
-            # [E[XY(\tau=0))] E[XY(\tau=1))], ...,E[XY(\tau=N))]] and this is
-            # the reason why in the computation below we use signal.correlation.
-            #
-            # Another way of seeing it, is that to secure that the cross-correlation
-            # is always between -1 and 1, we "normalize" the observations X and Y
-            # Google for "Standard score"
-            #
-            # At the end, for each pair (ii,jj) you have Rxy = r_{x_ii,y_jj}(\tau), therefore
-            # for each (ii,jj) we compute a correlation.
-            Rxy[:, ii, jj] = (
-                signal.correlate(
-                    (X[:, ii] - np.mean(X[:, ii])) / np.std(X[:, ii]),
-                    (Y[:, jj] - np.mean(Y[:, jj])) / np.std(Y[:, jj]),
+    def __init__(
+        self,
+        name: str,
+        X: np.ndarray,
+        Y: np.ndarray | None = None,
+        nlags: int | None = None,
+        local_weights: np.ndarray | None = None,  # shall be a 1D vector
+        local_criteria: Metric_type = "mean",
+        global_weights: np.ndarray | None = None,
+        global_criteria: Metric_type = "inf",
+    ) -> None:
+
+        def _init_tensor(
+            X: np.ndarray,
+            Y: np.ndarray,
+            nlags: int | None = None,
+        ) -> Any:
+            if X.ndim == 1:
+                X = X.reshape(len(X), 1)
+            if Y.ndim == 1:
+                Y = Y.reshape(len(Y), 1)
+            p = X.shape[1]
+            q = Y.shape[1]
+
+            if nlags is None:
+                lags = signal.correlation_lags(len(X), len(Y))
+            else:
+                lags = np.arange(-nlags, nlags + 1)
+            Rxy = np.zeros([len(lags), p, q])
+            for ii in range(p):
+                for jj in range(q):
+                    # Classic correlation definition from Probability.
+                    # Rxy = E[(X-mu_x)^T(Y-mu_y))]/(sigma_x*sigma_y),
+                    # check normalized cross-correlation for stochastic processes on Wikipedia.
+                    # Nevertheless, the cross-correlation is in-fact the same as E[].
+                    # More specifically, the cross-correlation generate a sequence
+                    # [E[XY(\tau=0))] E[XY(\tau=1))], ...,E[XY(\tau=N))]] and this is
+                    # the reason why in the computation below we use signal.correlation.
+                    #
+                    # Another way of seeing it, is that to secure that the cross-correlation
+                    # is always between -1 and 1, we "normalize" the observations X and Y
+                    # Google for "Standard score"
+                    #
+                    # At the end, for each pair (ii,jj) you have Rxy = r_{x_ii,y_jj}(\tau), therefore
+                    # for each (ii,jj) we compute a correlation.
+                    Rxy[:, ii, jj] = (
+                        signal.correlate(
+                            (X[:, ii] - np.mean(X[:, ii])) / np.std(X[:, ii]),
+                            (Y[:, jj] - np.mean(Y[:, jj])) / np.std(Y[:, jj]),
+                        )
+                        / min(len(X), len(Y))
+                    ).round(NUM_DECIMALS)
+
+            return Rxy, lags
+
+        def _whiteness_level(
+            Rxy: XCorrelation,
+            local_weights: np.ndarray | None = None,  # shall be a 1D vector
+            local_criteria: Metric_type = "mean",
+            global_weights: np.ndarray | None = None,
+            global_criteria: Metric_type = "inf",
+        ) -> np.floating:
+
+            def _compute_statistic(
+                criteria: Metric_type, W: np.ndarray, rij_tau: np.ndarray
+            ) -> np.floating:
+                if criteria == "quadratic":
+                    statistic = rij_tau.T @ np.diag(W) @ rij_tau
+                elif criteria == "inf":
+                    statistic = np.max(np.abs(W.T @ rij_tau))
+                elif criteria == "mean":
+                    statistic = W.T @ rij_tau
+                elif criteria == "std_dev":
+                    # TODO :
+                    statistic = 99.0
+                else:
+                    raise ValueError(
+                        f"'criteria' must be one of [{METRIC_TYPE}]"
+                    )
+                return statistic
+
+            # R is 3D tensor
+            R = Rxy.values
+            nobsv = R.shape[0]  # Number of observations
+            nrows = R.shape[1]  # Number of rows
+            ncols = R.shape[2]  # Number of columns
+
+            # Fix locals weights
+            if local_weights is None and local_criteria == "mean":
+                # All weights equal to 1/n
+                W_local = 1 / nobsv * np.ones(nobsv)
+            elif local_weights is None and local_criteria != "mean":
+                # All the weights equal to 1
+                W_local = np.ones(nobsv)
+            else:
+                W_local = local_weights
+
+            # Fix globals weights
+            if global_weights is None and global_criteria == "mean":
+                # All weights equal to 1/n
+                W_global = 1 / (nrows * ncols) * np.ones(nrows * ncols)
+            elif global_weights is None and global_criteria != "mean":
+                # All the weights equal to 1
+                W_global = np.ones(nrows * ncols)
+            else:
+                W_global = global_weights
+
+            # Build the R_matrix by computing the statistic of each scalar
+            # cross-correlation graph
+            R_matrix = np.zeros((nrows, ncols))
+            for ii in range(nrows):
+                for jj in range(ncols):
+                    R_matrix[ii, jj] = _compute_statistic(
+                        local_criteria, W_local, R[:, ii, jj]
+                    )
+
+            # Compute the overall statistic of the resulting matrix
+            whiteness_level = _compute_statistic(
+                global_criteria, W_global, R_matrix.flatten()
+            )
+            return whiteness_level
+
+        # Set class attributes
+        self.name: str = name
+        if Y is None:
+            self.values, self.lags = _init_tensor(X, X, nlags)
+            self.kind = "auto-correlation"
+        else:
+            self.values, self.lags = _init_tensor(X, Y, nlags)
+            self.kind = "cross-correlation"
+
+        self.whiteness = _whiteness_level(
+            self,
+            local_weights,
+            local_criteria,
+            global_weights,
+            global_criteria,
+        )
+
+        """Lags of the cross-correlation.
+        It is a vector of length *N*, where *N* is the number of lags."""
+
+    def plot(self) -> matplotlib.figure.Figure:
+        p = self.values.shape[1]
+        q = self.values.shape[2]
+        fig, ax = plt.subplots(p, q, sharex=True, squeeze=False)
+        plt.setp(ax, ylim=(-1.2, 1.2))
+        partial_title = "u" if self.kind == "cross-correlation" else "eps"
+
+        for ii in range(p):
+            for jj in range(q):
+                ax[ii, jj].plot(
+                    self.lags,
+                    self.values[:, ii, jj],
+                    label=self.name,
                 )
-                / min(len(X), len(Y))
-            ).round(NUM_DECIMALS)
+                ax[ii, jj].grid(True)
+                ax[ii, jj].set_xlabel("Lags")
+                ax[ii, jj].set_title(rf"r_{partial_title}{ii}eps{jj}")
+                # For the following the user needs LaTeX.
+                # ax2[ii, jj].set_title(rf"$\hat r_{{u_{ii}\epsilon_{jj}}}$")
+                ax[ii, jj].legend()
+        fig.suptitle(f"{self.kind}")
 
-    xcorr_result: XCorrelation = {
-        "values": Rxy,
-        "lags": lags,
-    }
-    return xcorr_result
+        if is_interactive_shell():
+            fig.show()
+        else:
+            plt.show()
+
+        return fig
+
+
+# def xcorr(
+#     X: np.ndarray, Y: np.ndarray, nlags: int | None = None
+# ) -> XCorrelation:
+#     """Return the normalized cross-correlation of two MIMO signals.
+
+#     If X = Y then it return the normalized auto-correlation of X.
+
+#     Parameters
+#     ----------
+#     X :
+#         MIMO signal realizations expressed as `Nxp` 2D array
+#         of `N` observations of `p` signals.
+#     Y :
+#         MIMO signal realizations expressed as `Nxq` 2D array
+#         of `N` observations of `q` signals.
+#     """
+#     # Reshape one-dimensional vector into"column" vectors.
+#     if X.ndim == 1:
+#         X = X.reshape(len(X), 1)
+#     if Y.ndim == 1:
+#         Y = Y.reshape(len(Y), 1)
+#     p = X.shape[1]
+#     q = Y.shape[1]
+
+#     if nlags is None:
+#         lags = signal.correlation_lags(len(X), len(Y))
+#     else:
+#         lags = np.arange(-nlags, nlags + 1)
+#     Rxy = np.zeros([len(lags), p, q])
+#     for ii in range(p):
+#         for jj in range(q):
+#             # Classic correlation definition from Probability.
+#             # Rxy = E[(X-mu_x)^T(Y-mu_y))]/(sigma_x*sigma_y),
+#             # check normalized cross-correlation for stochastic processes on Wikipedia.
+#             # Nevertheless, the cross-correlation is in-fact the same as E[].
+#             # More specifically, the cross-correlation generate a sequence
+#             # [E[XY(\tau=0))] E[XY(\tau=1))], ...,E[XY(\tau=N))]] and this is
+#             # the reason why in the computation below we use signal.correlation.
+#             #
+#             # Another way of seeing it, is that to secure that the cross-correlation
+#             # is always between -1 and 1, we "normalize" the observations X and Y
+#             # Google for "Standard score"
+#             #
+#             # At the end, for each pair (ii,jj) you have Rxy = r_{x_ii,y_jj}(\tau), therefore
+#             # for each (ii,jj) we compute a correlation.
+#             Rxy[:, ii, jj] = (
+#                 signal.correlate(
+#                     (X[:, ii] - np.mean(X[:, ii])) / np.std(X[:, ii]),
+#                     (Y[:, jj] - np.mean(Y[:, jj])) / np.std(Y[:, jj]),
+#                 )
+#                 / min(len(X), len(Y))
+#             ).round(NUM_DECIMALS)
+
+#     xcorr_result: XCorrelation = {
+#         "values": Rxy,
+#         "lags": lags,
+#     }
+#     return xcorr_result
 
 
 def rsquared(x: np.ndarray, y: np.ndarray) -> float:
@@ -139,17 +314,21 @@ def rsquared(x: np.ndarray, y: np.ndarray) -> float:
     # Compute r-square fit (%)
     x_mean = np.mean(x, axis=0)
     r2 = np.round(
-        (1.0 - np.linalg.norm(eps, 2) ** 2 / np.linalg.norm(x - x_mean, 2) ** 2)
+        (
+            1.0
+            - np.linalg.norm(eps, 2) ** 2 / np.linalg.norm(x - x_mean, 2) ** 2
+        )
         * 100,
         NUM_DECIMALS,
     )
     return r2  # type: ignore
 
 
+# TODO May be removed
 def _xcorr_norm_validation(
     Rxy: XCorrelation,
 ) -> XCorrelation:
-    R = Rxy["values"]
+    R = Rxy.values
 
     # MISO or SIMO case
     if R.ndim == 2:
@@ -166,57 +345,58 @@ def _xcorr_norm_validation(
             "and the third dimension size is equal to the number of outputs 'q.'"
         )
 
-    Rxy["values"] = R
+    Rxy.values
 
     return Rxy
 
 
-def acorr_norm(
-    Rxx: XCorrelation,
-    l_norm: float | Literal["fro", "nuc"] | None = np.inf,
-    matrix_norm: float | Literal["fro", "nuc"] | None = 2,
-) -> float:
-    r"""Return the norm of the auto-correlation tensor.
+# def acorr_norm(
+#     Rxx: XCorrelation,
+#     l_norm: float | Literal["fro", "nuc"] | None = np.inf,
+#     matrix_norm: float | Literal["fro", "nuc"] | None = 2,
+# ) -> float:
+#     r"""Return the norm of the auto-correlation tensor.
 
-    It first compute the :math:`\ell`-norm of each component
-    :math:`r_{i,j}(\tau) \in R_{x,x}(\tau), i=1,\,\dots\, q, j=1,\dots,q`,
-    where :math:`R_{x,x}(\tau)` is the input tensor.
-    Then, it computes the matrix-norm of the resulting matrix :math:`\hat R_{x,x}`.
-
-
-    Note
-    ----
-    Given that the auto-correlation of the same components for lags = 0
-    is always 1 or -1, then the validation metrics could be jeopardized,
-    especially if the :math:`\ell`-inf norm is used.
-    Therefore, the diagonal entries of the sampled auto-correlation matrix
-    for lags = 0 is set to 0.0
+#     It first compute the :math:`\ell`-norm of each component
+#     :math:`r_{i,j}(\tau) \in R_{x,x}(\tau), i=1,\,\dots\, q, j=1,\dots,q`,
+#     where :math:`R_{x,x}(\tau)` is the input tensor.
+#     Then, it computes the matrix-norm of the resulting matrix :math:`\hat R_{x,x}`.
 
 
-    Parameters
-    ----------
-    Rxx :
-        Auto-correlation input tensor.
-    l_norm :
-        Type of :math:`\ell`-norm.
-        This parameter is passed to *numpy.linalg.norm()* method.
-    matrix_norm :
-        Type of matrx norm with respect to :math:`\ell`-normed covariance matrix.
-        This parameter is passed to *numpy.linalg.norm()* method.
-    """
-    Rxx = deepcopy(_xcorr_norm_validation(Rxx))
-
-    # Auto-correlation for lags = 0 of the same component is 1 or -1
-    # therefore may jeopardize the results, especially if the l-inf norm
-    # is used.
-    lags0_idx = np.nonzero(Rxx["lags"] == 0)[0][0]
-    np.fill_diagonal(Rxx["values"][lags0_idx, :, :], 0.0)
-
-    R_norm = xcorr_norm(Rxx, l_norm, matrix_norm)
-
-    return R_norm
+#     Note
+#     ----
+#     Given that the auto-correlation of the same components for lags = 0
+#     is always 1 or -1, then the validation metrics could be jeopardized,
+#     especially if the :math:`\ell`-inf norm is used.
+#     Therefore, the diagonal entries of the sampled auto-correlation matrix
+#     for lags = 0 is set to 0.0
 
 
+#     Parameters
+#     ----------
+#     Rxx :
+#         Auto-correlation input tensor.
+#     l_norm :
+#         Type of :math:`\ell`-norm.
+#         This parameter is passed to *numpy.linalg.norm()* method.
+#     matrix_norm :
+#         Type of matrx norm with respect to :math:`\ell`-normed covariance matrix.
+#         This parameter is passed to *numpy.linalg.norm()* method.
+#     """
+#     Rxx = deepcopy(_xcorr_norm_validation(Rxx))
+
+#     # Auto-correlation for lags = 0 of the same component is 1 or -1
+#     # therefore may jeopardize the results, especially if the l-inf norm
+#     # is used.
+#     lags0_idx = np.nonzero(Rxx.lags == 0)[0][0]
+#     np.fill_diagonal(Rxx.values[lags0_idx, :, :], 0.0)
+
+#     R_norm = xcorr_norm(Rxx, l_norm, matrix_norm)
+
+#     return R_norm
+
+
+# TODO: redundant
 def whiteness_level(
     X: np.ndarray,
     Y: np.ndarray | None = None,
@@ -224,23 +404,9 @@ def whiteness_level(
     local_criteria: Metric_type = "mean",
     global_weights: np.ndarray | None = None,
     global_criteria: Metric_type = "inf",
-) -> tuple(np.floating, XCorrelation):
-
-    def compute_statistic(
-        criteria: Metric_type, W: np.ndarray, rij_tau: np.ndarray
-    ) -> np.floating:
-        if criteria == "quadratic":
-            statistic = rij_tau.T @ np.diag(W) @ rij_tau
-        elif criteria == "inf":
-            statistic = np.max(np.abs(W.T @ rij_tau))
-        elif criteria == "mean":
-            statistic = W.T @ rij_tau
-        elif criteria == "std_dev":
-            # TODO :
-            pass
-        else:
-            raise ValueError(f"'criteria' must be one of [{METRIC_TYPE}]")
-        return statistic
+) -> tuple[np.floating, XCorrelation]:
+    # Convert signals into XCorrelation tensors and compute the
+    # whiteness_level
 
     # TODO Input validation
     # Check that the global_weights length is equal to p * q
@@ -252,109 +418,71 @@ def whiteness_level(
         nlags = local_weights.shape[0]
 
     if Y is None:
-        Rxy: XCorrelation = xcorr(X, X, nlags)
+        Rxy = XCorrelation("", X, X, nlags)
         # Auto-correlation for lags = 0 of the same component is 1 or -1
         # therefore may jeopardize the results, especially if the l-inf norm
         # is used.
-        lags0_idx = np.nonzero(Rxy["lags"] == 0)[0][0]
-        np.fill_diagonal(Rxy["values"][lags0_idx, :, :], 0.0)
+        lags0_idx = np.nonzero(Rxy.lags == 0)[0][0]
+        np.fill_diagonal(Rxy.values[lags0_idx, :, :], 0.0)
     else:
-        Rxy: XCorrelation = xcorr(X, Y, nlags)
+        Rxy = XCorrelation("", X, Y, nlags)
 
-    # R is 3D tensor
-    R = Rxy["values"]
-    nobsv = R.shape[0]  # Number of observations
-    nrows = R.shape[1]  # Number of rows
-    ncols = R.shape[2]  # Number of columns
-
-    # Fix locals weights
-    if local_weights is None and local_criteria == "mean":
-        # All weights equal to 1/n
-        W_local = 1 / nobsv * np.ones(nobsv)
-    elif local_weights is None and local_criteria != "mean":
-        # All the weights equal to 1
-        W_local = np.ones(nobsv)
-    else:
-        W_local = local_weights
-
-    # Fix globals weights
-    if global_weights is None and global_criteria == "mean":
-        # All weights equal to 1/n
-        W_global = 1 / nobsv * np.ones(nobsv)
-    elif global_weights is None and global_criteria != "mean":
-        # All the weights equal to 1
-        W_global = np.ones(nobsv)
-    else:
-        W_global = global_weights
-
-    # Build the R_matrix by computing the statistic of each scalar
-    # cross-correlation graph
-    R_matrix = np.zeros((nrows, ncols))
-    for ii in range(nrows):
-        for jj in range(ncols):
-            R_matrix[ii, jj] = compute_statistic(
-                local_criteria, W_local, R[:, ii, jj]
-            )
-
-    # Compute the overall statistic of the resulting matrix
-    whiteness_level = compute_statistic(
-        global_criteria, W_global, R_matrix.flatten()
-    )
-    return whiteness_level, Rxy
+    return Rxy.whiteness, Rxy
 
 
-def xcorr_norm(
-    Rxy: XCorrelation,
-    l_norm: float | Literal["fro", "nuc"] | None = np.inf,
-    matrix_norm: float | Literal["fro", "nuc"] | None = np.inf,
-) -> np.floating:
-    r"""Return the norm of the cross-correlation tensor.
+# def xcorr_norm(
+#     Rxy: XCorrelation,
+#     l_norm: float | Literal["fro", "nuc"] | None = np.inf,
+#     matrix_norm: float | Literal["fro", "nuc"] | None = np.inf,
+# ) -> np.floating:
+#     r"""Return the norm of the cross-correlation tensor.
 
-    It first compute the :math:`\ell`-norm of each component
-    :math:`r_{i,j}(\tau) \in R_{x,y}(\tau), i=1,\,\dots\, p, j=1,\dots,q`,
-    where :math:`R_{x,y}(\tau)` is the input tensor.
-    Then, it computes the matrix-norm of the resulting matrix :math:`\hat R_{x,y}`.
+#     It first compute the :math:`\ell`-norm of each component
+#     :math:`r_{i,j}(\tau) \in R_{x,y}(\tau), i=1,\,\dots\, p, j=1,\dots,q`,
+#     where :math:`R_{x,y}(\tau)` is the input tensor.
+#     Then, it computes the matrix-norm of the resulting matrix :math:`\hat R_{x,y}`.
 
-    Parameters
-    ----------
-    Rxy :
-        Cross-correlation input tensor.
-    l_norm :
-        Type of :math:`\ell`-norm.
-        This parameter is passed to *numpy.linalg.norm()* method.
-    matrix_norm :
-        Type of matrx norm with respect to :math:`\ell`-normed covariance matrix.
-        This parameter is passed to *numpy.linalg.norm()* method.
-    """
+#     Parameters
+#     ----------
+#     Rxy :
+#         Cross-correlation input tensor.
+#     l_norm :
+#         Type of :math:`\ell`-norm.
+#         This parameter is passed to *numpy.linalg.norm()* method.
+#     matrix_norm :
+#         Type of matrx norm with respect to :math:`\ell`-normed covariance matrix.
+#         This parameter is passed to *numpy.linalg.norm()* method.
+#     """
 
-    Rxy = _xcorr_norm_validation(Rxy)
+#     Rxy = _xcorr_norm_validation(Rxy)
 
-    R = Rxy["values"]
-    nrows = R.shape[1]
-    ncols = R.shape[2]
+#     R = Rxy.values
+#     nrows = R.shape[1]
+#     ncols = R.shape[2]
 
-    R_matrix = np.zeros((nrows, ncols))
-    W = 1 / R.shape[0] * np.ones(R.shape[0])
-    for ii in range(nrows):
-        for jj in range(ncols):
-            # R_matrix[ii, jj] = np.linalg.norm(R[:, ii, jj], l_norm) / len(
-            #     R[:, ii, jj]
-            # )
-            # R_matrix[ii, jj] = np.linalg.norm(R[:, ii, jj], l_norm)
-            #  R_matrix[ii, jj] = evaluation_metrics(R[:, ii, jj], type, #  weight)
-            # Quad form
-            R_matrix[ii, jj] = R[:, ii, jj].T @ np.diag(W) @ R[:, ii, jj]
-            # inf norm
-            R_matrix[ii, jj] = np.max(np.abs(W.T @ R[:, ii, jj]))
-            # mean value
-            R_matrix[ii, jj] = W.T @ R[:, ii, jj]
+#     R_matrix = np.zeros((nrows, ncols))
+#     W = 1 / R.shape[0] * np.ones(R.shape[0])
+#     for ii in range(nrows):
+#         for jj in range(ncols):
+#             # R_matrix[ii, jj] = np.linalg.norm(R[:, ii, jj], l_norm) / len(
+#             #     R[:, ii, jj]
+#             # )
+#             # R_matrix[ii, jj] = np.linalg.norm(R[:, ii, jj], l_norm)
+#             #  R_matrix[ii, jj] = evaluation_metrics(R[:, ii, jj], type, #  weight)
+#             # Quad form
+#             R_matrix[ii, jj] = R[:, ii, jj].T @ np.diag(W) @ R[:, ii, jj]
+#             # inf norm
+#             R_matrix[ii, jj] = np.max(np.abs(W.T @ R[:, ii, jj]))
+#             # mean value
+#             R_matrix[ii, jj] = W.T @ R[:, ii, jj]
 
-    # Matrix norn
-    # R_norm = evaluation_metric(np.flatten(R_matrix), type, weight)
-    R_norm = np.linalg.norm(R_matrix, matrix_norm).round(NUM_DECIMALS)
-    return R_norm
+#     # Matrix norn
+#     # R_norm = evaluation_metric(np.flatten(R_matrix), type, weight)
+#     R_norm = np.linalg.norm(R_matrix, matrix_norm).round(NUM_DECIMALS)
+#     return R_norm
 
 
+@dataclass
 class ValidationSession:
     # TODO: Save validation session.
     """The *ValidationSession* class is used to validate models against a given dataset.
@@ -410,26 +538,24 @@ class ValidationSession:
         This attribute is automatically set
         and it should be considered as a *read-only* attribute."""
 
-    def _append_correlations_tensors(self, sim_name: str) -> None:
-        # Extract dataset
-        df_val = self.Dataset.dataset
-        y_sim_values = self.simulations_results[sim_name].to_numpy()
+    # def _append_correlations_tensors(self, sim_name: str) -> None:
+    #     # Extract dataset
+    #     df_val = self.Dataset.dataset
+    #     y_sim_values = self.simulations_results[sim_name].to_numpy()
 
-        # Move everything to numpy.
-        u_values = df_val["INPUT"].to_numpy()
-        y_values = df_val["OUTPUT"].to_numpy()
+    #     # Move everything to numpy.
+    #     u_values = df_val["INPUT"].to_numpy()
+    #     y_values = df_val["OUTPUT"].to_numpy()
 
-        # Compute residuals.
-        # Consider only the residuals wrt to the logged outputs
-        eps = y_values - y_sim_values
+    #     # Compute residuals.
+    #     # Consider only the residuals wrt to the logged outputs
+    #     eps = y_values - y_sim_values
 
-        # Residuals auto-correlation
-        # xcorr returns a Xcorrelation object
-        self.auto_correlation[sim_name] = xcorr(eps, eps)
+    #     # Residuals auto-correlation
+    #     self.auto_correlation[sim_name] = XCorrelation(eps, eps)
 
-        # Input-residuals cross-correlation
-        # xcorr returns a Xcorrelation object
-        self.cross_correlation[sim_name] = xcorr(u_values, eps)
+    #     # Input-residuals cross-correlation
+    #     self.cross_correlation[sim_name] = XCorrelation(u_values, eps)
 
     def _append_validation_results(
         self,
@@ -440,19 +566,21 @@ class ValidationSession:
         # Extact dataset output values
         df_val = self.Dataset.dataset
         y_values = df_val["OUTPUT"].to_numpy()
+        u_values = df_val["INPUT"].to_numpy()
 
         # Simulation results
         y_sim_values = self.simulations_results[sim_name].to_numpy()
 
-        # rsquared
-        r2 = rsquared(y_values, y_sim_values)
-        # ||Ree[sim_name]||
-        Ree = self.auto_correlation[sim_name]
-        Ree_norm = acorr_norm(Ree, l_norm, matrix_norm)
-        # ||Rue[sim_name]||
-        Rue = self.cross_correlation[sim_name]
-        Rue_norm = xcorr_norm(Rue, l_norm, matrix_norm)
+        # Residuals
+        eps = y_values - y_sim_values
 
+        # rsquared and various statistics
+        r2 = rsquared(y_values, y_sim_values)
+        Ree_norm, Ree = whiteness_level(eps, eps)
+        Rue_norm, Rue = whiteness_level(u_values, eps)
+
+        self.auto_correlation[sim_name] = Ree
+        self.cross_correlation[sim_name] = Rue
         self.validation_results[sim_name] = [r2, Ree_norm, Rue_norm]
 
     def _sim_list_validate(self) -> None:
@@ -503,7 +631,9 @@ class ValidationSession:
         # Cam be a positional or a keyword arg
         list_sims: str | list[str] | None = None,
         dataset: Literal["in", "out", "both"] | None = None,
-        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
+        layout: Literal[
+            "constrained", "compressed", "tight", "none"
+        ] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> matplotlib.figure.Figure:
@@ -554,7 +684,7 @@ class ValidationSession:
         # there is no need to create a pair of axes only for one extra signal.
 
         # ================================================================
-        # Validate and arange the plot setup.
+        # Validate and arrange the plot setup.
         # ================================================================
         # check if the sim list is empty
         self._sim_list_validate()
@@ -869,7 +999,7 @@ class ValidationSession:
         vs.simulations_results.index = vs.Dataset.dataset.index
 
         for sim_name in vs.simulations_names():
-            vs._append_correlations_tensors(sim_name)
+            # vs._append_correlations_tensors(sim_name)
             vs._append_validation_results(sim_name)
 
         return vs
@@ -878,7 +1008,9 @@ class ValidationSession:
         self,
         list_sims: str | list[str] | None = None,
         *,
-        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
+        layout: Literal[
+            "constrained", "compressed", "tight", "none"
+        ] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> tuple[matplotlib.figure.Figure, matplotlib.figure.Figure]:
@@ -935,13 +1067,13 @@ class ValidationSession:
 
         # Get p
         k0 = list(Rue.keys())[0]
-        Rue[k0]["values"][0, :, :]
-        p = Rue[k0]["values"][0, :, :].shape[0]
+        Rue[k0].values[0, :, :]
+        p = Rue[k0].values[0, :, :].shape[0]
 
         # Get q
         k0 = list(Ree.keys())[0]
-        Ree[k0]["values"][0, :, :]
-        q = Ree[k0]["values"][0, :, :].shape[0]
+        Ree[k0].values[0, :, :]
+        q = Ree[k0].values[0, :, :].shape[0]
 
         # ===============================================================
         # Plot residuals auto-correlation
@@ -952,8 +1084,8 @@ class ValidationSession:
             for ii in range(q):
                 for jj in range(q):
                     ax1[ii, jj].plot(
-                        Ree[sim_name]["lags"],
-                        Ree[sim_name]["values"][:, ii, jj],
+                        Ree[sim_name].lags,
+                        Ree[sim_name].values[:, ii, jj],
                         label=sim_name,
                     )
                     ax1[ii, jj].grid(True)
@@ -967,7 +1099,11 @@ class ValidationSession:
         fig1.suptitle("Residuals auto-correlation")
 
         # Adjust fig size and layout
-        nrows = fig1.get_axes()[0].get_gridspec().get_geometry()[0]
+        nrows = (
+            fig1.get_axes()[0].get_gridspec().get_geometry()[0]
+            if fig1.get_axes()[0].get_gridspec() is not None
+            else 0
+        )
         ncols = fig1.get_axes()[0].get_gridspec().get_geometry()[1]
         fig1.set_size_inches(ncols * ax_width, nrows * ax_height + 1.25)
         fig1.set_layout_engine(layout)
@@ -981,8 +1117,8 @@ class ValidationSession:
             for ii in range(p):
                 for jj in range(q):
                     ax2[ii, jj].plot(
-                        Rue[sim_name]["lags"],
-                        Rue[sim_name]["values"][:, ii, jj],
+                        Rue[sim_name].lags,
+                        Rue[sim_name].values[:, ii, jj],
                         label=sim_name,
                     )
                     ax2[ii, jj].grid(True)
@@ -1075,11 +1211,15 @@ class ValidationSession:
         vs_temp._simulation_validation(sim_name, y_names, y_data)
 
         y_units = list(
-            vs_temp.Dataset.dataset["OUTPUT"].columns.get_level_values("units")
+            vs_temp.Dataset.dataset["OUTPUT"].columns.get_level_values(
+                "units"
+            )
         )
 
         # Initialize sim df
-        df_sim = pd.DataFrame(data=y_data, index=vs_temp.Dataset.dataset.index)
+        df_sim = pd.DataFrame(
+            data=y_data, index=vs_temp.Dataset.dataset.index
+        )
         multicols = list(zip([sim_name] * len(y_names), y_names, y_units))
         df_sim.columns = pd.MultiIndex.from_tuples(
             multicols, names=["sim_names", "signal_names", "units"]
@@ -1091,7 +1231,7 @@ class ValidationSession:
         ).rename_axis(df_sim.columns.names, axis=1)
 
         # Update residuals auto-correlation and cross-correlation attributes
-        vs_temp._append_correlations_tensors(sim_name)
+        # vs_temp._append_correlations_tensors(sim_name)
         vs_temp._append_validation_results(sim_name)
 
         return vs_temp
