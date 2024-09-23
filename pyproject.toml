@@ -101,10 +101,6 @@ dev = [
              "config",
          ]
 
-         [[tool.mypy.overrides]]
-         module = "matplotlib.*"
-         ignore_errors = true
-
 # flake 8 does not work with pyproject files
 
          # [tool.flake8]

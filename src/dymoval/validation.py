@@ -23,8 +23,8 @@ from dataclasses import dataclass
 
 __all__ = [
     "XCorrelation",
-    "whiteness_level",
     "rsquared",
+    "whiteness_level",
     "ValidationSession",
 ]
 
@@ -325,29 +325,29 @@ def rsquared(x: np.ndarray, y: np.ndarray) -> float:
 
 
 # TODO May be removed
-def _xcorr_norm_validation(
-    Rxy: XCorrelation,
-) -> XCorrelation:
-    R = Rxy.values
+# def _xcorr_norm_validation(
+#     Rxy: XCorrelation,
+# ) -> XCorrelation:
+#     R = Rxy.values
 
-    # MISO or SIMO case
-    if R.ndim == 2:
-        R = R[:, :, np.newaxis]
-    # SISO case
-    elif R.ndim == 1:
-        R = R[:, np.newaxis, np.newaxis]
-    # R cannot have dimension greater than 3
-    elif R.ndim > 3:
-        raise IndexError(
-            "The correlation tensor must be a *3D np.ndarray* where "
-            "the first dimension size is equal to the number of observartions 'N', "
-            "the second dimension size is equal to the number of inputs 'p' "
-            "and the third dimension size is equal to the number of outputs 'q.'"
-        )
+#     # MISO or SIMO case
+#     if R.ndim == 2:
+#         R = R[:, :, np.newaxis]
+#     # SISO case
+#     elif R.ndim == 1:
+#         R = R[:, np.newaxis, np.newaxis]
+#     # R cannot have dimension greater than 3
+#     elif R.ndim > 3:
+#         raise IndexError(
+#             "The correlation tensor must be a *3D np.ndarray* where "
+#             "the first dimension size is equal to the number of observartions 'N', "
+#             "the second dimension size is equal to the number of inputs 'p' "
+#             "and the third dimension size is equal to the number of outputs 'q.'"
+#         )
 
-    Rxy.values
+#     Rxy.values
 
-    return Rxy
+#     return Rxy
 
 
 # def acorr_norm(
@@ -399,7 +399,6 @@ def _xcorr_norm_validation(
 # TODO: redundant
 def whiteness_level(
     X: np.ndarray,
-    Y: np.ndarray | None = None,
     local_weights: np.ndarray | None = None,  # shall be a 1D vector
     local_criteria: Metric_type = "mean",
     global_weights: np.ndarray | None = None,
@@ -417,17 +416,14 @@ def whiteness_level(
     else:
         nlags = local_weights.shape[0]
 
-    if Y is None:
-        Rxy = XCorrelation("", X, X, nlags)
+        Rxx = XCorrelation("", X, X, nlags)
         # Auto-correlation for lags = 0 of the same component is 1 or -1
         # therefore may jeopardize the results, especially if the l-inf norm
         # is used.
-        lags0_idx = np.nonzero(Rxy.lags == 0)[0][0]
-        np.fill_diagonal(Rxy.values[lags0_idx, :, :], 0.0)
-    else:
-        Rxy = XCorrelation("", X, Y, nlags)
+        lags0_idx = np.nonzero(Rxx.lags == 0)[0][0]
+        np.fill_diagonal(Rxx.values[lags0_idx, :, :], 0.0)
 
-    return Rxy.whiteness, Rxy
+    return Rxx.whiteness, Rxx
 
 
 # def xcorr_norm(
