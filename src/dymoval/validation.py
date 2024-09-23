@@ -10,7 +10,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from copy import deepcopy
 import scipy.signal as signal
-from .config import NUM_DECIMALS, COLORMAP
+from .config import NUM_DECIMALS, COLORMAP, Metric_type, METRIC_TYPE
 from .utils import (
     is_interactive_shell,
     factorize,
@@ -54,7 +54,9 @@ class XCorrelation(TypedDict):
     It is a vector of length *N*, where *N* is the number of lags."""
 
 
-def xcorr(X: np.ndarray, Y: np.ndarray) -> XCorrelation:
+def xcorr(
+    X: np.ndarray, Y: np.ndarray, nlags: int | None = None
+) -> XCorrelation:
     """Return the normalized cross-correlation of two MIMO signals.
 
     If X = Y then it return the normalized auto-correlation of X.
@@ -76,7 +78,10 @@ def xcorr(X: np.ndarray, Y: np.ndarray) -> XCorrelation:
     p = X.shape[1]
     q = Y.shape[1]
 
-    lags = signal.correlation_lags(len(X), len(Y))
+    if nlags is None:
+        lags = signal.correlation_lags(len(X), len(Y))
+    else:
+        lags = np.arange(-nlags, nlags + 1)
     Rxy = np.zeros([len(lags), p, q])
     for ii in range(p):
         for jj in range(q):
@@ -134,7 +139,10 @@ def rsquared(x: np.ndarray, y: np.ndarray) -> float:
     # Compute r-square fit (%)
     x_mean = np.mean(x, axis=0)
     r2 = np.round(
-        (1.0 - np.linalg.norm(eps, 2) ** 2 / np.linalg.norm(x - x_mean, 2) ** 2)
+        (
+            1.0
+            - np.linalg.norm(eps, 2) ** 2 / np.linalg.norm(x - x_mean, 2) ** 2
+        )
         * 100,
         NUM_DECIMALS,
     )
@@ -210,6 +218,90 @@ def acorr_norm(
     R_norm = xcorr_norm(Rxx, l_norm, matrix_norm)
 
     return R_norm
+
+
+def whiteness_level(
+    X: np.ndarray,
+    Y: np.ndarray | None = None,
+    local_weights: np.ndarray | None = None,  # shall be a 1D vector
+    local_criteria: Metric_type = "mean",
+    global_weights: np.ndarray | None = None,
+    global_criteria: Metric_type = "inf",
+) -> tuple(np.floating, XCorrelation):
+
+    def compute_statistic(
+        criteria: Metric_type, W: np.ndarray, rij_tau: np.ndarray
+    ) -> np.floating:
+        if criteria == "quadratic":
+            statistic = rij_tau.T @ np.diag(W) @ rij_tau
+        elif criteria == "inf":
+            statistic = np.max(np.abs(W.T @ rij_tau))
+        elif criteria == "mean":
+            statistic = W.T @ rij_tau
+        elif criteria == "std_dev":
+            pass
+        else:
+            raise ValueError(f"'criteria' must be one of [{METRIC_TYPE}]")
+        return statistic
+
+    # TODO Input validation
+
+    # Compute correlation tensor from input signals
+    if local_weights is None:
+        nlags = None
+    else:
+        nlags = local_weights.shape[0]
+
+    if Y is None:
+        Rxy: XCorrelation = xcorr(X, X, nlags)
+        # Auto-correlation for lags = 0 of the same component is 1 or -1
+        # therefore may jeopardize the results, especially if the l-inf norm
+        # is used.
+        lags0_idx = np.nonzero(Rxy["lags"] == 0)[0][0]
+        np.fill_diagonal(Rxy["values"][lags0_idx, :, :], 0.0)
+    else:
+        Rxy: XCorrelation = xcorr(X, Y, nlags)
+
+    # R is 3D tensor
+    R = Rxy["values"]
+    nobsv = R.shape[0]  # Number of observations
+    nrows = R.shape[1]  # Number of rows
+    ncols = R.shape[2]  # Number of columns
+
+    # Fix locals weights
+    if local_weights is None and local_criteria == "mean":
+        # All weights equal to 1/n
+        W_local = 1 / nobsv * np.ones(nobsv)
+    elif local_weights is None:
+        # All the weights equal to 1
+        W_local = np.ones(nobsv)
+    else:
+        W_local = local_weights
+
+    # Fix globals weights
+    if global_weights is None and global_criteria == "mean":
+        # All weights equal to 1/n
+        W_global = 1 / nobsv * np.ones(nobsv)
+    elif global_weights is None:
+        # All the weights equal to 1
+        W_global = np.ones(nobsv)
+    else:
+        W_global = global_weights
+
+    # Build the R_matrix by computing the statistic of each scalar
+    # cross-correlation graph
+    R_matrix = np.zeros((nrows, ncols))
+    for ii in range(nrows):
+        for jj in range(ncols):
+            R_matrix[ii, jj] = compute_statistic(
+                local_criteria, W_local, R[:, ii, jj]
+            )
+
+    # Compute the overall statistic of the resulting matrix
+    whiteness_level = compute_statistic(
+        global_criteria, W_global, R_matrix.flatten()
+    )
+    return whiteness_level, Rxy
 
 
 def xcorr_norm(
@@ -412,7 +504,9 @@ class ValidationSession:
         # Cam be a positional or a keyword arg
         list_sims: str | list[str] | None = None,
         dataset: Literal["in", "out", "both"] | None = None,
-        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
+        layout: Literal[
+            "constrained", "compressed", "tight", "none"
+        ] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> matplotlib.figure.Figure:
@@ -787,7 +881,9 @@ class ValidationSession:
         self,
         list_sims: str | list[str] | None = None,
         *,
-        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
+        layout: Literal[
+            "constrained", "compressed", "tight", "none"
+        ] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> tuple[matplotlib.figure.Figure, matplotlib.figure.Figure]:
@@ -984,11 +1080,15 @@ class ValidationSession:
         vs_temp._simulation_validation(sim_name, y_names, y_data)
 
         y_units = list(
-            vs_temp.Dataset.dataset["OUTPUT"].columns.get_level_values("units")
+            vs_temp.Dataset.dataset["OUTPUT"].columns.get_level_values(
+                "units"
+            )
         )
 
         # Initialize sim df
-        df_sim = pd.DataFrame(data=y_data, index=vs_temp.Dataset.dataset.index)
+        df_sim = pd.DataFrame(
+            data=y_data, index=vs_temp.Dataset.dataset.index
+        )
         multicols = list(zip([sim_name] * len(y_names), y_names, y_units))
         df_sim.columns = pd.MultiIndex.from_tuples(
             multicols, names=["sim_names", "signal_names", "units"]
