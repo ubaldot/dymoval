@@ -105,11 +105,8 @@ class Test_ClassValidationNominal:
         # ==================================
         vs = vs.drop_simulation(sim1_name)
         # At least the names are nt there any longer.
-        assert (
-            sim1_name
-            not in vs.simulations_results.columns.get_level_values(
-                "sim_names"
-            )
+        assert sim1_name not in vs.simulations_results.columns.get_level_values(
+            "sim_names"
         )
         assert sim1_name not in vs._auto_correlation.keys()
         assert sim1_name not in vs._cross_correlation.keys()
@@ -176,9 +173,7 @@ class Test_ClassValidationNominal:
         vs = vs.trim(tin=1.0, tout=5.0)
 
         # Evaluate
-        assert np.isclose(
-            expected_tin, vs.Dataset.dataset.index[0], atol=ATOL
-        )
+        assert np.isclose(expected_tin, vs.Dataset.dataset.index[0], atol=ATOL)
         assert np.isclose(
             expected_tout, vs.Dataset.dataset.index[-1], atol=ATOL
         )
@@ -246,9 +241,7 @@ class Test_ClassValidatioNominal_sim_validation:
         with pytest.raises(ValueError):
             vs.append_simulation(sim1_name, sim1_labels, sim1_values)
 
-    def test_too_many_signals_raise(
-        self, good_dataframe: pd.DataFrame
-    ) -> None:
+    def test_too_many_signals_raise(self, good_dataframe: pd.DataFrame) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
         ds = dmv.dataset.Dataset(
@@ -273,9 +266,7 @@ class Test_ClassValidatioNominal_sim_validation:
         with pytest.raises(IndexError):
             vs.append_simulation(sim1_name, sim1_labels, sim1_values)
 
-    def test_duplicate_names_raise(
-        self, good_dataframe: pd.DataFrame
-    ) -> None:
+    def test_duplicate_names_raise(self, good_dataframe: pd.DataFrame) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
         ds = dmv.dataset.Dataset(
@@ -324,9 +315,7 @@ class Test_ClassValidatioNominal_sim_validation:
         with pytest.raises(IndexError):
             vs.append_simulation(sim1_name, sim1_labels, sim1_values)
 
-    def test_too_many_values_raise(
-        self, good_dataframe: pd.DataFrame
-    ) -> None:
+    def test_too_many_values_raise(self, good_dataframe: pd.DataFrame) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
         ds = dmv.dataset.Dataset(
@@ -372,9 +361,7 @@ class Test_ClassValidatioNominal_sim_validation:
         with pytest.raises(ValueError):
             vs.append_simulation(sim1_name, sim1_labels, sim1_values)
 
-    def test_ydata_too_short_raise(
-        self, good_dataframe: pd.DataFrame
-    ) -> None:
+    def test_ydata_too_short_raise(self, good_dataframe: pd.DataFrame) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
         ds = dmv.dataset.Dataset(
@@ -397,9 +384,7 @@ class Test_ClassValidatioNominal_sim_validation:
         with pytest.raises(IndexError):
             vs.append_simulation(sim1_name, sim1_labels, sim1_values)
 
-    def test_drop_simulation_raise(
-        self, good_dataframe: pd.DataFrame
-    ) -> None:
+    def test_drop_simulation_raise(self, good_dataframe: pd.DataFrame) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
         ds = dmv.dataset.Dataset(
