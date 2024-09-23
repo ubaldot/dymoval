@@ -49,9 +49,7 @@ SPECTRUM_KIND: list[Spectrum_type] = list(typing.get_args(Spectrum_type))
 Allowed_keys_type = Literal[
     "name", "values", "signal_unit", "sampling_period", "time_unit"
 ]
-SIGNAL_KEYS: list[Allowed_keys_type] = list(
-    typing.get_args(Allowed_keys_type)
-)
+SIGNAL_KEYS: list[Allowed_keys_type] = list(typing.get_args(Allowed_keys_type))
 
 Metric_type = Literal["mean", "quadratic", "std_dev", "inf"]
 METRIC_TYPE: list[Metric_type] = list(typing.get_args(Metric_type))

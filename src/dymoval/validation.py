@@ -239,12 +239,14 @@ def whiteness_level(
         elif criteria == "mean":
             statistic = W.T @ rij_tau
         elif criteria == "std_dev":
+            # TODO :
             pass
         else:
             raise ValueError(f"'criteria' must be one of [{METRIC_TYPE}]")
         return statistic
 
     # TODO Input validation
+    # Check that the global_weights length is equal to p * q
 
     # Compute correlation tensor from input signals
     if local_weights is None:
@@ -272,7 +274,7 @@ def whiteness_level(
     if local_weights is None and local_criteria == "mean":
         # All weights equal to 1/n
         W_local = 1 / nobsv * np.ones(nobsv)
-    elif local_weights is None:
+    elif local_weights is None and local_criteria != "mean":
         # All the weights equal to 1
         W_local = np.ones(nobsv)
     else:
@@ -282,7 +284,7 @@ def whiteness_level(
     if global_weights is None and global_criteria == "mean":
         # All weights equal to 1/n
         W_global = 1 / nobsv * np.ones(nobsv)
-    elif global_weights is None:
+    elif global_weights is None and global_criteria != "mean":
         # All the weights equal to 1
         W_global = np.ones(nobsv)
     else:
