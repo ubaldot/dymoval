@@ -352,9 +352,7 @@ class Dataset:
         # Reference to self._nan_intervals
         NaN_intervals = self._nan_intervals
         # All the signals present in the dataset
-        available_signals = list(
-            self.dataset.columns.get_level_values("names")
-        )
+        available_signals = list(self.dataset.columns.get_level_values("names"))
 
         for ii, ax in enumerate(axes):
             lines_labels = filter_signals(available_signals, ax)
@@ -561,12 +559,8 @@ class Dataset:
             tout = np.round(self.dataset.index[-1], NUM_DECIMALS)
 
         # All possible names
-        u_names = list(
-            self.dataset["INPUT"].columns.get_level_values("names")
-        )
-        y_names = list(
-            self.dataset["OUTPUT"].columns.get_level_values("names")
-        )
+        u_names = list(self.dataset["INPUT"].columns.get_level_values("names"))
+        y_names = list(self.dataset["OUTPUT"].columns.get_level_values("names"))
 
         if overlap:
             # OBS! zip cuts the longest list
@@ -638,22 +632,14 @@ class Dataset:
         Ts = list(resampled_signals)[0]["sampling_period"]
 
         # Drop excluded signals from u_names and y_names lists
-        u_names = [
-            x["name"] for x in resampled_signals if x["name"] in u_names
-        ]
-        y_names = [
-            x["name"] for x in resampled_signals if x["name"] in y_names
-        ]
+        u_names = [x["name"] for x in resampled_signals if x["name"] in u_names]
+        y_names = [x["name"] for x in resampled_signals if x["name"] in y_names]
 
         u_units = [
-            x["signal_unit"]
-            for x in resampled_signals
-            if x["name"] in u_names
+            x["signal_unit"] for x in resampled_signals if x["name"] in u_names
         ]
         y_units = [
-            x["signal_unit"]
-            for x in resampled_signals
-            if x["name"] in y_names
+            x["signal_unit"] for x in resampled_signals if x["name"] in y_names
         ]
         # Trim the signals to have equal length,
         # then build the DataFrame for inizializing the Dataset class.
@@ -748,9 +734,7 @@ class Dataset:
             df["INPUT"].iloc[:, u_names_idx].columns.get_level_values("units")
         )
         y_units = list(
-            df["OUTPUT"]
-            .iloc[:, y_names_idx]
-            .columns.get_level_values("units")
+            df["OUTPUT"].iloc[:, y_names_idx].columns.get_level_values("units")
         )
 
         # Collect in dicts as it is cleaner
@@ -977,9 +961,7 @@ class Dataset:
                 else:
                     ylabel = ylabels_tpl[ii][1]
 
-                df.droplevel(level=["kind", "units"], axis=1).loc[
-                    :, s[1]
-                ].plot(
+                df.droplevel(level=["kind", "units"], axis=1).loc[:, s[1]].plot(
                     subplots=True,
                     grid=False,
                     legend=False,
@@ -1051,9 +1033,7 @@ class Dataset:
                 excluded_signals.append(s["name"])
 
         resampled_signals = [
-            s
-            for s in list(signal_list)
-            if not (s["name"] in excluded_signals)
+            s for s in list(signal_list) if not (s["name"] in excluded_signals)
         ]
         if verbosity != 0:
             print(
@@ -1110,14 +1090,10 @@ class Dataset:
 
         # Create DataFrame from signals to be appended (concatenated) to
         # the current dataset
-        data = (
-            np.stack([s["values"] for s in signals_ok]).round(NUM_DECIMALS).T
-        )
+        data = np.stack([s["values"] for s in signals_ok]).round(NUM_DECIMALS).T
         df_temp = pd.DataFrame(data=data, index=ds.dataset.index)
         df_temp.columns = pd.MultiIndex.from_tuples(
-            zip(
-                str2list(kind) * len(signals_name), signals_name, signals_unit
-            ),
+            zip(str2list(kind) * len(signals_name), signals_name, signals_unit),
             name=["kind", "names", "units"],
         )
 
@@ -1375,9 +1351,7 @@ class Dataset:
         # Only positional arguments
         /,
         *signal_pairs: tuple[str, str],
-        layout: Literal[
-            "constrained", "compressed", "tight", "none"
-        ] = "tight",
+        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> matplotlib.figure.Figure:
@@ -1425,9 +1399,7 @@ class Dataset:
         available_names = list(df.columns.get_level_values("names"))
         a, b = zip(*signal_pairs)
         passed_names = list(a + b)
-        names_not_found = difference_lists_of_str(
-            passed_names, available_names
-        )
+        names_not_found = difference_lists_of_str(passed_names, available_names)
         if names_not_found:
             raise ValueError(f"Signal(s) {names_not_found} not found.")
 
@@ -1481,9 +1453,7 @@ class Dataset:
         linestyle_bg: str = "--",
         alpha_bg: float = 1.0,
         _grid: matplotlib.gridspec.GridSpec | None = None,
-        layout: Literal[
-            "constrained", "compressed", "tight", "none"
-        ] = "tight",
+        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> matplotlib.figure.Figure:
@@ -1651,9 +1621,7 @@ class Dataset:
         alpha: float = 1.0,
         histtype: Literal["bar", "barstacked", "step", "stepfilled"] = "bar",
         _grid: matplotlib.gridspec.GridSpec | None = None,
-        layout: Literal[
-            "constrained", "compressed", "tight", "none"
-        ] = "tight",
+        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> matplotlib.figure.Figure:
@@ -1719,18 +1687,16 @@ class Dataset:
         # ===================================================
         # Arrange colors, ylabels (=units) and linestyles
         # ===================================================
-        (linecolors_tpl, xlabels_tpl, histtype_tpl, _) = (
-            self._create_plot_args(
-                "coverage",
-                u_dict,
-                y_dict,
-                signals_lst_plain,
-                signals_lst,
-                linecolor_input,
-                linecolor_output,
-                histtype,
-                histtype,
-            )
+        (linecolors_tpl, xlabels_tpl, histtype_tpl, _) = self._create_plot_args(
+            "coverage",
+            u_dict,
+            y_dict,
+            signals_lst_plain,
+            signals_lst,
+            linecolor_input,
+            linecolor_output,
+            histtype,
+            histtype,
         )
 
         # ===================================================
@@ -1894,9 +1860,7 @@ class Dataset:
         linestyle_bg: str = "--",
         alpha_bg: float = 1.0,
         _grid: matplotlib.gridspec.GridSpec | None = None,
-        layout: Literal[
-            "constrained", "compressed", "tight", "none"
-        ] = "tight",
+        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> matplotlib.figure.Figure:
@@ -2127,9 +2091,7 @@ class Dataset:
                     line_abs_r[0].set_label(*label_abs_r)
 
                     # angle
-                    line_angle_r, _ = axes_right[
-                        1
-                    ].get_legend_handles_labels()
+                    line_angle_r, _ = axes_right[1].get_legend_handles_labels()
                     label_angle_r = [f"{s[1]}, angle"]
                     line_angle_r[0].set_label(*label_angle_r)
 
@@ -2164,9 +2126,7 @@ class Dataset:
 
         # A small check
         if kind not in SPECTRUM_KIND:
-            raise ValueError(
-                f"Argument 'kind' must be one of {SPECTRUM_KIND}"
-            )
+            raise ValueError(f"Argument 'kind' must be one of {SPECTRUM_KIND}")
 
         # ===================================================
         # Selection of signals
@@ -2564,9 +2524,7 @@ class Dataset:
         )
         a, b, c = zip(*signal_function)
         passed_names = list(a)
-        names_not_found = difference_lists_of_str(
-            passed_names, available_names
-        )
+        names_not_found = difference_lists_of_str(passed_names, available_names)
         if names_not_found:
             raise ValueError(f"Signal(s) {names_not_found} not found.")
 
@@ -2695,12 +2653,9 @@ class Dataset:
         for s in signals:
             # Input detected
             cond1 = (
-                s
-                in list(ds.dataset["INPUT"].columns.get_level_values("names"))
+                s in list(ds.dataset["INPUT"].columns.get_level_values("names"))
                 and len(
-                    list(
-                        ds.dataset["INPUT"].columns.get_level_values("names")
-                    )
+                    list(ds.dataset["INPUT"].columns.get_level_values("names"))
                 )
                 > 1
             )
@@ -2708,13 +2663,9 @@ class Dataset:
             # Output detected
             cond2 = (
                 s
-                in list(
-                    ds.dataset["OUTPUT"].columns.get_level_values("names")
-                )
+                in list(ds.dataset["OUTPUT"].columns.get_level_values("names"))
                 and len(
-                    list(
-                        ds.dataset["OUTPUT"].columns.get_level_values("names")
-                    )
+                    list(ds.dataset["OUTPUT"].columns.get_level_values("names"))
                 )
                 > 1
             )
@@ -2885,9 +2836,7 @@ def validate_signals(*signals: Signal) -> None:
             )
 
         # Check that "values" makes sense
-        cond = (
-            not isinstance(s["values"], np.ndarray) or s["values"].ndim != 1
-        )
+        cond = not isinstance(s["values"], np.ndarray) or s["values"].ndim != 1
         if cond:
             raise TypeError("Key {key} must be 1-D numpy array'.")
         if s["values"].size < 2:
@@ -2902,9 +2851,7 @@ def validate_signals(*signals: Signal) -> None:
         if s["sampling_period"] < 0.0 or np.isclose(
             s["sampling_period"], 0.0, atol=ATOL
         ):
-            raise ValueError(
-                "Key 'sampling_period' must be a positive float."
-            )
+            raise ValueError("Key 'sampling_period' must be a positive float.")
         # Check that all signals have been sampled with the same time_unit
 
     time_units = [s["time_unit"] for s in signals]
@@ -3146,9 +3093,7 @@ def compare_datasets(
     """
 
     # Utility function to avoid too much code repetition
-    def _adjust_legend(
-        ds_names: list[str], axes: matplotlib.axes.Axes
-    ) -> None:
+    def _adjust_legend(ds_names: list[str], axes: matplotlib.axes.Axes) -> None:
         # Based on the pair (handles, labels), where handles are e.g. Line2D,
         # or other matplotlib Artist (an Artist is everything you can draw
         # on a figure)
@@ -3175,9 +3120,9 @@ def compare_datasets(
         n = max(
             [
                 len(
-                    df.droplevel(
-                        level="kind", axis=1
-                    ).columns.get_level_values("names")
+                    df.droplevel(level="kind", axis=1).columns.get_level_values(
+                        "names"
+                    )
                 )
                 for df in dfs
             ]
@@ -3240,9 +3185,7 @@ def compare_datasets(
     assert gs is not None
     nrows, ncols = gs.get_geometry()
     if kind == "amplitude":
-        fig.set_size_inches(
-            ncols * ax_width * 2, nrows * ax_height * 2 + 1.25
-        )
+        fig.set_size_inches(ncols * ax_width * 2, nrows * ax_height * 2 + 1.25)
     else:
         fig.set_size_inches(ncols * ax_width, nrows * ax_height + 1.25)
     fig.set_layout_engine(layout)
