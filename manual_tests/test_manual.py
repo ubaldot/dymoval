@@ -241,21 +241,3 @@ fig = vs.plot_simulations()
 # vs.validation_results
 
 # vs.clear()
-# %%
-
-import numpy as np
-
-A = np.array(
-    [
-        5.91715976e-07,
-        3.55029586e-06,
-        2.36686391e-06,
-        -4.14201183e-06,
-        -1.77514793e-06,
-        4.14201183e-06,
-    ]
-)
-
-
-np.max(np.abs(A))
-np.max(np.abs(np.ones(6).T * A))
