@@ -42,6 +42,7 @@ jobs:
       - name: Formatting source code (black)
         uses: psf/black@stable
         with:
+            options: "--check --verbose"
             src: "./src"
 
       - name: Install dependencies dev (pip)
@@ -130,6 +131,7 @@ jobs:
       - name: Formatting source code (black)
         uses: psf/black@stable
         with:
+            options: "--check --verbose"
             src: "./src"
 
       - name: (bash) Run all the tests on bash (flake8, pytest, sphinx)
@@ -152,6 +154,7 @@ jobs:
       - name: Formatting source code (black)
         uses: psf/black@stable
         with:
+            options: "--check --verbose"
             src: "./src"
 
       - name: (powershell) Run all the tests on Powershell (flake8, pytest, sphinx)
