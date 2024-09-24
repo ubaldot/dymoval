@@ -272,10 +272,7 @@ def rsquared(x: np.ndarray, y: np.ndarray) -> float:
     # Compute r-square fit (%)
     x_mean = np.mean(x, axis=0)
     r2 = np.round(
-        (
-            1.0
-            - np.linalg.norm(eps, 2) ** 2 / np.linalg.norm(x - x_mean, 2) ** 2
-        )
+        (1.0 - np.linalg.norm(eps, 2) ** 2 / np.linalg.norm(x - x_mean, 2) ** 2)
         * 100,
         NUM_DECIMALS,
     )
@@ -432,7 +429,13 @@ class ValidationSession:
         and it should be considered as a *read-only* attribute."""
 
         # Initialize validation results DataFrame.
-        idx = ["r-square (%)", "Residuals Auto-corr", "Input-Res. Cross-corr"]
+        idx = [
+            "R-Squared (%)",
+            "Residuals Auto-Corr (Mean-Max)",
+            "Residuals Auto-Corr (Max-Max)",
+            "Input-Res. Cross-Corr (Mean-Max)",
+            "Input-Res. Cross-Corr (Max-Max)",
+        ]
         self.validation_results: pd.DataFrame = pd.DataFrame(
             index=idx, columns=[]
         )
@@ -460,14 +463,24 @@ class ValidationSession:
         # rsquared and various statistics
         r2 = rsquared(y_values, y_sim_values)
         # Here I can do it at once
-        Ree_norm, Ree = whiteness_level(eps)
+        Ree_mean, Ree = whiteness_level(eps)
+        Ree_max = whiteness_level(eps, local_criteria="inf")[0]
         # Here I cannot.
         Rue = XCorrelation("Rue", u_values, eps)
-        Rue_norm = Rue.whiteness
+        Rue_mean = Rue.whiteness
+        Rue_max = XCorrelation(
+            "Rue", u_values, eps, local_criteria="inf"
+        ).whiteness
 
         self.auto_correlation_tensors[sim_name] = Ree
         self.cross_correlation_tensors[sim_name] = Rue
-        self.validation_results[sim_name] = [r2, Ree_norm, Rue_norm]
+        self.validation_results[sim_name] = [
+            r2,
+            Ree_mean,
+            Ree_max,
+            Rue_mean,
+            Rue_max,
+        ]
 
     def _sim_list_validate(self) -> None:
         if not self.simulations_names():
@@ -517,9 +530,7 @@ class ValidationSession:
         # Cam be a positional or a keyword arg
         list_sims: str | list[str] | None = None,
         dataset: Literal["in", "out", "both"] | None = None,
-        layout: Literal[
-            "constrained", "compressed", "tight", "none"
-        ] = "tight",
+        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> matplotlib.figure.Figure:
@@ -894,9 +905,7 @@ class ValidationSession:
         self,
         list_sims: str | list[str] | None = None,
         *,
-        layout: Literal[
-            "constrained", "compressed", "tight", "none"
-        ] = "tight",
+        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> tuple[matplotlib.figure.Figure, matplotlib.figure.Figure]:
@@ -1095,15 +1104,11 @@ class ValidationSession:
         vs_temp._simulation_validation(sim_name, y_names, y_data)
 
         y_units = list(
-            vs_temp.Dataset.dataset["OUTPUT"].columns.get_level_values(
-                "units"
-            )
+            vs_temp.Dataset.dataset["OUTPUT"].columns.get_level_values("units")
         )
 
         # Initialize sim df
-        df_sim = pd.DataFrame(
-            data=y_data, index=vs_temp.Dataset.dataset.index
-        )
+        df_sim = pd.DataFrame(data=y_data, index=vs_temp.Dataset.dataset.index)
         multicols = list(zip([sim_name] * len(y_names), y_names, y_units))
         df_sim.columns = pd.MultiIndex.from_tuples(
             multicols, names=["sim_names", "signal_names", "units"]
