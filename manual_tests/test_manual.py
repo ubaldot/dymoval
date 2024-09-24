@@ -1,4 +1,4 @@
-#  -*- coding: utf-8 -*-
+# signal_list[0]["values"],  -*- coding: utf-8 -*-
 # ===========================================================================
 # In this tutorial we show the main functionalities of dymoval.
 # The code is divided in code-cell blocks so you can run it piece-by-piece
@@ -194,11 +194,13 @@ ds = ds.remove_NaNs()
 # Test XCorrelation constructor
 
 R = dmv.XCorrelation("", signal_list[0]["values"])
-R.plot()
+# R.plot()
 
 R_trim = dmv.XCorrelation("", signal_list[0]["values"], nlags=5)
-R_trim.plot()
+# R_trim.plot()
 
+Rue = dmv.XCorrelation("", signal_list[0]["values"], signal_list[1]["values"])
+# Rue.plot()
 
 # To create a dymoval ValidationSession we only need to pass a dymoval Dataset.
 vs = dmv.ValidationSession("my_validation", ds)
@@ -239,3 +241,21 @@ fig = vs.plot_simulations()
 # vs.validation_results
 
 # vs.clear()
+# %%
+
+import numpy as np
+
+A = np.array(
+    [
+        5.91715976e-07,
+        3.55029586e-06,
+        2.36686391e-06,
+        -4.14201183e-06,
+        -1.77514793e-06,
+        4.14201183e-06,
+    ]
+)
+
+
+np.max(np.abs(A))
+np.max(np.abs(np.ones(6).T * A))

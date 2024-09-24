@@ -138,15 +138,17 @@ class XCorrelation:
                 if criteria == "quadratic":
                     statistic = rij_tau.T @ np.diag(W) @ rij_tau
                 elif criteria == "inf":
-                    statistic = np.max(np.abs(W.T @ rij_tau))
+                    # Element-wise multiplication for weighted inf norm
+                    statistic = np.max(np.abs(W.T * rij_tau))
                 elif criteria == "mean":
                     statistic = W.T @ rij_tau
                 elif criteria == "std_dev":
                     # TODO :
-                    weighted_mean_tmp = W.T @ rij_tau
-                    statistic = np.sqrt(
-                        (W.T @ (rij_tau - weighted_mean_tmp) ** 2 / np.sum(W))
-                    )
+                    weighted_mean_tmp = np.sum(W * rij_tau) / np.sum(W)
+                    weighted_variance = np.sum(
+                        W * (rij_tau - weighted_mean_tmp) ** 2
+                    ) / np.sum(W)
+                    statistic = np.sqrt(weighted_variance)
                 else:
                     raise ValueError(
                         f"'criteria' must be one of [{METRIC_TYPE}]"
@@ -166,7 +168,9 @@ class XCorrelation:
 
             # Fix locals weights
             if local_weights is None and local_criteria == "mean":
-                # All weights equal to 1/n
+                # All weights equal to 1/n or to 1/(n-1) for autocorrelation
+                # because we squash the sample t lag = 0 to 0.0 and that shall
+                # not account in the computation of the mean.
                 W_local = (
                     1 / (nobsv - 1) * np.ones(nobsv)
                     if self.kind == "auto-correlation"
@@ -279,7 +283,10 @@ def rsquared(x: np.ndarray, y: np.ndarray) -> float:
     # Compute r-square fit (%)
     x_mean = np.mean(x, axis=0)
     r2 = np.round(
-        (1.0 - np.linalg.norm(eps, 2) ** 2 / np.linalg.norm(x - x_mean, 2) ** 2)
+        (
+            1.0
+            - np.linalg.norm(eps, 2) ** 2 / np.linalg.norm(x - x_mean, 2) ** 2
+        )
         * 100,
         NUM_DECIMALS,
     )
@@ -444,25 +451,6 @@ class ValidationSession:
         This attribute is automatically set
         and it should be considered as a *read-only* attribute."""
 
-    # def _append_correlations_tensors(self, sim_name: str) -> None:
-    #     # Extract dataset
-    #     df_val = self.Dataset.dataset
-    #     y_sim_values = self.simulations_results[sim_name].to_numpy()
-
-    #     # Move everything to numpy.
-    #     u_values = df_val["INPUT"].to_numpy()
-    #     y_values = df_val["OUTPUT"].to_numpy()
-
-    #     # Compute residuals.
-    #     # Consider only the residuals wrt to the logged outputs
-    #     eps = y_values - y_sim_values
-
-    #     # Residuals auto-correlation
-    #     self.auto_correlation[sim_name] = XCorrelation(eps, eps)
-
-    #     # Input-residuals cross-correlation
-    #     self.cross_correlation[sim_name] = XCorrelation(u_values, eps)
-
     def _append_validation_results(
         self,
         sim_name: str,
@@ -485,7 +473,7 @@ class ValidationSession:
         # Here I can do it at once
         Ree_norm, Ree = whiteness_level(eps)
         # Here I cannot.
-        Rue = XCorrelation(u_values, eps)
+        Rue = XCorrelation("Rue", u_values, eps)
         Rue_norm = Rue.whiteness
 
         self.auto_correlation_tensors[sim_name] = Ree
@@ -540,7 +528,9 @@ class ValidationSession:
         # Cam be a positional or a keyword arg
         list_sims: str | list[str] | None = None,
         dataset: Literal["in", "out", "both"] | None = None,
-        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
+        layout: Literal[
+            "constrained", "compressed", "tight", "none"
+        ] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> matplotlib.figure.Figure:
@@ -907,7 +897,6 @@ class ValidationSession:
         vs.simulations_results.index = vs.Dataset.dataset.index
 
         for sim_name in vs.simulations_names():
-            # vs._append_correlations_tensors(sim_name)
             vs._append_validation_results(sim_name)
 
         return vs
@@ -916,7 +905,9 @@ class ValidationSession:
         self,
         list_sims: str | list[str] | None = None,
         *,
-        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
+        layout: Literal[
+            "constrained", "compressed", "tight", "none"
+        ] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> tuple[matplotlib.figure.Figure, matplotlib.figure.Figure]:
@@ -1115,11 +1106,15 @@ class ValidationSession:
         vs_temp._simulation_validation(sim_name, y_names, y_data)
 
         y_units = list(
-            vs_temp.Dataset.dataset["OUTPUT"].columns.get_level_values("units")
+            vs_temp.Dataset.dataset["OUTPUT"].columns.get_level_values(
+                "units"
+            )
         )
 
         # Initialize sim df
-        df_sim = pd.DataFrame(data=y_data, index=vs_temp.Dataset.dataset.index)
+        df_sim = pd.DataFrame(
+            data=y_data, index=vs_temp.Dataset.dataset.index
+        )
         multicols = list(zip([sim_name] * len(y_names), y_names, y_units))
         df_sim.columns = pd.MultiIndex.from_tuples(
             multicols, names=["sim_names", "signal_names", "units"]
@@ -1131,7 +1126,6 @@ class ValidationSession:
         ).rename_axis(df_sim.columns.names, axis=1)
 
         # Update residuals auto-correlation and cross-correlation attributes
-        # vs_temp._append_correlations_tensors(sim_name)
         vs_temp._append_validation_results(sim_name)
 
         return vs_temp
