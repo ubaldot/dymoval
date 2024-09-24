@@ -15,9 +15,9 @@ from .dataset import (
 
 from .validation import (
     XCorrelation,
+    ValidationSession,
     rsquared,
     whiteness_level,
-    ValidationSession,
 )
 
 from .config import (

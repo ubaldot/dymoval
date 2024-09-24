@@ -171,6 +171,7 @@ ds = dmv.Dataset(
 # in a number of ways
 ds = ds.remove_NaNs()
 
+
 # At this point we can visually inspect the resulting Dataset.
 # Note how the areas where the NaN:s have been replaced are shaded.
 # ax = ds.plot()
@@ -185,15 +186,24 @@ ds = ds.remove_NaNs()
 #
 #
 # ===========================================================================
-# Validation Session
+# validation module
 # Now that we have a good Dataset, we can create a dymoval ValidationSession
 # where we append the simulation results of our models so that we can
 # evaluate them
 # ===========================================================================
-#
+# Test XCorrelation constructor
+
+R = dmv.XCorrelation("", signal_list[0]["values"])
+R.plot()
+
+R_trim = dmv.XCorrelation("", signal_list[0]["values"], nlags=5)
+R_trim.plot()
+
+
 # To create a dymoval ValidationSession we only need to pass a dymoval Dataset.
 vs = dmv.ValidationSession("my_validation", ds)
 
+# %%
 
 sim1_name = "Model 1"
 sim1_labels = ["my_y1", "my_y2"]
@@ -209,14 +219,19 @@ sim2_values = vs.Dataset.dataset["OUTPUT"].values + np.random.rand(
     len(vs.Dataset.dataset["OUTPUT"].values), 2
 )
 
-dmv.whiteness_level(sim1_values, sim1_values)
+# Return whiteness level and XCorrelation tensor
+X, sim1_whiteness = dmv.whiteness_level(sim1_values)
 
 # We use the ValidationSession's method append_simulation to append the simulation
 # results.
 vs = vs.append_simulation(sim1_name, sim1_labels, sim1_values)
-vs = vs.append_simulation(sim2_name, sim2_labels, sim2_values)
 # %%
-vs = vs.trim(dataset="both")
+
+
+vs = vs.append_simulation(sim2_name, sim2_labels, sim2_values)
+vs.plot_residuals()
+# %%
+vs = vs.trim(dataset="out")
 fig = vs.plot_simulations()
 
 # fig.savefig("foo.png")

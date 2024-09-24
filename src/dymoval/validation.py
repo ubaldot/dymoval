@@ -1,6 +1,13 @@
 """Module containing everything related to validation."""
 
-from __future__ import annotations
+# The following is needed when there are methods that return instance of the
+# class itself.
+# TODO If you remove python 3.10 remove typing_extensions as Self in typing is
+# part of the standard python package starting from 3.11
+try:
+    from typing import Self
+except ModuleNotFoundError:
+    from typing_extensions import Self  # noqa
 
 import matplotlib
 
@@ -81,11 +88,8 @@ class XCorrelation:
             p = X.shape[1]
             q = Y.shape[1]
 
-            if nlags is None:
-                lags = signal.correlation_lags(len(X), len(Y))
-            else:
-                lags = np.arange(-nlags, nlags + 1)
-            Rxy = np.zeros([len(lags), p, q])
+            all_lags = signal.correlation_lags(len(X), len(Y))
+            Rxy = np.zeros([len(all_lags), p, q])
             for ii in range(p):
                 for jj in range(q):
                     # Classic correlation definition from Probability.
@@ -110,19 +114,27 @@ class XCorrelation:
                         / min(len(X), len(Y))
                     ).round(NUM_DECIMALS)
 
+            # Trim the cross-correlation results if the user wants less lags
+            if nlags is not None:
+                lags = np.arange(-nlags, nlags + 1)
+                mid_point = Rxy.shape[0] // 2
+                Rxy = Rxy[mid_point - nlags : mid_point + nlags + 1, :, :]
+            else:
+                lags = all_lags
+
             return Rxy, lags
 
         def _whiteness_level(
-            Rxy: XCorrelation,
             local_weights: np.ndarray | None = None,  # shall be a 1D vector
             local_criteria: Metric_type = "mean",
             global_weights: np.ndarray | None = None,
             global_criteria: Metric_type = "inf",
-        ) -> np.floating:
+        ) -> Any:
 
             def _compute_statistic(
                 criteria: Metric_type, W: np.ndarray, rij_tau: np.ndarray
-            ) -> np.floating:
+            ) -> Any:
+
                 if criteria == "quadratic":
                     statistic = rij_tau.T @ np.diag(W) @ rij_tau
                 elif criteria == "inf":
@@ -131,15 +143,23 @@ class XCorrelation:
                     statistic = W.T @ rij_tau
                 elif criteria == "std_dev":
                     # TODO :
-                    statistic = 99.0
+                    weighted_mean_tmp = W.T @ rij_tau
+                    statistic = np.sqrt(
+                        (W.T @ (rij_tau - weighted_mean_tmp) ** 2 / np.sum(W))
+                    )
                 else:
                     raise ValueError(
                         f"'criteria' must be one of [{METRIC_TYPE}]"
                     )
                 return statistic
 
-            # R is 3D tensor
-            R = Rxy.values
+            # We deepcopy because we will drop the 1 at lags 0 in case of
+            # auto-correlation
+            R = deepcopy(self.values)
+            if self.kind == "auto-correlation":
+                # We squash to 0.0 the component at lag = 0
+                lags0_idx = np.nonzero(self.lags == 0)[0][0]
+                np.fill_diagonal(R[lags0_idx, :, :], 0.0)
             nobsv = R.shape[0]  # Number of observations
             nrows = R.shape[1]  # Number of rows
             ncols = R.shape[2]  # Number of columns
@@ -147,7 +167,11 @@ class XCorrelation:
             # Fix locals weights
             if local_weights is None and local_criteria == "mean":
                 # All weights equal to 1/n
-                W_local = 1 / nobsv * np.ones(nobsv)
+                W_local = (
+                    1 / (nobsv - 1) * np.ones(nobsv)
+                    if self.kind == "auto-correlation"
+                    else 1 / nobsv * np.ones(nobsv)
+                )
             elif local_weights is None and local_criteria != "mean":
                 # All the weights equal to 1
                 W_local = np.ones(nobsv)
@@ -179,7 +203,9 @@ class XCorrelation:
             )
             return whiteness_level
 
-        # Set class attributes
+        # =========================================
+        # Attributes
+        # =========================================
         self.name: str = name
         if Y is None:
             self.values, self.lags = _init_tensor(X, X, nlags)
@@ -189,7 +215,6 @@ class XCorrelation:
             self.kind = "cross-correlation"
 
         self.whiteness = _whiteness_level(
-            self,
             local_weights,
             local_criteria,
             global_weights,
@@ -227,66 +252,6 @@ class XCorrelation:
             plt.show()
 
         return fig
-
-
-# def xcorr(
-#     X: np.ndarray, Y: np.ndarray, nlags: int | None = None
-# ) -> XCorrelation:
-#     """Return the normalized cross-correlation of two MIMO signals.
-
-#     If X = Y then it return the normalized auto-correlation of X.
-
-#     Parameters
-#     ----------
-#     X :
-#         MIMO signal realizations expressed as `Nxp` 2D array
-#         of `N` observations of `p` signals.
-#     Y :
-#         MIMO signal realizations expressed as `Nxq` 2D array
-#         of `N` observations of `q` signals.
-#     """
-#     # Reshape one-dimensional vector into"column" vectors.
-#     if X.ndim == 1:
-#         X = X.reshape(len(X), 1)
-#     if Y.ndim == 1:
-#         Y = Y.reshape(len(Y), 1)
-#     p = X.shape[1]
-#     q = Y.shape[1]
-
-#     if nlags is None:
-#         lags = signal.correlation_lags(len(X), len(Y))
-#     else:
-#         lags = np.arange(-nlags, nlags + 1)
-#     Rxy = np.zeros([len(lags), p, q])
-#     for ii in range(p):
-#         for jj in range(q):
-#             # Classic correlation definition from Probability.
-#             # Rxy = E[(X-mu_x)^T(Y-mu_y))]/(sigma_x*sigma_y),
-#             # check normalized cross-correlation for stochastic processes on Wikipedia.
-#             # Nevertheless, the cross-correlation is in-fact the same as E[].
-#             # More specifically, the cross-correlation generate a sequence
-#             # [E[XY(\tau=0))] E[XY(\tau=1))], ...,E[XY(\tau=N))]] and this is
-#             # the reason why in the computation below we use signal.correlation.
-#             #
-#             # Another way of seeing it, is that to secure that the cross-correlation
-#             # is always between -1 and 1, we "normalize" the observations X and Y
-#             # Google for "Standard score"
-#             #
-#             # At the end, for each pair (ii,jj) you have Rxy = r_{x_ii,y_jj}(\tau), therefore
-#             # for each (ii,jj) we compute a correlation.
-#             Rxy[:, ii, jj] = (
-#                 signal.correlate(
-#                     (X[:, ii] - np.mean(X[:, ii])) / np.std(X[:, ii]),
-#                     (Y[:, jj] - np.mean(Y[:, jj])) / np.std(Y[:, jj]),
-#                 )
-#                 / min(len(X), len(Y))
-#             ).round(NUM_DECIMALS)
-
-#     xcorr_result: XCorrelation = {
-#         "values": Rxy,
-#         "lags": lags,
-#     }
-#     return xcorr_result
 
 
 def rsquared(x: np.ndarray, y: np.ndarray) -> float:
@@ -350,53 +315,6 @@ def rsquared(x: np.ndarray, y: np.ndarray) -> float:
 #     return Rxy
 
 
-# def acorr_norm(
-#     Rxx: XCorrelation,
-#     l_norm: float | Literal["fro", "nuc"] | None = np.inf,
-#     matrix_norm: float | Literal["fro", "nuc"] | None = 2,
-# ) -> float:
-#     r"""Return the norm of the auto-correlation tensor.
-
-#     It first compute the :math:`\ell`-norm of each component
-#     :math:`r_{i,j}(\tau) \in R_{x,x}(\tau), i=1,\,\dots\, q, j=1,\dots,q`,
-#     where :math:`R_{x,x}(\tau)` is the input tensor.
-#     Then, it computes the matrix-norm of the resulting matrix :math:`\hat R_{x,x}`.
-
-
-#     Note
-#     ----
-#     Given that the auto-correlation of the same components for lags = 0
-#     is always 1 or -1, then the validation metrics could be jeopardized,
-#     especially if the :math:`\ell`-inf norm is used.
-#     Therefore, the diagonal entries of the sampled auto-correlation matrix
-#     for lags = 0 is set to 0.0
-
-
-#     Parameters
-#     ----------
-#     Rxx :
-#         Auto-correlation input tensor.
-#     l_norm :
-#         Type of :math:`\ell`-norm.
-#         This parameter is passed to *numpy.linalg.norm()* method.
-#     matrix_norm :
-#         Type of matrx norm with respect to :math:`\ell`-normed covariance matrix.
-#         This parameter is passed to *numpy.linalg.norm()* method.
-#     """
-#     Rxx = deepcopy(_xcorr_norm_validation(Rxx))
-
-#     # Auto-correlation for lags = 0 of the same component is 1 or -1
-#     # therefore may jeopardize the results, especially if the l-inf norm
-#     # is used.
-#     lags0_idx = np.nonzero(Rxx.lags == 0)[0][0]
-#     np.fill_diagonal(Rxx.values[lags0_idx, :, :], 0.0)
-
-#     R_norm = xcorr_norm(Rxx, l_norm, matrix_norm)
-
-#     return R_norm
-
-
-# TODO: redundant
 def whiteness_level(
     X: np.ndarray,
     local_weights: np.ndarray | None = None,  # shall be a 1D vector
@@ -416,12 +334,7 @@ def whiteness_level(
     else:
         nlags = local_weights.shape[0]
 
-        Rxx = XCorrelation("", X, X, nlags)
-        # Auto-correlation for lags = 0 of the same component is 1 or -1
-        # therefore may jeopardize the results, especially if the l-inf norm
-        # is used.
-        lags0_idx = np.nonzero(Rxx.lags == 0)[0][0]
-        np.fill_diagonal(Rxx.values[lags0_idx, :, :], 0.0)
+    Rxx = XCorrelation("", X, X, nlags)
 
     return Rxx.whiteness, Rxx
 
@@ -478,7 +391,7 @@ def whiteness_level(
 #     return R_norm
 
 
-@dataclass
+# @dataclass
 class ValidationSession:
     # TODO: Save validation session.
     """The *ValidationSession* class is used to validate models against a given dataset.
@@ -515,12 +428,12 @@ class ValidationSession:
         :py:meth:`~dymoval.validation.ValidationSession.append_simulation`
         and it should be considered as a *read-only* attribute."""
 
-        self.auto_correlation: dict[str, XCorrelation] = {}
+        self.auto_correlation_tensors: dict[str, XCorrelation] = {}
         """The auto-correlation tensors.
         This attribute is automatically set
         and it should be considered as a *read-only* attribute."""
 
-        self.cross_correlation: dict[str, XCorrelation] = {}
+        self.cross_correlation_tensors: dict[str, XCorrelation] = {}
         """The cross-correlation tensors.
         This attribute is automatically set
         and it should be considered as a *read-only* attribute."""
@@ -572,11 +485,14 @@ class ValidationSession:
 
         # rsquared and various statistics
         r2 = rsquared(y_values, y_sim_values)
-        Ree_norm, Ree = whiteness_level(eps, eps)
-        Rue_norm, Rue = whiteness_level(u_values, eps)
+        # Here I can do it at once
+        Ree_norm, Ree = whiteness_level(eps)
+        # Here I cannot.
+        Rue = XCorrelation(u_values, eps)
+        Rue_norm = Rue.whiteness
 
-        self.auto_correlation[sim_name] = Ree
-        self.cross_correlation[sim_name] = Rue
+        self.auto_correlation_tensors[sim_name] = Ree
+        self.cross_correlation_tensors[sim_name] = Rue
         self.validation_results[sim_name] = [r2, Ree_norm, Rue_norm]
 
     def _sim_list_validate(self) -> None:
@@ -863,12 +779,12 @@ class ValidationSession:
 
     # TODO:
     def trim(
-        self: ValidationSession,
+        self: Self,
         tin: float | None = None,
         tout: float | None = None,
         verbosity: int = 0,
         **kwargs: Any,
-    ) -> ValidationSession:
+    ) -> Self:
         """
         Trim the Validation session
         :py:class:`ValidationSession <dymoval.validation.ValidationSession>` object.
@@ -896,7 +812,7 @@ class ValidationSession:
         # This function is similar to Dataset.trim
 
         def _graph_selection(
-            vs: ValidationSession,
+            vs: Self,
             **kwargs: Any,
         ) -> tuple[float, float]:  # pragma: no cover
             # Select the time interval graphically
@@ -925,6 +841,7 @@ class ValidationSession:
                 "xlim_changed", update_time_interval
             )
             fig = axes[0].get_figure()
+            assert fig is not None
 
             fig.suptitle("Trim the simulation results.")
 
@@ -1058,17 +975,15 @@ class ValidationSession:
                     f"Simulation {sim_not_found} not found. "
                     "Check the available simulations names with 'simulations_namess()'"
                 )
-        Ree = self.auto_correlation
-        Rue = self.cross_correlation
+        Ree = self.auto_correlation_tensors
+        Rue = self.cross_correlation_tensors
 
         # Get p
         k0 = list(Rue.keys())[0]
-        Rue[k0].values[0, :, :]
         p = Rue[k0].values[0, :, :].shape[0]
 
         # Get q
         k0 = list(Ree.keys())[0]
-        Ree[k0].values[0, :, :]
         q = Ree[k0].values[0, :, :].shape[0]
 
         # ===============================================================
@@ -1160,7 +1075,7 @@ class ValidationSession:
         """Return a list of names of the stored simulations."""
         return list(self.simulations_results.columns.levels[0])
 
-    def clear(self) -> ValidationSession:
+    def clear(self) -> Self:
         """Clear all the stored simulation results."""
         vs_temp = deepcopy(self)
         sim_names = vs_temp.simulations_names()
@@ -1175,7 +1090,7 @@ class ValidationSession:
         y_data: np.ndarray,
         l_norm: float | Literal["fro", "nuc"] | None = np.inf,
         matrix_norm: float | Literal["fro", "nuc"] | None = 2,
-    ) -> ValidationSession:
+    ) -> Self:
         """
         Append simulation results.
         The results are stored in the
@@ -1232,7 +1147,7 @@ class ValidationSession:
 
         return vs_temp
 
-    def drop_simulation(self, *sims: str) -> ValidationSession:
+    def drop_simulation(self, *sims: str) -> Self:
         """Drop simulation results from the validation session.
 
 
@@ -1261,8 +1176,8 @@ class ValidationSession:
                 vs_temp.simulations_results.columns.remove_unused_levels()
             )
 
-            vs_temp.auto_correlation.pop(sim_name)
-            vs_temp.cross_correlation.pop(sim_name)
+            vs_temp.auto_correlation_tensors.pop(sim_name)
+            vs_temp.cross_correlation_tensors.pop(sim_name)
 
             vs_temp.validation_results = vs_temp.validation_results.drop(
                 sim_name, axis=1
