@@ -19,6 +19,7 @@ dependencies = [
     "numpy",
     "tomli",
     "h5py",
+    "typing_extensions",
 ]
 
 # Other metadata
