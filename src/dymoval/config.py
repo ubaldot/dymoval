@@ -1,5 +1,6 @@
 """Config file."""
 
+import matplotlib
 import pathlib
 from typing import Literal, cast
 import typing
@@ -35,7 +36,7 @@ except FileNotFoundError:  # pragma: no cover
 # locals().update(config)
 
 NUM_DECIMALS: int = cast(int, config["NUM_DECIMALS"])
-COLORMAP = config["COLORMAP"]
+COLORMAP: matplotlib.colors.Colormap = config["COLORMAP"]
 
 ATOL = 10**-NUM_DECIMALS
 
