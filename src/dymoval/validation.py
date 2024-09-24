@@ -286,10 +286,7 @@ def rsquared(x: np.ndarray, y: np.ndarray) -> float:
     # Compute r-square fit (%)
     x_mean = np.mean(x, axis=0)
     r2 = np.round(
-        (
-            1.0
-            - np.linalg.norm(eps, 2) ** 2 / np.linalg.norm(x - x_mean, 2) ** 2
-        )
+        (1.0 - np.linalg.norm(eps, 2) ** 2 / np.linalg.norm(x - x_mean, 2) ** 2)
         * 100,
         NUM_DECIMALS,
     )
@@ -548,9 +545,7 @@ class ValidationSession:
         # Cam be a positional or a keyword arg
         list_sims: str | list[str] | None = None,
         dataset: Literal["in", "out", "both"] | None = None,
-        layout: Literal[
-            "constrained", "compressed", "tight", "none"
-        ] = "tight",
+        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> matplotlib.figure.Figure:
@@ -925,9 +920,7 @@ class ValidationSession:
         self,
         list_sims: str | list[str] | None = None,
         *,
-        layout: Literal[
-            "constrained", "compressed", "tight", "none"
-        ] = "tight",
+        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> tuple[matplotlib.figure.Figure, matplotlib.figure.Figure]:
@@ -1014,9 +1007,12 @@ class ValidationSession:
         fig1.suptitle("Residuals auto-correlation")
 
         # Adjust fig size and layout
+        # Walrus operator to make mypy happy. Alternatively, you could use
+        # assert, see below.
         if (gs := fig1.get_axes()[0].get_gridspec()) is not None:
-            nrows = gs.get_geometry()[0]
-            ncols = gs.get_geometry()[1]
+            nrows, ncols = gs.get_geometry()
+
+        nrows, ncols = fig1.get_axes()[0].get_gridspec().get_geometry()
         fig1.set_size_inches(ncols * ax_width, nrows * ax_height + 1.25)
         fig1.set_layout_engine(layout)
 
@@ -1044,8 +1040,7 @@ class ValidationSession:
         # Adjust fig size and layout
         gs = fig2.get_axes()[0].get_gridspec()
         assert gs is not None
-        nrows = gs.get_geometry()[0]
-        ncols = gs.get_geometry()[1]
+        nrows, ncols = gs.get_geometry()
         fig2.set_size_inches(ncols * ax_width, nrows * ax_height + 1.25)
         fig2.set_layout_engine(layout)
 
@@ -1125,15 +1120,11 @@ class ValidationSession:
         vs_temp._simulation_validation(sim_name, y_names, y_data)
 
         y_units = list(
-            vs_temp.Dataset.dataset["OUTPUT"].columns.get_level_values(
-                "units"
-            )
+            vs_temp.Dataset.dataset["OUTPUT"].columns.get_level_values("units")
         )
 
         # Initialize sim df
-        df_sim = pd.DataFrame(
-            data=y_data, index=vs_temp.Dataset.dataset.index
-        )
+        df_sim = pd.DataFrame(data=y_data, index=vs_temp.Dataset.dataset.index)
         multicols = list(zip([sim_name] * len(y_names), y_names, y_units))
         df_sim.columns = pd.MultiIndex.from_tuples(
             multicols, names=["sim_names", "signal_names", "units"]
