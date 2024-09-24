@@ -141,7 +141,7 @@ class XCorrelation:
                     # Element-wise multiplication for weighted inf norm
                     statistic = np.max(np.abs(W.T * rij_tau))
                 elif criteria == "mean":
-                    statistic = W.T @ rij_tau
+                    statistic = np.sum(W * rij_tau) / np.sum(W)
                 elif criteria == "std_dev":
                     # TODO :
                     weighted_mean_tmp = np.sum(W * rij_tau) / np.sum(W)
@@ -161,32 +161,21 @@ class XCorrelation:
             if self.kind == "auto-correlation":
                 # We squash to 0.0 the component at lag = 0
                 lags0_idx = np.nonzero(self.lags == 0)[0][0]
+                # TODO Remove the 0 element completely
                 np.fill_diagonal(R[lags0_idx, :, :], 0.0)
             nobsv = R.shape[0]  # Number of observations
             nrows = R.shape[1]  # Number of rows
             ncols = R.shape[2]  # Number of columns
 
             # Fix locals weights
-            if local_weights is None and local_criteria == "mean":
-                # All weights equal to 1/n or to 1/(n-1) for autocorrelation
-                # because we squash the sample t lag = 0 to 0.0 and that shall
-                # not account in the computation of the mean.
-                W_local = (
-                    1 / (nobsv - 1) * np.ones(nobsv)
-                    if self.kind == "auto-correlation"
-                    else 1 / nobsv * np.ones(nobsv)
-                )
-            elif local_weights is None and local_criteria != "mean":
+            if local_weights is None:
                 # All the weights equal to 1
                 W_local = np.ones(nobsv)
             else:
                 W_local = local_weights
 
             # Fix globals weights
-            if global_weights is None and global_criteria == "mean":
-                # All weights equal to 1/n
-                W_global = 1 / (nrows * ncols) * np.ones(nrows * ncols)
-            elif global_weights is None and global_criteria != "mean":
+            if global_weights is None:
                 # All the weights equal to 1
                 W_global = np.ones(nrows * ncols)
             else:
