@@ -136,7 +136,13 @@ class XCorrelation:
                 W: np.ndarray,
                 rij_tau: np.ndarray,
                 is_diagonal: bool,
+                lags0_idx: int,
             ) -> Any:
+
+                # In lag = 0, the auto-correlation value on the diagonal is 1.
+                if is_diagonal and self.kind == "auto-correlation":
+                    W = np.delete(W, lags0_idx)
+                    rij_tau = np.delete(rij_tau, lags0_idx)
 
                 if criteria == "quadratic":
                     statistic = rij_tau.T @ np.diag(W) @ rij_tau
@@ -160,15 +166,11 @@ class XCorrelation:
 
             # We deepcopy because we will drop the 1 at lags 0 in case of
             # auto-correlation
-            R = deepcopy(self.values)
-            if self.kind == "auto-correlation":
-                # We squash to 0.0 the component at lag = 0
-                lags0_idx = np.nonzero(self.lags == 0)[0][0]
-                # TODO Remove the 0 element completely
-                np.fill_diagonal(R[lags0_idx, :, :], 0.0)
+            R = self.values
             nobsv = R.shape[0]  # Number of observations
             nrows = R.shape[1]  # Number of rows
             ncols = R.shape[2]  # Number of columns
+            lags0_idx = np.nonzero(self.lags == 0)[0][0]
 
             # Fix locals weights
             if local_weights is None:
@@ -191,12 +193,20 @@ class XCorrelation:
                 for jj in range(ncols):
                     is_diagonal = True if ii == jj else False
                     R_matrix[ii, jj] = _compute_statistic(
-                        local_criteria, W_local, R[:, ii, jj], is_diagonal
+                        local_criteria,
+                        W_local,
+                        R[:, ii, jj],
+                        is_diagonal,
+                        lags0_idx,
                     )
 
             # Compute the overall statistic of the resulting matrix
             whiteness_level = _compute_statistic(
-                global_criteria, W_global, R_matrix.flatten()
+                global_criteria,
+                W_global,
+                R_matrix.flatten(),
+                is_diagonal,
+                lags0_idx,
             )
             return whiteness_level
 
@@ -276,7 +286,10 @@ def rsquared(x: np.ndarray, y: np.ndarray) -> float:
     # Compute r-square fit (%)
     x_mean = np.mean(x, axis=0)
     r2 = np.round(
-        (1.0 - np.linalg.norm(eps, 2) ** 2 / np.linalg.norm(x - x_mean, 2) ** 2)
+        (
+            1.0
+            - np.linalg.norm(eps, 2) ** 2 / np.linalg.norm(x - x_mean, 2) ** 2
+        )
         * 100,
         NUM_DECIMALS,
     )
@@ -535,7 +548,9 @@ class ValidationSession:
         # Cam be a positional or a keyword arg
         list_sims: str | list[str] | None = None,
         dataset: Literal["in", "out", "both"] | None = None,
-        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
+        layout: Literal[
+            "constrained", "compressed", "tight", "none"
+        ] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> matplotlib.figure.Figure:
@@ -910,7 +925,9 @@ class ValidationSession:
         self,
         list_sims: str | list[str] | None = None,
         *,
-        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
+        layout: Literal[
+            "constrained", "compressed", "tight", "none"
+        ] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> tuple[matplotlib.figure.Figure, matplotlib.figure.Figure]:
@@ -1109,11 +1126,15 @@ class ValidationSession:
         vs_temp._simulation_validation(sim_name, y_names, y_data)
 
         y_units = list(
-            vs_temp.Dataset.dataset["OUTPUT"].columns.get_level_values("units")
+            vs_temp.Dataset.dataset["OUTPUT"].columns.get_level_values(
+                "units"
+            )
         )
 
         # Initialize sim df
-        df_sim = pd.DataFrame(data=y_data, index=vs_temp.Dataset.dataset.index)
+        df_sim = pd.DataFrame(
+            data=y_data, index=vs_temp.Dataset.dataset.index
+        )
         multicols = list(zip([sim_name] * len(y_names), y_names, y_units))
         df_sim.columns = pd.MultiIndex.from_tuples(
             multicols, names=["sim_names", "signal_names", "units"]
