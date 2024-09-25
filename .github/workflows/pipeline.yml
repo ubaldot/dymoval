@@ -52,8 +52,7 @@ jobs:
       - name: Run tests (flake8, pytest, sphinx)
         run: |
           flake8 .
-          # mypy does not work well with matplotlib
-          # mypy .
+          mypy ./src
           coverage run -m pytest ./tests/
           cd docs
           make clean
@@ -138,8 +137,7 @@ jobs:
         shell: bash -l {0}
         run: |
           flake8 .
-          # mypy does not work well with matplotlib
-          # mypy .
+          mypy ./src
           coverage run -m pytest ./tests/
           cd docs
           make clean
@@ -161,8 +159,7 @@ jobs:
         shell: pwsh
         run: |
           flake8 .
-          # mypy does not work well with matplotlib
-          # mypy .
+          mypy ./src
           coverage run -m pytest ./tests/
           cd docs
           make clean

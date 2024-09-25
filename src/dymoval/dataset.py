@@ -995,7 +995,7 @@ class Dataset:
                 (
                     line_r,
                     _,
-                ) = axes_right.get_legend_handles_labels()  # type:ignore
+                ) = axes_right.get_legend_handles_labels()
                 # Update label
                 label_r = [labels_tpl[ii][1]]
                 line_r[0].set_label(*label_r)
@@ -1203,6 +1203,7 @@ class Dataset:
             )
             fig = axes[0].get_figure()
 
+            assert fig is not None
             fig.suptitle(
                 "Sampling time "
                 f"= {np.round(self.dataset.index[1]-self.dataset.index[0], NUM_DECIMALS)} {self.dataset.index.name[1]}.\n"
@@ -1215,15 +1216,18 @@ class Dataset:
             # prompt. In this way user is constrained to graphically select a
             # time interval or to close the figure window if it wants the
             # control back.
+            # The "event loop" is a programming structure that waits for and
+            # dispatch events and programs. An example below.
             # An alternative better solution is welcome!
             try:
-                while fig.number in plt.get_fignums():
+                while fig in [plt.figure(num) for num in plt.get_fignums()]:
+                    # while fig.number in plt.get_fignums():
                     plt.pause(0.1)
             except Exception as e:
                 print(f"An error occurred {e}")
-                plt.close(fig.number)
+                plt.close(fig)
             finally:
-                plt.close(fig.number)
+                plt.close(fig)
 
             # =======================================================
             axes[0].remove_callback(cid)
@@ -1439,13 +1443,13 @@ class Dataset:
         nrows, ncols = factorize(n)
         fig, axes = plt.subplots(nrows, ncols, squeeze=False)
         # Flatten array for more readable code
-        axes = axes.T.flat
+        axes_flatten = axes.T.flat
 
         for ii, val in enumerate(signal_pairs):
             df.droplevel(level=["kind", "units"], axis=1).plot(
                 x=val[0],
                 y=val[1],
-                ax=axes[ii],
+                ax=axes_flatten[ii],
                 legend=None,
                 xlabel=f"{val[0]}, ({signals_units[val[0]]})",
                 ylabel=f"{val[1]}, ({signals_units[val[1]]})",
@@ -1455,8 +1459,9 @@ class Dataset:
         fig.suptitle("XY-plot.")
 
         # Adjust fig size and layout
-        nrows = fig.get_axes()[0].get_gridspec().get_geometry()[0]
-        ncols = fig.get_axes()[0].get_gridspec().get_geometry()[1]
+        gs = fig.get_axes()[0].get_gridspec()
+        assert gs is not None
+        nrows, ncols = gs.get_geometry()
         fig.set_size_inches(ncols * ax_width, nrows * ax_height + 1.25)
         fig.set_layout_engine(layout)
 
@@ -1630,8 +1635,9 @@ class Dataset:
         self._shade_nans(fig.get_axes())
 
         # Adjust fig size and layout
-        nrows = fig.get_axes()[0].get_gridspec().get_geometry()[0]
-        ncols = fig.get_axes()[0].get_gridspec().get_geometry()[1]
+        gs = fig.get_axes()[0].get_gridspec()
+        assert gs is not None
+        nrows, ncols = gs.get_geometry()
         fig.set_size_inches(ncols * ax_width, nrows * ax_height + 1.25)
         fig.set_layout_engine(layout)
 
@@ -1751,6 +1757,7 @@ class Dataset:
         # ===================================================
 
         # Initialize iteration
+        assert grid.figure is not None
         fig = grid.figure
         if fig.get_axes():
             pass
@@ -1781,8 +1788,10 @@ class Dataset:
         fig.suptitle("Coverage region.")
 
         # Adjust fig size and layout
-        assert fig is not None
-        nrows, ncols = fig.get_axes()[0].get_gridspec().get_geometry()
+        gs = fig.get_axes()[0].get_gridspec()
+        assert gs is not None
+        nrows, ncols = gs.get_geometry()
+
         fig.set_size_inches(ncols * ax_width, nrows * ax_height + 1.25)
         fig.set_layout_engine(layout)
 
@@ -2058,7 +2067,8 @@ class Dataset:
                 else:
                     inner_grid = grid[ii].subgridspec(2, 1)
                     axes = [
-                        fig.add_subplot(g, sharex=axes[0]) for g in inner_grid
+                        fig.add_subplot(inner_grid[0]),
+                        fig.add_subplot(inner_grid[1], sharex=axes[0]),
                     ]
                 # Two colums per time are being plot: (abs,angle)
                 # If you do ax.legend(handles,my_labels) and then you do
@@ -2092,10 +2102,10 @@ class Dataset:
                 # In case the user wants to overlap plots...
                 # If the overlapped plots have the same units, then there is
                 # no point in using a secondary_y
-                line_abs_r = []
-                label_abs_r = []
-                line_angle_r = []
-                label_angle_r = []
+                line_abs_r: list[matplotlib.artist.Artist] = []
+                label_abs_r: list[str] = []
+                line_angle_r: list[matplotlib.artist.Artist] = []
+                label_angle_r: list[str] = []
                 if len(s) == 2:  # tuple like ("u1","u2")
                     if (
                         len(axes_tpl) > 0
@@ -2288,8 +2298,9 @@ class Dataset:
         #
 
         # Adjust fig size and layout
-        nrows = fig.get_axes()[0].get_gridspec().get_geometry()[0]
-        ncols = fig.get_axes()[0].get_gridspec().get_geometry()[1]
+        gs = fig.get_axes()[0].get_gridspec()
+        assert gs is not None
+        nrows, ncols = gs.get_geometry()
         if kind == "amplitude":
             fig.set_size_inches(
                 ncols * ax_width * 2, nrows * ax_height * 2 + 1.25
@@ -2772,6 +2783,7 @@ def change_axes_layout(
     """
 
     axes = fig.get_axes()
+    # Axes returns a list not a matrix.
     # Infer positions of the axes - TODO Matplotlib does not store the layout
     positions = [ax.get_position().bounds for ax in fig.get_axes()]
     # Determine the unique rows and columns based on y0 (vertical) and x0 (horizontal)
@@ -2781,20 +2793,22 @@ def change_axes_layout(
     old_ncols = len(
         set(pos[0] for pos in positions)
     )  # x0 (horizontal positions)
-
+    axes_2d = np.array(axes).reshape(old_nrows, old_ncols)
     # Remove all old axes
     for ii in range(old_nrows):
         for jj in range(old_ncols):
-            axes[ii, jj].remove()
+            axes_2d[ii, jj].remove()
     # New number of rows and columns
     # Set gridspec according to new new_nrows and new_ncols
     gs = gridspec.GridSpec(nrows, ncols, figure=fig)
-    axes = np.ndarray((nrows, ncols), dtype=matplotlib.axes.SubplotBase)
+    axes_2d = np.ndarray((nrows, ncols), dtype=matplotlib.axes.SubplotBase)
     # Add new axes
     for ii in range(nrows):
         for jj in range(ncols):
-            axes[ii, jj] = fig.add_subplot(gs[ii, jj], sharex=axes[0, 0])
-    return fig, axes
+            axes_2d[ii, jj] = fig.add_subplot(
+                gs[ii, jj], sharex=axes_2d[0, 0]
+            )
+    return fig, axes_2d.flatten().tolist()
 
 
 def validate_signals(*signals: Signal) -> None:
