@@ -1,8 +1,7 @@
 """Config file."""
 
-import matplotlib
 import pathlib
-from typing import Literal, cast
+from typing import Literal, cast, Any
 import typing
 
 # Constants exposed to the user
@@ -36,7 +35,7 @@ except FileNotFoundError:  # pragma: no cover
 # locals().update(config)
 
 NUM_DECIMALS: int = cast(int, config["NUM_DECIMALS"])
-COLORMAP: matplotlib.colors.Colormap = config["COLORMAP"]
+COLORMAP: Any = config["COLORMAP"]
 
 ATOL = 10**-NUM_DECIMALS
 
@@ -50,7 +49,9 @@ SPECTRUM_KIND: list[Spectrum_type] = list(typing.get_args(Spectrum_type))
 Allowed_keys_type = Literal[
     "name", "values", "signal_unit", "sampling_period", "time_unit"
 ]
-SIGNAL_KEYS: list[Allowed_keys_type] = list(typing.get_args(Allowed_keys_type))
+SIGNAL_KEYS: list[Allowed_keys_type] = list(
+    typing.get_args(Allowed_keys_type)
+)
 
 Metric_type = Literal["mean", "quadratic", "std_dev", "inf"]
 METRIC_TYPE: list[Metric_type] = list(typing.get_args(Metric_type))
