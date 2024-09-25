@@ -227,7 +227,7 @@ class Test_Dataset_nominal:
 
         test_signal1: dmv.Signal = {
             "name": "test1",
-            "values": np.random.rand(120),
+            "samples": np.random.rand(120),
             "signal_unit": "m",
             "sampling_period": 0.1,
             "time_unit": "s",
@@ -238,15 +238,15 @@ class Test_Dataset_nominal:
 
         test_signal2: dmv.Signal = {
             "name": "test2",
-            "values": np.concatenate((np.random.rand(110), nans)),
+            "samples": np.concatenate((np.random.rand(110), nans)),
             "signal_unit": "s",
             "sampling_period": 0.1,
             "time_unit": "s",
         }
         expected_values = np.hstack(
             (
-                test_signal1["values"][:N].reshape(N, 1).round(NUM_DECIMALS),
-                test_signal2["values"][:N].reshape(N, 1).round(NUM_DECIMALS),
+                test_signal1["samples"][:N].reshape(N, 1).round(NUM_DECIMALS),
+                test_signal2["samples"][:N].reshape(N, 1).round(NUM_DECIMALS),
                 ds.dataset.loc[:, kind].head(N).to_numpy(),
             ),
         )
@@ -312,7 +312,7 @@ class Test_Dataset_nominal:
         # due to bad sampling period
         test_bad_signal: dmv.Signal = {
             "name": "bad_signal",
-            "values": np.random.rand(120),
+            "samples": np.random.rand(120),
             "signal_unit": "m",
             "sampling_period": np.pi,
             "time_unit": "s",
@@ -402,8 +402,8 @@ class Test_Dataset_nominal:
         for ii, val in enumerate(expected_inputs):
             assert expected_inputs[ii]["name"] == dumped_inputs[ii]["name"]
             assert np.allclose(
-                expected_inputs[ii]["values"],
-                dumped_inputs[ii]["values"],
+                expected_inputs[ii]["samples"],
+                dumped_inputs[ii]["samples"],
                 atol=ATOL,
             )
             assert (
@@ -424,8 +424,8 @@ class Test_Dataset_nominal:
         for ii, val in enumerate(expected_outputs):
             assert expected_outputs[ii]["name"] == dumped_outputs[ii]["name"]
             assert np.allclose(
-                expected_outputs[ii]["values"],
-                dumped_outputs[ii]["values"],
+                expected_outputs[ii]["samples"],
+                dumped_outputs[ii]["samples"],
                 atol=ATOL,
             )
             assert (
@@ -1422,7 +1422,7 @@ class Test_Signal_validation:
         signal_list, _, _, _, _, _ = good_signals
 
         idx = random.randrange(0, len(signal_list))
-        signal_list[idx]["values"] = test_input
+        signal_list[idx]["samples"] = test_input
         with pytest.raises(expected):
             dmv.validate_signals(*signal_list)
 
@@ -1440,7 +1440,7 @@ class Test_Signal_validation:
 
         idx = random.randrange(0, len(signal_list))
         k_new = "potato"
-        signal_list[idx][k_new] = signal_list[idx].pop("values")
+        signal_list[idx][k_new] = signal_list[idx].pop("samples")
         with pytest.raises(KeyError):
             dmv.validate_signals(*signal_list)
 

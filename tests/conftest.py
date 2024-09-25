@@ -48,7 +48,7 @@ def good_signals(request):  # type: ignore
     for ii, val in enumerate(input_signal_names):
         temp_in: dmv.Signal = {
             "name": val,
-            "values": input_signal_values[ii],
+            "samples": input_signal_values[ii],
             "signal_unit": input_signal_units[ii],
             "sampling_period": input_sampling_periods[ii],
             "time_unit": "s",
@@ -94,7 +94,7 @@ def good_signals(request):  # type: ignore
         # This is the syntax for defining a dymoval signal
         temp_out: dmv.Signal = {
             "name": val,
-            "values": output_signal_values[ii],
+            "samples": output_signal_values[ii],
             "signal_unit": output_signal_units[ii],
             "sampling_period": output_sampling_periods[ii],
             "time_unit": "s",
@@ -151,7 +151,7 @@ def good_signals_no_nans(request):  # type: ignore
     for ii, val in enumerate(input_signal_names):
         temp_in: dmv.Signal = {
             "name": val,
-            "values": input_signal_values[ii],
+            "samples": input_signal_values[ii],
             "signal_unit": input_signal_units[ii],
             "sampling_period": input_sampling_periods[ii],
             "time_unit": "s",
@@ -176,7 +176,7 @@ def good_signals_no_nans(request):  # type: ignore
         # This is the syntax for defining a dymoval signal
         temp_out: dmv.Signal = {
             "name": val,
-            "values": output_signal_values[ii],
+            "samples": output_signal_values[ii],
             "signal_unit": output_signal_units[ii],
             "sampling_period": output_sampling_periods[ii],
             "time_unit": "s",

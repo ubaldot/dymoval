@@ -76,7 +76,7 @@ class Signal(TypedDict):
     >>>
     >>> my_signal: dmv.Signal = {
     "name": "speed",
-    "values": np.random.rand(100),
+    "samples": np.random.rand(100),
     "signal_unit": "mps",
     "sampling_period": 0.1,
     "time_unit": "s",
@@ -86,12 +86,14 @@ class Signal(TypedDict):
 
     Attributes
     ----------
-    values: np.ndarray
+    samples: np.ndarray
         Signal values.
     """
 
     name: str  #: Signal name.
-    values: np.ndarray  # values confuse with values() which is a dict method.
+    samples: (
+        np.ndarray
+    )  # TODO values confuse with values() which is a dict method.
     # This is the reason why they are reported in the docstring.
     signal_unit: str  #: Signal unit.
     sampling_period: float  #: Signal sampling period.
@@ -149,7 +151,7 @@ class Dataset:
     >>> for ii, val in enumerate(signal_names):
     >>>     tmp: dmv.Signal = {
     >>>         "name": val,
-    >>>         "values": signal_values[ii],
+    >>>         "samples": signal_values[ii],
     >>>         "signal_unit": signal_units[ii],
     >>>         "sampling_period": sampling_periods[ii],
     >>>         "time_unit": "s",
@@ -645,13 +647,13 @@ class Dataset:
         ]
         # Trim the signals to have equal length,
         # then build the DataFrame for inizializing the Dataset class.
-        nsamples = [len(x["values"]) for x in resampled_signals]
+        nsamples = [len(x["samples"]) for x in resampled_signals]
         max_idx = min(nsamples)  # Shortest signal
         n = len(resampled_signals)  # number of signals
 
         df_data: np.ndarray = np.zeros((max_idx, n))
         for ii, s in enumerate(resampled_signals):
-            df_data[:, ii] = s["values"][0:max_idx].round(NUM_DECIMALS)
+            df_data[:, ii] = s["samples"][0:max_idx].round(NUM_DECIMALS)
 
         # Create actual DataFrame
         # Single column level but the cols name is a tuple (name,unit)
@@ -1029,7 +1031,7 @@ class Dataset:
             N = target_sampling_period / s["sampling_period"]
             # Check if N is integer
             if np.isclose(N, round(N), atol=ATOL):
-                s["values"] = s["values"][:: int(N)]
+                s["samples"] = s["samples"][:: int(N)]
                 s["sampling_period"] = target_sampling_period
             else:
                 excluded_signals.append(s["name"])
@@ -1083,16 +1085,18 @@ class Dataset:
         # Adjust the signals length of the new signals
         ds_length = len(self.dataset.index)
         for s in signals_ok:
-            if s["values"].size >= ds_length:
-                s["values"] = s["values"][:ds_length]
+            if s["samples"].size >= ds_length:
+                s["samples"] = s["samples"][:ds_length]
             else:
-                nan_vec = np.empty(ds_length - s["values"].size)
+                nan_vec = np.empty(ds_length - s["samples"].size)
                 nan_vec[:] = np.nan
-                s["values"] = np.concatenate((s["values"], nan_vec))
+                s["samples"] = np.concatenate((s["samples"], nan_vec))
 
         # Create DataFrame from signals to be appended (concatenated) to
         # the current dataset
-        data = np.stack([s["values"] for s in signals_ok]).round(NUM_DECIMALS).T
+        data = (
+            np.stack([s["samples"] for s in signals_ok]).round(NUM_DECIMALS).T
+        )
         df_temp = pd.DataFrame(data=data, index=ds.dataset.index)
         df_temp.columns = pd.MultiIndex.from_tuples(
             zip(str2list(kind) * len(signals_name), signals_name, signals_unit),
@@ -1338,7 +1342,7 @@ class Dataset:
                 # The following is the syntax for defining a dymoval signal
                 temp: Signal = {
                     "name": names[ii],
-                    "values": df.loc[:, val].to_numpy().round(NUM_DECIMALS),
+                    "samples": df.loc[:, val].to_numpy().round(NUM_DECIMALS),
                     "signal_unit": signal_units[ii],
                     "sampling_period": sampling_period,
                     "time_unit": time_unit,
@@ -2801,7 +2805,7 @@ def validate_signals(*signals: Signal) -> None:
     >>> for ii, val in enumerate(signal_names):
     >>>     tmp: dmv.Signal = {
     >>>         "name": val,
-    >>>         "values": signal_values[ii],
+    >>>         "samples": signal_values[ii],
     >>>         "signal_unit": signal_units[ii],
     >>>         "sampling_period": sampling_periods[ii],
     >>>         "time_unit": "s",
@@ -2855,11 +2859,13 @@ def validate_signals(*signals: Signal) -> None:
                 f"Key {not_found_keys} not found in signal {s['name']}."
             )
 
-        # Check that "values" makes sense
-        cond = not isinstance(s["values"], np.ndarray) or s["values"].ndim != 1
+        # Check that "samples" makes sense
+        cond = (
+            not isinstance(s["samples"], np.ndarray) or s["samples"].ndim != 1
+        )
         if cond:
             raise TypeError("Key {key} must be 1-D numpy array'.")
-        if s["values"].size < 2:
+        if s["samples"].size < 2:
             raise IndexError(
                 "Signal {s[name']} has only one sample.",
                 "A signal must have at least two samples.",
@@ -3046,9 +3052,9 @@ def plot_signals(*signals: Signal) -> matplotlib.figure.Figure:
     ax_flatten = ax.T.flat
     for ii, s in enumerate(signals):
         timeline = np.linspace(
-            0.0, len(s["values"]) * s["sampling_period"], len(s["values"])
+            0.0, len(s["samples"]) * s["sampling_period"], len(s["samples"])
         )
-        ax_flatten[ii].plot(timeline, s["values"], label=signal_names[ii])
+        ax_flatten[ii].plot(timeline, s["samples"], label=signal_names[ii])
         ax_flatten[ii].text(
             0.8,
             0.8,
