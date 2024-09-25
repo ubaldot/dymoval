@@ -205,8 +205,8 @@ class XCorrelation:
                 global_criteria,
                 W_global,
                 R_matrix.flatten(),
-                is_diagonal,
-                lags0_idx,
+                is_diagonal=False,
+                lags0_idx=-1,
             )
             return whiteness_level
 
@@ -286,7 +286,10 @@ def rsquared(x: np.ndarray, y: np.ndarray) -> float:
     # Compute r-square fit (%)
     x_mean = np.mean(x, axis=0)
     r2 = np.round(
-        (1.0 - np.linalg.norm(eps, 2) ** 2 / np.linalg.norm(x - x_mean, 2) ** 2)
+        (
+            1.0
+            - np.linalg.norm(eps, 2) ** 2 / np.linalg.norm(x - x_mean, 2) ** 2
+        )
         * 100,
         NUM_DECIMALS,
     )
@@ -545,7 +548,9 @@ class ValidationSession:
         # Cam be a positional or a keyword arg
         list_sims: str | list[str] | None = None,
         dataset: Literal["in", "out", "both"] | None = None,
-        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
+        layout: Literal[
+            "constrained", "compressed", "tight", "none"
+        ] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> matplotlib.figure.Figure:
@@ -850,15 +855,19 @@ class ValidationSession:
             # prompt. In this way user is constrained to graphically select a
             # time interval or to close the figure window if it wants the
             # control back.
+            # The "event loop" is a programming structure that waits for and
+            # dispatch events and programs. An example below.
             # An alternative better solution is welcome!
+            all_figs = [plt.figure(num) for num in plt.get_fignums()]
             try:
-                while fig.number in plt.get_fignums():
+                while fig in all_figs:
+                    # while fig.number in plt.get_fignums():
                     plt.pause(0.1)
             except Exception as e:
                 print(f"An error occurred {e}")
-                plt.close(fig.number)
+                plt.close(fig)
             finally:
-                plt.close(fig.number)
+                plt.close(fig)
 
             # =======================================================
             axes[0].remove_callback(cid)
@@ -920,7 +929,9 @@ class ValidationSession:
         self,
         list_sims: str | list[str] | None = None,
         *,
-        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
+        layout: Literal[
+            "constrained", "compressed", "tight", "none"
+        ] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> tuple[matplotlib.figure.Figure, matplotlib.figure.Figure]:
@@ -1118,11 +1129,15 @@ class ValidationSession:
         vs_temp._simulation_validation(sim_name, y_names, y_data)
 
         y_units = list(
-            vs_temp.Dataset.dataset["OUTPUT"].columns.get_level_values("units")
+            vs_temp.Dataset.dataset["OUTPUT"].columns.get_level_values(
+                "units"
+            )
         )
 
         # Initialize sim df
-        df_sim = pd.DataFrame(data=y_data, index=vs_temp.Dataset.dataset.index)
+        df_sim = pd.DataFrame(
+            data=y_data, index=vs_temp.Dataset.dataset.index
+        )
         multicols = list(zip([sim_name] * len(y_names), y_names, y_units))
         df_sim.columns = pd.MultiIndex.from_tuples(
             multicols, names=["sim_names", "signal_names", "units"]

@@ -233,6 +233,8 @@ vs = vs.append_simulation(sim2_name, sim2_labels, sim2_values)
 vs.plot_residuals()
 # %%
 vs = vs.trim(dataset="out")
+
+# %%
 fig = vs.plot_simulations()
 
 # fig.savefig("foo.png")
