@@ -135,28 +135,27 @@ class XCorrelation:
                 statistic: Statistic_type,
                 W: np.ndarray,
                 rij_tau: np.ndarray,
-                is_diagonal: bool,
-                lags0_idx: int,
             ) -> Any:
 
-                # In lag = 0, the auto-correlation value on the diagonal is 1.
-                if is_diagonal and self.kind == "auto-correlation":
-                    W = np.delete(W, lags0_idx)
-                    rij_tau = np.delete(rij_tau, lags0_idx)
-
                 if statistic == "quadratic":
-                    result = rij_tau.T @ np.diag(W) @ rij_tau
+                    result = (
+                        rij_tau.T
+                        @ np.diag(W)
+                        @ rij_tau
+                        / (np.sum(W) * rij_tau.size)
+                    )
                 elif statistic == "max":
                     # Element-wise multiplication for weighted inf norm
-                    result = np.max(np.abs(W.T * rij_tau))
+                    result = np.max(np.abs(W.T * rij_tau)) / np.sum(W)
                 elif statistic == "mean":
-                    result = np.sum(W * rij_tau) / np.sum(W)
+                    result = np.sum(W * rij_tau) / (np.sum(W) * rij_tau.size)
                 elif statistic == "std":
-                    # TODO :
-                    weighted_mean_tmp = np.sum(W * rij_tau) / np.sum(W)
+                    weighted_mean_tmp = np.sum(W * rij_tau) / (
+                        np.sum(W) * rij_tau.size
+                    )
                     weighted_variance = np.sum(
                         W * (rij_tau - weighted_mean_tmp) ** 2
-                    ) / np.sum(W)
+                    ) / (np.sum(W) * rij_tau.size)
                     result = np.sqrt(weighted_variance)
                 else:
                     raise ValueError(
@@ -164,6 +163,7 @@ class XCorrelation:
                     )
                 return result
 
+            # MAIN =================================================
             # We deepcopy because we will drop the 1 at lags 0 in case of
             # auto-correlation
             R = self.values
@@ -173,40 +173,41 @@ class XCorrelation:
             lags0_idx = np.nonzero(self.lags == 0)[0][0]
 
             # Fix locals weights
-            if local_weights is None:
-                # All the weights equal to 1
-                W_local = np.ones(nobsv)
-            else:
-                W_local = local_weights
+            W_local = (
+                np.ones(nobsv) if local_weights is None else local_weights
+            )
 
-            # Fix globals weights
-            if global_weights is None:
-                # All the weights equal to 1
-                W_global = np.ones(nrows * ncols)
-            else:
-                W_global = global_weights
+            # fix global weights
+            W_global = (
+                np.ones(nrows * ncols)
+                if global_weights is None
+                else global_weights
+            )
 
             # Build the R_matrix by computing the statistic of each scalar
-            # cross-correlation graph
+            # cross-correlation (local)
             R_matrix = np.zeros((nrows, ncols))
             for ii in range(nrows):
                 for jj in range(ncols):
-                    is_diagonal = True if ii == jj else False
+                    if ii == jj and self.kind == "auto-correlation":
+                        # Remove auto-correlation values at lag = 0
+                        W = np.delete(W_local, lags0_idx)
+                        rij_tau = np.delete(R[:, ii, jj], lags0_idx)
+                    else:
+                        W = W_local
+                        rij_tau = R[:, ii, jj]
+
                     R_matrix[ii, jj] = _compute_statistic(
-                        local_statistic,
-                        W_local,
-                        R[:, ii, jj],
-                        is_diagonal,
-                        lags0_idx,
+                        statistic=local_statistic,
+                        W=W,
+                        rij_tau=rij_tau,
                     )
 
             # Compute the overall statistic of the resulting matrix
             whiteness_level = _compute_statistic(
-                global_statistic,
-                W_global,
-                R_matrix.flatten(),
-                is_diagonal=False,
-                lags0_idx=-1,
+                statistic=global_statistic,
+                W=W_global,
+                rij_tau=R_matrix.flatten(),
             )
             return whiteness_level
 
@@ -214,7 +215,7 @@ class XCorrelation:
         # Attributes
         # =========================================
         self.name: str = name
-        if Y is None:
+        if Y is None or np.array_equal(X, Y):
             self.values, self.lags = _init_tensor(X, X, nlags)
             self.kind = "auto-correlation"
         else:
@@ -315,7 +316,16 @@ def whiteness_level(
     else:
         nlags = local_weights.shape[0]
 
-    Rxx = XCorrelation("", X, X, nlags)
+    Rxx = XCorrelation(
+        "",
+        X=X,
+        Y=None,
+        nlags=nlags,
+        local_statistic=local_statistic,
+        local_weights=local_weights,
+        global_statistic=global_statistic,
+        global_weights=global_weights,
+    )
 
     return Rxx.whiteness, Rxx
 
@@ -410,14 +420,10 @@ class ValidationSession:
         # Initialize validation results DataFrame.
         idx = [
             "R-Squared (%)",
-            f"""Residuals Auto-Corr
-            ({self.acorr_local_statistic_1st}-{self.acorr_global_statistic_1st})""",
-            f"""Residuals Auto-Corr
-            ({self.acorr_local_statistic_2nd}-{self.acorr_global_statistic_2nd})""",
-            f"""Input-Res Cross-Corr
-            ({self.xcorr_local_statistic_1st}-{self.xcorr_global_statistic_1st})""",
-            f"""Input-Res Cross-Corr
-            ({self.xcorr_local_statistic_2nd}-{self.xcorr_global_statistic_2nd})""",
+            f"Residuals Auto-Corr ({self.acorr_local_statistic_1st}-{self.acorr_global_statistic_1st})",
+            f"Residuals Auto-Corr ({self.acorr_local_statistic_2nd}-{self.acorr_global_statistic_2nd})",
+            f"Input-Res Cross-Corr ({self.xcorr_local_statistic_1st}-{self.xcorr_global_statistic_1st})",
+            f"Input-Res Cross-Corr ({self.xcorr_local_statistic_2nd}-{self.xcorr_global_statistic_2nd})",
         ]
         self.validation_results: pd.DataFrame = pd.DataFrame(
             index=idx, columns=[]
@@ -458,7 +464,7 @@ class ValidationSession:
             local_weights=self.acorr_local_weights_2nd,
             global_statistic=self.acorr_global_statistic_2nd,
             global_weights=self.acorr_global_weights_2nd,
-        )
+        )[0]
         # Here I cannot.
         Rue = XCorrelation(
             "Rue",
