@@ -16,7 +16,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from copy import deepcopy
 import scipy.signal as signal
-from .config import NUM_DECIMALS, COLORMAP, Metric_type, METRIC_TYPE
+from .config import NUM_DECIMALS, COLORMAP, Statistic_type, STATISTIC_TYPE
 from .utils import (
     is_interactive_shell,
     factorize,
@@ -70,10 +70,10 @@ class XCorrelation:
         X: np.ndarray,
         Y: np.ndarray | None = None,
         nlags: int | None = None,
+        local_statistic: Statistic_type = "mean",
         local_weights: np.ndarray | None = None,  # shall be a 1D vector
-        local_criteria: Metric_type = "mean",
+        global_statistic: Statistic_type = "max",
         global_weights: np.ndarray | None = None,
-        global_criteria: Metric_type = "inf",
     ) -> None:
 
         def _init_tensor(
@@ -126,13 +126,13 @@ class XCorrelation:
 
         def _whiteness_level(
             local_weights: np.ndarray | None = None,  # shall be a 1D vector
-            local_criteria: Metric_type = "mean",
+            local_statistic: Statistic_type = "mean",
             global_weights: np.ndarray | None = None,
-            global_criteria: Metric_type = "inf",
+            global_statistic: Statistic_type = "max",
         ) -> Any:
 
             def _compute_statistic(
-                criteria: Metric_type,
+                statistic: Statistic_type,
                 W: np.ndarray,
                 rij_tau: np.ndarray,
                 is_diagonal: bool,
@@ -144,25 +144,25 @@ class XCorrelation:
                     W = np.delete(W, lags0_idx)
                     rij_tau = np.delete(rij_tau, lags0_idx)
 
-                if criteria == "quadratic":
-                    statistic = rij_tau.T @ np.diag(W) @ rij_tau
-                elif criteria == "inf":
+                if statistic == "quadratic":
+                    result = rij_tau.T @ np.diag(W) @ rij_tau
+                elif statistic == "max":
                     # Element-wise multiplication for weighted inf norm
-                    statistic = np.max(np.abs(W.T * rij_tau))
-                elif criteria == "mean":
-                    statistic = np.sum(W * rij_tau) / np.sum(W)
-                elif criteria == "std_dev":
+                    result = np.max(np.abs(W.T * rij_tau))
+                elif statistic == "mean":
+                    result = np.sum(W * rij_tau) / np.sum(W)
+                elif statistic == "std":
                     # TODO :
                     weighted_mean_tmp = np.sum(W * rij_tau) / np.sum(W)
                     weighted_variance = np.sum(
                         W * (rij_tau - weighted_mean_tmp) ** 2
                     ) / np.sum(W)
-                    statistic = np.sqrt(weighted_variance)
+                    result = np.sqrt(weighted_variance)
                 else:
                     raise ValueError(
-                        f"'criteria' must be one of [{METRIC_TYPE}]"
+                        f"'statistic' must be one of [{STATISTIC_TYPE}]"
                     )
-                return statistic
+                return result
 
             # We deepcopy because we will drop the 1 at lags 0 in case of
             # auto-correlation
@@ -193,7 +193,7 @@ class XCorrelation:
                 for jj in range(ncols):
                     is_diagonal = True if ii == jj else False
                     R_matrix[ii, jj] = _compute_statistic(
-                        local_criteria,
+                        local_statistic,
                         W_local,
                         R[:, ii, jj],
                         is_diagonal,
@@ -202,7 +202,7 @@ class XCorrelation:
 
             # Compute the overall statistic of the resulting matrix
             whiteness_level = _compute_statistic(
-                global_criteria,
+                global_statistic,
                 W_global,
                 R_matrix.flatten(),
                 is_diagonal=False,
@@ -223,9 +223,9 @@ class XCorrelation:
 
         self.whiteness = _whiteness_level(
             local_weights,
-            local_criteria,
+            local_statistic,
             global_weights,
-            global_criteria,
+            global_statistic,
         )
 
         """Lags of the cross-correlation.
@@ -286,45 +286,22 @@ def rsquared(x: np.ndarray, y: np.ndarray) -> float:
     # Compute r-square fit (%)
     x_mean = np.mean(x, axis=0)
     r2 = np.round(
-        (1.0 - np.linalg.norm(eps, 2) ** 2 / np.linalg.norm(x - x_mean, 2) ** 2)
+        (
+            1.0
+            - np.linalg.norm(eps, 2) ** 2 / np.linalg.norm(x - x_mean, 2) ** 2
+        )
         * 100,
         NUM_DECIMALS,
     )
     return r2  # type: ignore
 
 
-# TODO May be removed
-# def _xcorr_norm_validation(
-#     Rxy: XCorrelation,
-# ) -> XCorrelation:
-#     R = Rxy.values
-
-#     # MISO or SIMO case
-#     if R.ndim == 2:
-#         R = R[:, :, np.newaxis]
-#     # SISO case
-#     elif R.ndim == 1:
-#         R = R[:, np.newaxis, np.newaxis]
-#     # R cannot have dimension greater than 3
-#     elif R.ndim > 3:
-#         raise IndexError(
-#             "The correlation tensor must be a *3D np.ndarray* where "
-#             "the first dimension size is equal to the number of observartions 'N', "
-#             "the second dimension size is equal to the number of inputs 'p' "
-#             "and the third dimension size is equal to the number of outputs 'q.'"
-#         )
-
-#     Rxy.values
-
-#     return Rxy
-
-
 def whiteness_level(
     X: np.ndarray,
+    local_statistic: Statistic_type = "mean",
     local_weights: np.ndarray | None = None,  # shall be a 1D vector
-    local_criteria: Metric_type = "mean",
+    global_statistic: Statistic_type = "max",
     global_weights: np.ndarray | None = None,
-    global_criteria: Metric_type = "inf",
 ) -> tuple[np.floating, XCorrelation]:
     # Convert signals into XCorrelation tensors and compute the
     # whiteness_level
@@ -343,59 +320,7 @@ def whiteness_level(
     return Rxx.whiteness, Rxx
 
 
-# def xcorr_norm(
-#     Rxy: XCorrelation,
-#     l_norm: float | Literal["fro", "nuc"] | None = np.inf,
-#     matrix_norm: float | Literal["fro", "nuc"] | None = np.inf,
-# ) -> np.floating:
-#     r"""Return the norm of the cross-correlation tensor.
-
-#     It first compute the :math:`\ell`-norm of each component
-#     :math:`r_{i,j}(\tau) \in R_{x,y}(\tau), i=1,\,\dots\, p, j=1,\dots,q`,
-#     where :math:`R_{x,y}(\tau)` is the input tensor.
-#     Then, it computes the matrix-norm of the resulting matrix :math:`\hat R_{x,y}`.
-
-#     Parameters
-#     ----------
-#     Rxy :
-#         Cross-correlation input tensor.
-#     l_norm :
-#         Type of :math:`\ell`-norm.
-#         This parameter is passed to *numpy.linalg.norm()* method.
-#     matrix_norm :
-#         Type of matrx norm with respect to :math:`\ell`-normed covariance matrix.
-#         This parameter is passed to *numpy.linalg.norm()* method.
-#     """
-
-#     Rxy = _xcorr_norm_validation(Rxy)
-
-#     R = Rxy.values
-#     nrows = R.shape[1]
-#     ncols = R.shape[2]
-
-#     R_matrix = np.zeros((nrows, ncols))
-#     W = 1 / R.shape[0] * np.ones(R.shape[0])
-#     for ii in range(nrows):
-#         for jj in range(ncols):
-#             # R_matrix[ii, jj] = np.linalg.norm(R[:, ii, jj], l_norm) / len(
-#             #     R[:, ii, jj]
-#             # )
-#             # R_matrix[ii, jj] = np.linalg.norm(R[:, ii, jj], l_norm)
-#             #  R_matrix[ii, jj] = evaluation_metrics(R[:, ii, jj], type, #  weight)
-#             # Quad form
-#             R_matrix[ii, jj] = R[:, ii, jj].T @ np.diag(W) @ R[:, ii, jj]
-#             # inf norm
-#             R_matrix[ii, jj] = np.max(np.abs(W.T @ R[:, ii, jj]))
-#             # mean value
-#             R_matrix[ii, jj] = W.T @ R[:, ii, jj]
-
-#     # Matrix norn
-#     # R_norm = evaluation_metric(np.flatten(R_matrix), type, weight)
-#     R_norm = np.linalg.norm(R_matrix, matrix_norm).round(NUM_DECIMALS)
-#     return R_norm
-
-
-# @dataclass
+@dataclass
 class ValidationSession:
     # TODO: Save validation session.
     """The *ValidationSession* class is used to validate models against a given dataset.
@@ -410,7 +335,27 @@ class ValidationSession:
     it is recommended to create a new *ValidationSession* instance.
     """
 
-    def __init__(self, name: str, validation_dataset: Dataset) -> None:
+    def __init__(
+        self,
+        name: str,
+        validation_dataset: Dataset,
+        acorr_local_statistic_1st: Statistic_type = "mean",
+        acorr_local_weights_1st: np.ndarray | None = None,
+        acorr_global_statistic_1st: Statistic_type = "max",
+        acorr_global_weights_1st: np.ndarray | None = None,
+        acorr_local_statistic_2nd: Statistic_type = "max",
+        acorr_local_weights_2nd: np.ndarray | None = None,
+        acorr_global_statistic_2nd: Statistic_type = "max",
+        acorr_global_weights_2nd: np.ndarray | None = None,
+        xcorr_local_statistic_1st: Statistic_type = "mean",
+        xcorr_local_weights_1st: np.ndarray | None = None,
+        xcorr_global_statistic_1st: Statistic_type = "max",
+        xcorr_global_weights_1st: np.ndarray | None = None,
+        xcorr_local_statistic_2nd: Statistic_type = "max",
+        xcorr_local_weights_2nd: np.ndarray | None = None,
+        xcorr_global_statistic_2nd: Statistic_type = "max",
+        xcorr_global_weights_2nd: np.ndarray | None = None,
+    ) -> None:
         # Once you created a ValidationSession you should not change the validation dataset.
         # Create another ValidationSession with another validation dataset
         # By using the constructors, you should have no types problems because the check is done there.
@@ -442,13 +387,37 @@ class ValidationSession:
         This attribute is automatically set
         and it should be considered as a *read-only* attribute."""
 
+        self.acorr_local_statistic_1st = acorr_local_statistic_1st
+        self.acorr_local_weights_1st = acorr_local_weights_1st
+        self.acorr_global_statistic_1st = acorr_global_statistic_1st
+        self.acorr_global_weights_1st = acorr_global_weights_1st
+
+        self.acorr_local_statistic_2nd = acorr_local_statistic_2nd
+        self.acorr_local_weights_2nd = acorr_local_weights_2nd
+        self.acorr_global_statistic_2nd = acorr_global_statistic_2nd
+        self.acorr_global_weights_2nd = acorr_global_weights_2nd
+
+        self.xcorr_local_statistic_1st = xcorr_local_statistic_1st
+        self.xcorr_local_weights_1st = xcorr_local_weights_1st
+        self.xcorr_global_statistic_1st = xcorr_global_statistic_1st
+        self.xcorr_global_weights_1st = xcorr_global_weights_1st
+
+        self.xcorr_local_statistic_2nd = xcorr_local_statistic_2nd
+        self.xcorr_local_weights_2nd = xcorr_local_weights_2nd
+        self.xcorr_global_statistic_2nd = xcorr_global_statistic_2nd
+        self.xcorr_global_weights_2nd = xcorr_global_weights_2nd
+
         # Initialize validation results DataFrame.
         idx = [
             "R-Squared (%)",
-            "Residuals Auto-Corr (Mean-Max)",
-            "Residuals Auto-Corr (Max-Max)",
-            "Input-Res. Cross-Corr (Mean-Max)",
-            "Input-Res. Cross-Corr (Max-Max)",
+            f"""Residuals Auto-Corr
+            ({self.acorr_local_statistic_1st}-{self.acorr_global_statistic_1st})""",
+            f"""Residuals Auto-Corr
+            ({self.acorr_local_statistic_2nd}-{self.acorr_global_statistic_2nd})""",
+            f"""Input-Res Cross-Corr
+            ({self.xcorr_local_statistic_1st}-{self.xcorr_global_statistic_1st})""",
+            f"""Input-Res Cross-Corr
+            ({self.xcorr_local_statistic_2nd}-{self.xcorr_global_statistic_2nd})""",
         ]
         self.validation_results: pd.DataFrame = pd.DataFrame(
             index=idx, columns=[]
@@ -457,11 +426,10 @@ class ValidationSession:
         This attribute is automatically set
         and it should be considered as a *read-only* attribute."""
 
+    # TODO: fix signature
     def _append_validation_results(
         self,
         sim_name: str,
-        l_norm: float | Literal["fro", "nuc"] | None = np.inf,
-        matrix_norm: float | Literal["fro", "nuc"] | None = 2,
     ) -> None:
         # Extact dataset output values
         df_val = self.Dataset.dataset
@@ -477,24 +445,51 @@ class ValidationSession:
         # rsquared and various statistics
         r2 = rsquared(y_values, y_sim_values)
         # Here I can do it at once
-        Ree_mean, Ree = whiteness_level(eps)
-        Ree_max = whiteness_level(eps, local_criteria="inf")[0]
+        Ree_1st, Ree = whiteness_level(
+            eps,
+            local_statistic=self.acorr_local_statistic_1st,
+            local_weights=self.acorr_local_weights_1st,
+            global_statistic=self.acorr_global_statistic_1st,
+            global_weights=self.acorr_global_weights_1st,
+        )
+        Ree_2nd = whiteness_level(
+            eps,
+            local_statistic=self.acorr_local_statistic_2nd,
+            local_weights=self.acorr_local_weights_2nd,
+            global_statistic=self.acorr_global_statistic_2nd,
+            global_weights=self.acorr_global_weights_2nd,
+        )
         # Here I cannot.
-        Rue = XCorrelation("Rue", u_values, eps)
-        Rue_mean = Rue.whiteness
-        # Rue_max = whiteness_level(Rue.values, local_criteria="inf")
-        Rue_max = XCorrelation(
-            "Rue", u_values, eps, local_criteria="inf"
+        Rue = XCorrelation(
+            "Rue",
+            u_values,
+            eps,
+            local_statistic=self.xcorr_local_statistic_1st,
+            local_weights=self.xcorr_local_weights_1st,
+            global_statistic=self.xcorr_global_statistic_1st,
+            global_weights=self.xcorr_global_weights_1st,
+        )
+
+        Rue_1st = Rue.whiteness
+        # Rue_2nd = whiteness_level(Rue.values, local_statistic="max")
+        Rue_2nd = XCorrelation(
+            "Rue",
+            u_values,
+            eps,
+            local_statistic=self.xcorr_local_statistic_2nd,
+            local_weights=self.xcorr_local_weights_2nd,
+            global_statistic=self.xcorr_global_statistic_2nd,
+            global_weights=self.xcorr_global_weights_2nd,
         ).whiteness
 
         self.auto_correlation_tensors[sim_name] = Ree
         self.cross_correlation_tensors[sim_name] = Rue
         self.validation_results[sim_name] = [
             r2,
-            Ree_mean,
-            Ree_max,
-            Rue_mean,
-            Rue_max,
+            Ree_1st,
+            Ree_2nd,
+            Rue_1st,
+            Rue_2nd,
         ]
 
     def _sim_list_validate(self) -> None:
@@ -545,7 +540,9 @@ class ValidationSession:
         # Cam be a positional or a keyword arg
         list_sims: str | list[str] | None = None,
         dataset: Literal["in", "out", "both"] | None = None,
-        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
+        layout: Literal[
+            "constrained", "compressed", "tight", "none"
+        ] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> matplotlib.figure.Figure:
@@ -922,7 +919,9 @@ class ValidationSession:
         self,
         list_sims: str | list[str] | None = None,
         *,
-        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
+        layout: Literal[
+            "constrained", "compressed", "tight", "none"
+        ] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> tuple[matplotlib.figure.Figure, matplotlib.figure.Figure]:
@@ -1086,15 +1085,13 @@ class ValidationSession:
         sim_name: str,
         y_names: list[str],
         y_data: np.ndarray,
-        l_norm: float | Literal["fro", "nuc"] | None = np.inf,
-        matrix_norm: float | Literal["fro", "nuc"] | None = 2,
     ) -> Self:
         """
         Append simulation results.
         The results are stored in the
         :py:attr:`<dymoval.validation.ValidationSession.simulations_results>` attribute.
 
-        The validation metrics are automatically computed and stored in the
+        The validation statistics are automatically computed and stored in the
         :py:attr:`<dymoval.validation.ValidationSession.validation_results>` attribute.
 
         Parameters
@@ -1106,12 +1103,6 @@ class ValidationSession:
         y_data :
             Signal realizations expressed as `Nxq` 2D array of type *float*
             with `N` observations of `q` signals.
-        l_norm:
-            The *l*-norm used for computing the validation results
-            for this simulation.
-        matrix_norm:
-            The matrix norm used for computing the validation results
-            for this simulation.
         """
         vs_temp = deepcopy(self)
         # df_sim = vs_temp.simulations_results
@@ -1120,11 +1111,15 @@ class ValidationSession:
         vs_temp._simulation_validation(sim_name, y_names, y_data)
 
         y_units = list(
-            vs_temp.Dataset.dataset["OUTPUT"].columns.get_level_values("units")
+            vs_temp.Dataset.dataset["OUTPUT"].columns.get_level_values(
+                "units"
+            )
         )
 
         # Initialize sim df
-        df_sim = pd.DataFrame(data=y_data, index=vs_temp.Dataset.dataset.index)
+        df_sim = pd.DataFrame(
+            data=y_data, index=vs_temp.Dataset.dataset.index
+        )
         multicols = list(zip([sim_name] * len(y_names), y_names, y_units))
         df_sim.columns = pd.MultiIndex.from_tuples(
             multicols, names=["sim_names", "signal_names", "units"]
