@@ -1,4 +1,4 @@
-# signal_list[0]["values"],  -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 # ===========================================================================
 # In this tutorial we show the main functionalities of dymoval.
 # The code is divided in code-cell blocks so you can run it piece-by-piece
@@ -24,7 +24,7 @@ import matplotlib
 # to the specified datatypes
 # name: dmv.Signal = {
 #                   "name": str
-#                   "values": np.ndarray
+#                   "samples": np.ndarray
 #                   "signal_unit": str | list[str]
 #                   "sampling_period": float
 #                   "time_unit": str
@@ -70,7 +70,7 @@ in_lst = []
 for ii, val in enumerate(input_signal_names):
     temp_in: dmv.Signal = {
         "name": val,
-        "values": input_signal_values[ii],
+        "samples": input_signal_values[ii],
         "signal_unit": input_signal_units[ii],
         "sampling_period": input_sampling_periods[ii],
         "time_unit": "s",
@@ -121,7 +121,7 @@ for ii, val in enumerate(output_signal_names):
     # This is the syntax for defining a dymoval signal
     temp_out: dmv.Signal = {
         "name": val,
-        "values": output_signal_values[ii],
+        "samples": output_signal_values[ii],
         "signal_unit": output_signal_units[ii],
         "sampling_period": output_sampling_periods[ii],
         "time_unit": "s",
@@ -193,13 +193,15 @@ ds = ds.remove_NaNs()
 # ===========================================================================
 # Test XCorrelation constructor
 
-R = dmv.XCorrelation("", signal_list[0]["values"])
+R = dmv.XCorrelation("", signal_list[0]["samples"])
 # R.plot()
 
-R_trim = dmv.XCorrelation("", signal_list[0]["values"], nlags=5)
+R_trim = dmv.XCorrelation("", signal_list[0]["samples"], nlags=5)
 # R_trim.plot()
 
-Rue = dmv.XCorrelation("", signal_list[0]["values"], signal_list[1]["values"])
+Rue = dmv.XCorrelation(
+    "", signal_list[0]["samples"], signal_list[1]["samples"]
+)
 # Rue.plot()
 
 # To create a dymoval ValidationSession we only need to pass a dymoval Dataset.
@@ -222,10 +224,13 @@ sim2_values = vs.Dataset.dataset["OUTPUT"].values + np.random.rand(
 )
 
 # Return whiteness level and XCorrelation tensor
-X, sim1_whiteness = dmv.whiteness_level(sim1_values)
+sim1_whiteness, X = dmv.whiteness_level(
+    sim1_values, local_weights=np.ones(55)
+)
 
 # We use the ValidationSession's method append_simulation to append the simulation
 # results.
+vs = vs.drop_simulation(sim1_name)
 vs = vs.append_simulation(sim1_name, sim1_labels, sim1_values)
 # %%
 
