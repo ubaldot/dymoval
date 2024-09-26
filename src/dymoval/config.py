@@ -3,6 +3,26 @@
 import pathlib
 from typing import Literal, cast, Any
 import typing
+import subprocess
+
+
+# Initialize the latex_installed variable
+latex_installed = False
+
+
+def is_latex_installed() -> bool:
+    """Check if LaTeX is installed by looking for pdflatex in PATH."""
+    try:
+        subprocess.run(
+            ["pdflatex", "--version"],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return False
+
 
 # Constants exposed to the user
 config = {
@@ -49,7 +69,9 @@ SPECTRUM_KIND: list[Spectrum_type] = list(typing.get_args(Spectrum_type))
 Allowed_keys_type = Literal[
     "name", "samples", "signal_unit", "sampling_period", "time_unit"
 ]
-SIGNAL_KEYS: list[Allowed_keys_type] = list(typing.get_args(Allowed_keys_type))
+SIGNAL_KEYS: list[Allowed_keys_type] = list(
+    typing.get_args(Allowed_keys_type)
+)
 
 Statistic_type = Literal["mean", "quadratic", "std", "max"]
 STATISTIC_TYPE: list[Statistic_type] = list(typing.get_args(Statistic_type))

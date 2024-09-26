@@ -16,7 +16,13 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from copy import deepcopy
 import scipy.signal as signal
-from .config import NUM_DECIMALS, COLORMAP, Statistic_type, STATISTIC_TYPE
+from .config import (
+    NUM_DECIMALS,
+    COLORMAP,
+    Statistic_type,
+    STATISTIC_TYPE,
+    latex_installed,
+)
 from .utils import (
     is_interactive_shell,
     factorize,
@@ -118,16 +124,23 @@ class XCorrelation:
 
             # Trim the cross-correlation results if the user wants less lags
             if local_weights is not None:
-                num_lags = local_weights.size // 2
+                num_lags = local_weights.size
             elif nlags is not None:
                 num_lags = nlags
             else:
-                num_lags = all_lags.size // 2
+                num_lags = all_lags.size
 
             # Actual trim
-            lags: np.ndarray = np.arange(-num_lags, num_lags + 1)
+            half_lags = num_lags // 2
+            is_odd = 1 if num_lags % 2 == 1 else 0
+            lags: np.ndarray = np.arange(-half_lags, half_lags + is_odd)
             mid_point = Rxy.shape[0] // 2
-            Rxy = Rxy[mid_point - num_lags : mid_point + num_lags + 1, :, :]
+            Rxy = Rxy[
+                mid_point - half_lags : mid_point + half_lags + is_odd,
+                :,
+                :,
+            ]
+            print("Rxy[:,0,0]", len(Rxy[:, 0, 0]), ", num_lags", len(lags))
 
             return Rxy, lags
 
@@ -170,18 +183,16 @@ class XCorrelation:
                     )
                 return result
 
-            # MAIN =================================================
-            # We deepcopy because we will drop the 1 at lags 0 in case of
-            # auto-correlation
+            # MAIN whiteness level =================================
             R = self.values
-            nobsv = R.shape[0]  # Number of observations
+            num_lags = R.shape[0]  # Number of lags
             nrows = R.shape[1]  # Number of rows
             ncols = R.shape[2]  # Number of columns
             lags0_idx = np.nonzero(self.lags == 0)[0][0]
 
             # Fix locals weights
             W_local = (
-                np.ones(nobsv) if local_weights is None else local_weights
+                np.ones(num_lags) if local_weights is None else local_weights
             )
 
             # fix global weights
@@ -407,6 +418,7 @@ class ValidationSession:
         This attribute is automatically set
         and it should be considered as a *read-only* attribute."""
 
+        # TODO Check with length of local_weights
         if nlags is None:
             n = self.Dataset.dataset.shape[0]
             self._nlags: int = signal.correlation_lags(n, n).size
@@ -561,7 +573,6 @@ class ValidationSession:
         )
 
         Rue_1st = Rue.whiteness
-        # Rue_2nd = whiteness_level(Rue.values, local_statistic="max")
         Rue_2nd = XCorrelation(
             "Rue",
             u_values,
@@ -1078,11 +1089,17 @@ class ValidationSession:
         # ===============================================================
         # Plot residuals auto-correlation
         # ===============================================================
+
         fig1, ax1 = plt.subplots(q, q, sharex=True, squeeze=False)
         plt.setp(ax1, ylim=(-1.2, 1.2))
+        print("latex_installes", latex_installed)
         for sim_name in list_sims:
             for ii in range(q):
                 for jj in range(q):
+                    if latex_installed:
+                        title = rf"$\hat r_{{\epsilon_{ii}\epsilon_{jj}}}$"
+                    else:
+                        title = rf"r_eps{ii}eps_{jj}"
                     ax1[ii, jj].plot(
                         Ree[sim_name].lags,
                         Ree[sim_name].values[:, ii, jj],
@@ -1090,11 +1107,7 @@ class ValidationSession:
                     )
                     ax1[ii, jj].grid(True)
                     ax1[ii, jj].set_xlabel("Lags")
-                    # For the following LaTeX is needed.
-                    #  ax1[ii, jj].set_title(
-                    #      rf"$\hat r_{{\epsilon_{ii}\epsilon_{jj}}}$"
-                    #  )
-                    ax1[ii, jj].set_title(rf"r_eps{ii}eps_{jj}")
+                    ax1[ii, jj].set_title(title)
                     ax1[ii, jj].legend()
         fig1.suptitle("Residuals auto-correlation")
 
@@ -1114,6 +1127,10 @@ class ValidationSession:
         for sim_name in list_sims:
             for ii in range(p):
                 for jj in range(q):
+                    if latex_installed:
+                        title = rf"$\hat r_{{u_{ii}\epsilon_{jj}}}$"
+                    else:
+                        title = rf"r_u{ii}eps{jj}"
                     ax2[ii, jj].plot(
                         Rue[sim_name].lags,
                         Rue[sim_name].values[:, ii, jj],
@@ -1121,9 +1138,7 @@ class ValidationSession:
                     )
                     ax2[ii, jj].grid(True)
                     ax2[ii, jj].set_xlabel("Lags")
-                    # For the following the user needs LaTeX.
-                    # ax2[ii, jj].set_title(rf"$\hat r_{{u_{ii}\epsilon_{jj}}}$")
-                    ax2[ii, jj].set_title(rf"r_u{ii}eps{jj}")
+                    ax2[ii, jj].set_title(title)
                     ax2[ii, jj].legend()
         fig2.suptitle("Input-residuals cross-correlation")
 

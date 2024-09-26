@@ -23,6 +23,7 @@ from .validation import (
 from .config import (
     NUM_DECIMALS,
     COLORMAP,
+    is_latex_installed,
 )
 
 # Package public API
@@ -42,3 +43,5 @@ __all__ = [
     "NUM_DECIMALS",
     "COLORMAP",
 ]
+
+is_latex_installed()

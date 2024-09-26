@@ -164,6 +164,8 @@ ds = dmv.Dataset(
     output_signal_names,
     target_sampling_period=0.1,
     overlap=True,
+    tin=0,
+    tout=8,
     verbosity=1,
 )
 
@@ -193,20 +195,27 @@ ds = ds.remove_NaNs()
 # ===========================================================================
 # Test XCorrelation constructor
 
-R = dmv.XCorrelation("", signal_list[0]["samples"])
+# R = dmv.XCorrelation("", signal_list[0]["samples"])
 # R.plot()
 
-R_trim = dmv.XCorrelation("", signal_list[0]["samples"], nlags=5)
-# R_trim.plot()
-
-Rue = dmv.XCorrelation(
-    "", signal_list[0]["samples"], signal_list[1]["samples"]
+# R_trim = dmv.XCorrelation("", signal_list[0]["samples"])
+R = dmv.XCorrelation(
+    "", signal_list[0]["samples"], nlags=23, local_weights=np.ones(10)
 )
+R.plot()
+# R_trim = dmv.XCorrelation("", signal_list[0]["samples"], nlags=6)
+
+# Rue = dmv.XCorrelation(
+#     "", signal_list[0]["samples"], signal_list[1]["samples"]
+# )
 # Rue.plot()
 
 # To create a dymoval ValidationSession we only need to pass a dymoval Dataset.
-vs = dmv.ValidationSession("my_validation", ds)
+vs = dmv.ValidationSession(
+    "my_validation", ds, acorr_local_weights=np.ones(83)
+)
 
+vs = dmv.ValidationSession("my_validation", ds, nlags=25)
 # %%
 
 sim1_name = "Model 1"
@@ -225,13 +234,13 @@ sim2_values = vs.Dataset.dataset["OUTPUT"].values + np.random.rand(
 
 # Return whiteness level and XCorrelation tensor
 sim1_whiteness, X = dmv.whiteness_level(
-    sim1_values, local_weights=np.ones(55)
+    sim1_values, local_weights=np.ones(83)
 )
 
 # We use the ValidationSession's method append_simulation to append the simulation
 # results.
-vs = vs.drop_simulation(sim1_name)
-vs = vs.append_simulation(sim1_name, sim1_labels, sim1_values)
+# vs = vs.drop_simulation(sim1_name)
+# vs = vs.append_simulation(sim1_name, sim1_labels, sim1_values)
 # %%
 
 vs = vs.append_simulation(sim2_name, sim2_labels, sim2_values)
