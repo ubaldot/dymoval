@@ -204,7 +204,11 @@ ds = ds.remove_NaNs()
 # )
 # R.plot()
 R_trim = dmv.XCorrelation(
-    "foo", signal_list[0]["samples"], nlags=50, local_weights=np.ones(20)
+    "foo",
+    signal_list[0]["samples"],
+    signal_list[0]["samples"],
+    nlags=50,
+    local_weights=np.ones(7),
 )
 
 # Rue = dmv.XCorrelation(
@@ -216,7 +220,10 @@ R_trim = dmv.XCorrelation(
 
 # To create a dymoval ValidationSession we only need to pass a dymoval Dataset.
 vs = dmv.ValidationSession(
-    "my_validation", ds, acorr_local_weights=np.ones(90)
+    "my_validation",
+    ds,
+    acorr_local_weights=np.ones(90),
+    input_local_weights=np.ones(21),
 )
 
 # vs = dmv.ValidationSession("my_validation", ds, nlags=25)

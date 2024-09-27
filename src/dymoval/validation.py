@@ -380,14 +380,22 @@ class ValidationSession:
         name: str,
         validation_dataset: Dataset,
         nlags: int | None = None,
-        # auto-correlation
+        input_nlags: int | None = None,
+        # input auto-correlation
+        input_local_statistic_1st: Statistic_type = "mean",
+        input_global_statistic_1st: Statistic_type = "max",
+        input_local_statistic_2nd: Statistic_type = "max",
+        input_global_statistic_2nd: Statistic_type = "max",
+        input_local_weights: np.ndarray | None = None,
+        input_global_weights: np.ndarray | None = None,
+        # residuals auto-correlation
         acorr_local_statistic_1st: Statistic_type = "mean",
         acorr_global_statistic_1st: Statistic_type = "max",
         acorr_local_statistic_2nd: Statistic_type = "max",
         acorr_global_statistic_2nd: Statistic_type = "max",
         acorr_local_weights: np.ndarray | None = None,
         acorr_global_weights: np.ndarray | None = None,
-        # cross-Correlation
+        # input-residuals cross-Correlation
         xcorr_local_statistic_1st: Statistic_type = "mean",
         xcorr_global_statistic_1st: Statistic_type = "max",
         xcorr_local_statistic_2nd: Statistic_type = "max",
@@ -427,6 +435,43 @@ class ValidationSession:
         This attribute is automatically set
         and it should be considered as a *read-only* attribute."""
 
+        # =========== Input management =======================
+        if input_local_weights is not None:
+            self._input_nlags = input_local_weights.size
+        elif input_nlags is not None:
+            self._input_nlags = input_nlags
+        else:
+            n = self.Dataset.dataset.shape[0]
+            self._input_nlags = signal.correlation_lags(n, n).size
+
+        self._input_local_statistic_1st = input_local_statistic_1st
+        self._input_global_statistic_1st = input_global_statistic_1st
+        self._input_local_statistic_2nd = input_local_statistic_2nd
+        self._input_global_statistic_2nd = input_global_statistic_2nd
+        self._input_local_weights = input_local_weights
+        self._input_global_weights = input_global_weights
+
+        Ruu_1st, Ruu = whiteness_level(
+            self.Dataset.dataset["INPUT"].to_numpy(),
+            nlags=self._input_nlags,
+            local_statistic=self._input_local_statistic_1st,
+            local_weights=self._input_local_weights,
+            global_statistic=self._input_global_statistic_1st,
+            global_weights=self._input_global_weights,
+        )
+        Ruu_2nd = whiteness_level(
+            self.Dataset.dataset["INPUT"].to_numpy(),
+            nlags=self._input_nlags,
+            local_statistic=self._input_local_statistic_2nd,
+            local_weights=self._input_local_weights,
+            global_statistic=self._input_global_statistic_2nd,
+            global_weights=self._input_global_weights,
+        )[0]
+
+        self._input_acorr_tensor = Ruu
+        self._input_acorr_1st_value = Ruu_1st
+        self._input_acorr_2nd_value = Ruu_2nd
+
         # nlags: pick the minumum of the lengths between acorr_local_weights and
         # xcorr_local_weights.
         # If not specifies, take the argument nlags
@@ -447,7 +492,6 @@ class ValidationSession:
         else:
             n = self.Dataset.dataset.shape[0]
             self._nlags = signal.correlation_lags(n, n).size
-
         self._acorr_local_statistic_1st = acorr_local_statistic_1st
         self._acorr_global_statistic_1st = acorr_global_statistic_1st
         self._acorr_local_statistic_2nd = acorr_local_statistic_2nd
@@ -464,6 +508,8 @@ class ValidationSession:
 
         # Initialize validation results DataFrame.
         idx = [
+            f"Input Auto-Corr ({self._input_local_statistic_1st}-{self._input_global_statistic_1st})",
+            f"Input Auto-Corr ({self._input_local_statistic_2nd}-{self._input_global_statistic_2nd})",
             "R-Squared (%)",
             f"Residuals Auto-Corr ({self._acorr_local_statistic_1st}-{self._acorr_global_statistic_1st})",
             f"Residuals Auto-Corr ({self._acorr_local_statistic_2nd}-{self._acorr_global_statistic_2nd})",
@@ -485,6 +531,38 @@ class ValidationSession:
     @property
     def simulations_results(self) -> pd.DataFrame:
         return self._simulations_results
+
+    @property
+    def input_acorr_tensors(self) -> XCorrelation:
+        return self._input_acorr_tensor
+
+    @property
+    def input_local_statistic_1st(self) -> Statistic_type:
+        return self._input_local_statistic_1st
+
+    @property
+    def input_global_statistic_1st(self) -> Statistic_type:
+        return self._input_global_statistic_1st
+
+    @property
+    def input_local_statistic_2nd(self) -> Statistic_type:
+        return self._input_local_statistic_2nd
+
+    @property
+    def input_global_statistic_2nd(self) -> Statistic_type:
+        return self._input_global_statistic_2nd
+
+    @property
+    def input_local_weights(self) -> np.ndarray | None:
+        return self._input_local_weights
+
+    @property
+    def input_global_weights(self) -> np.ndarray | None:
+        return self._input_global_weights
+
+    @property
+    def input_nlags(self) -> int:
+        return self._input_nlags
 
     @property
     def auto_correlation_tensors(self) -> dict[str, XCorrelation]:
@@ -611,6 +689,8 @@ class ValidationSession:
         self._auto_correlation_tensors[sim_name] = Ree
         self._cross_correlation_tensors[sim_name] = Rue
         self._validation_results[sim_name] = [
+            self._input_acorr_1st_value,
+            self._input_acorr_2nd_value,
             r2,
             Ree_1st,
             Ree_2nd,
@@ -1099,6 +1179,7 @@ class ValidationSession:
                     f"Simulation {sim_not_found} not found. "
                     "Check the available simulations names with 'simulations_namess()'"
                 )
+        Ruu = self._input_acorr_tensor
         Ree = self._auto_correlation_tensors
         Rue = self._cross_correlation_tensors
 
@@ -1110,6 +1191,36 @@ class ValidationSession:
         k0 = list(Ree.keys())[0]
         q = Ree[k0].values[0, :, :].shape[0]
 
+        # ===============================================================
+        # Plot input auto-correlation
+        # ===============================================================
+
+        fig, ax = plt.subplots(p, p, sharex=True, squeeze=False)
+        plt.setp(ax, ylim=(-1.2, 1.2))
+        for ii in range(p):
+            for jj in range(p):
+                if is_latex_installed:
+                    title = rf"$\hat r_{{u_{ii}u_{jj}}}$"
+                else:
+                    title = rf"r_u{ii}u_{jj}"
+                ax[ii, jj].plot(
+                    Ruu.lags,
+                    Ruu.values[:, ii, jj],
+                    label=title,
+                )
+                ax[ii, jj].grid(True)
+                ax[ii, jj].set_xlabel("Lags")
+                ax[ii, jj].set_title(title)
+                ax[ii, jj].legend()
+        fig.suptitle("Input auto-correlation")
+
+        # Adjust fig size and layout
+        # Walrus operator to make mypy happy. Alternatively, you could use
+        # assert, see below.
+        if (gs := fig.get_axes()[0].get_gridspec()) is not None:
+            nrows, ncols = gs.get_geometry()
+        fig.set_size_inches(ncols * ax_width, nrows * ax_height + 1.25)
+        fig.set_layout_engine(layout)
         # ===============================================================
         # Plot residuals auto-correlation
         # ===============================================================
@@ -1173,6 +1284,7 @@ class ValidationSession:
         fig2.set_layout_engine(layout)
 
         if is_interactive_shell():
+            fig.show()
             fig1.show()
             fig2.show()
         else:
