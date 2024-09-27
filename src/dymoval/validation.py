@@ -427,12 +427,27 @@ class ValidationSession:
         This attribute is automatically set
         and it should be considered as a *read-only* attribute."""
 
-        # TODO Check with length of local_weights
-        if nlags is None:
-            n = self.Dataset.dataset.shape[0]
-            self._nlags: int = signal.correlation_lags(n, n).size
-        else:
+        # nlags: pick the minumum of the lengths between acorr_local_weights and
+        # xcorr_local_weights.
+        # If not specifies, take the argument nlags
+        # If nothing specified, then just pick the full length lags
+        if acorr_local_weights is None and xcorr_local_weights is not None:
+            self._nlags = xcorr_local_weights.size
+        elif acorr_local_weights is not None and xcorr_local_weights is None:
+            self._nlags = acorr_local_weights.size
+        elif (
+            acorr_local_weights is not None
+            and xcorr_local_weights is not None
+        ):
+            self._nlags = min(
+                acorr_local_weights.size, xcorr_local_weights.size
+            )
+        elif nlags is not None:
             self._nlags = nlags
+        else:
+            n = self.Dataset.dataset.shape[0]
+            self._nlags = signal.correlation_lags(n, n).size
+
         self._acorr_local_statistic_1st = acorr_local_statistic_1st
         self._acorr_global_statistic_1st = acorr_global_statistic_1st
         self._acorr_local_statistic_2nd = acorr_local_statistic_2nd

@@ -24,6 +24,22 @@ class Test_ClassValidationNominal:
         for ii in range(4):  # Size of coverage
             assert all(vs.Dataset.coverage[ii] == ds.coverage[ii])
 
+        # Version with less lags
+        expected_nlags = 11
+        vs = dmv.ValidationSession(name_vs, ds, nlags=expected_nlags)
+        assert vs.nlags == expected_nlags
+
+        # Version with less lags
+        expected_nlags = 11
+        vs = dmv.ValidationSession(
+            name_vs,
+            ds,
+            nlags=8,
+            acorr_local_weights=np.ones(11),
+            xcorr_local_weights=np.ones(22),
+        )
+        assert vs.nlags == expected_nlags
+
     def test_random_walk(self, good_dataframe: pd.DataFrame) -> None:
         df, u_names, y_names, _, y_units, fixture = good_dataframe
         name_ds = "my_dataset"
@@ -103,8 +119,11 @@ class Test_ClassValidationNominal:
         # ==================================
         vs = vs.drop_simulation(sim1_name)
         # At least the names are nt there any longer.
-        assert sim1_name not in vs.simulations_results.columns.get_level_values(
-            "sim_names"
+        assert (
+            sim1_name
+            not in vs.simulations_results.columns.get_level_values(
+                "sim_names"
+            )
         )
         assert sim1_name not in vs.auto_correlation_tensors.keys()
         assert sim1_name not in vs.cross_correlation_tensors.keys()
@@ -171,7 +190,9 @@ class Test_ClassValidationNominal:
         vs = vs.trim(tin=1.0, tout=5.0)
 
         # Evaluate
-        assert np.isclose(expected_tin, vs.Dataset.dataset.index[0], atol=ATOL)
+        assert np.isclose(
+            expected_tin, vs.Dataset.dataset.index[0], atol=ATOL
+        )
         assert np.isclose(
             expected_tout, vs.Dataset.dataset.index[-1], atol=ATOL
         )
@@ -239,7 +260,9 @@ class Test_ClassValidatioNominal_sim_validation:
         with pytest.raises(ValueError):
             vs.append_simulation(sim1_name, sim1_labels, sim1_values)
 
-    def test_too_many_signals_raise(self, good_dataframe: pd.DataFrame) -> None:
+    def test_too_many_signals_raise(
+        self, good_dataframe: pd.DataFrame
+    ) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
         ds = dmv.dataset.Dataset(
@@ -264,7 +287,9 @@ class Test_ClassValidatioNominal_sim_validation:
         with pytest.raises(IndexError):
             vs.append_simulation(sim1_name, sim1_labels, sim1_values)
 
-    def test_duplicate_names_raise(self, good_dataframe: pd.DataFrame) -> None:
+    def test_duplicate_names_raise(
+        self, good_dataframe: pd.DataFrame
+    ) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
         ds = dmv.dataset.Dataset(
@@ -313,7 +338,9 @@ class Test_ClassValidatioNominal_sim_validation:
         with pytest.raises(IndexError):
             vs.append_simulation(sim1_name, sim1_labels, sim1_values)
 
-    def test_too_many_values_raise(self, good_dataframe: pd.DataFrame) -> None:
+    def test_too_many_values_raise(
+        self, good_dataframe: pd.DataFrame
+    ) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
         ds = dmv.dataset.Dataset(
@@ -359,7 +386,9 @@ class Test_ClassValidatioNominal_sim_validation:
         with pytest.raises(ValueError):
             vs.append_simulation(sim1_name, sim1_labels, sim1_values)
 
-    def test_ydata_too_short_raise(self, good_dataframe: pd.DataFrame) -> None:
+    def test_ydata_too_short_raise(
+        self, good_dataframe: pd.DataFrame
+    ) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
         ds = dmv.dataset.Dataset(
@@ -382,7 +411,9 @@ class Test_ClassValidatioNominal_sim_validation:
         with pytest.raises(IndexError):
             vs.append_simulation(sim1_name, sim1_labels, sim1_values)
 
-    def test_drop_simulation_raise(self, good_dataframe: pd.DataFrame) -> None:
+    def test_drop_simulation_raise(
+        self, good_dataframe: pd.DataFrame
+    ) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
         ds = dmv.dataset.Dataset(
@@ -680,36 +711,184 @@ class Test_XCorrelation:
         assert np.allclose(lags_actual, lags_expected)
         # Check whiteness only for SISO
         assert np.isclose(x1x1_whiteness_expected, XCorr_actual.whiteness)
+
+    def test_lags(self) -> None:
+        x1 = np.array([0.1419, 0.4218, 0.9157, 0.7922, 0.9595])
+        x2 = np.array([0.6557, 0.0357, 0.8491, 0.9340, 0.6787])
+        X = np.array([x1, x2]).T
+
+        y1 = np.array([0.7577, 0.7431, 0.3922, 0.6555, 0.1712])
+        y2 = np.array([0.7060, 0.0318, 0.2769, 0.0462, 0.0971])
+        Y = np.array([y1, y2]).T
+
+        # Expected values pre-computed with Matlab
+        # Same for all tests
+        Rx1y1_expected = np.array(
+            [
+                0.5233,
+                0.0763,
+                -0.1363,
+                -0.2526,
+                -0.8181,
+                0.0515,
+                0.1090,
+                0.2606,
+                0.1864,
+            ]
+        )
+
+        Rx1y2_expected = np.array(
+            [
+                0.1702,
+                0.3105,
+                -0.0438,
+                0.0526,
+                -0.6310,
+                -0.5316,
+                0.2833,
+                0.0167,
+                0.3730,
+            ]
+        )
+
+        Rx2y1_expected = np.array(
+            [
+                -0.0260,
+                0.6252,
+                -0.4220,
+                0.0183,
+                -0.3630,
+                -0.3462,
+                0.2779,
+                0.2072,
+                0.0286,
+            ]
+        )
+
+        Rx2y2_expected = np.array(
+            [
+                -0.0085,
+                0.1892,
+                0.2061,
+                -0.2843,
+                0.1957,
+                -0.8060,
+                0.1135,
+                0.3371,
+                0.0573,
+            ]
+        )
+
         # ==========================
-        # Reduced number of lags
+        # Test nlags
         # ========================
         # Only MIMO test
-        nlags = 3
-        lags_expected = np.arange(-nlags, nlags + 1)
+        # test nlags arg
+        nlags = 5
+        half_lags = nlags // 2
+        is_odd = 1 if nlags % 2 == 1 else 0
+        lags_expected_1 = np.arange(-half_lags, half_lags + is_odd)
         mid_point = Rx1y1_expected.shape[0] // 2
-        Rx1y1_expected = Rx1y1_expected[
-            mid_point - nlags : mid_point + nlags + 1
+        Rx1y1_expected_1 = Rx1y1_expected[
+            mid_point - half_lags : mid_point + half_lags + is_odd
         ]
-        Rx1y2_expected = Rx1y2_expected[
-            mid_point - nlags : mid_point + nlags + 1
+        Rx1y2_expected_1 = Rx1y2_expected[
+            mid_point - half_lags : mid_point + half_lags + is_odd
         ]
-        Rx2y1_expected = Rx2y1_expected[
-            mid_point - nlags : mid_point + nlags + 1
+        Rx2y1_expected_1 = Rx2y1_expected[
+            mid_point - half_lags : mid_point + half_lags + is_odd
         ]
-        Rx2y2_expected = Rx2y2_expected[
-            mid_point - nlags : mid_point + nlags + 1
+        Rx2y2_expected_1 = Rx2y2_expected[
+            mid_point - half_lags : mid_point + half_lags + is_odd
         ]
 
         XCorr_actual = dmv.XCorrelation("foo", X, Y, nlags=nlags)
         Rxy_actual = XCorr_actual.values
         lags_actual = XCorr_actual.lags
 
+        assert np.allclose(Rxy_actual[:, 0, 0], Rx1y1_expected_1, atol=1e-4)
+        assert np.allclose(Rxy_actual[:, 0, 1], Rx1y2_expected_1, atol=1e-4)
+        assert np.allclose(Rxy_actual[:, 1, 0], Rx2y1_expected_1, atol=1e-4)
+        assert np.allclose(Rxy_actual[:, 1, 1], Rx2y2_expected_1, atol=1e-4)
+        assert np.allclose(lags_actual, lags_expected_1)
+        assert Rxy_actual.shape[0] == len(lags_expected_1)
+
+        # ==========================
+        # Test local_weights
+        # ========================
+        # Setup
+        local_weights = np.ones(4)
+        half_nlags = local_weights.size // 2
+        is_odd = 1 if local_weights.size % 2 == 1 else 0
+
+        lags_expected_2 = np.arange(-half_nlags, half_nlags + is_odd)
+        mid_point = Rx1y1_expected.shape[0] // 2
+        Rx1y1_expected_2 = Rx1y1_expected[
+            mid_point - half_nlags : mid_point + half_nlags + is_odd
+        ]
+        Rx1y2_expected_2 = Rx1y2_expected[
+            mid_point - half_nlags : mid_point + half_nlags + is_odd
+        ]
+        Rx2y1_expected_2 = Rx2y1_expected[
+            mid_point - half_nlags : mid_point + half_nlags + is_odd
+        ]
+        Rx2y2_expected_2 = Rx2y2_expected[
+            mid_point - half_nlags : mid_point + half_nlags + is_odd
+        ]
+
+        # Act
+        XCorr_actual = dmv.XCorrelation(
+            "foo", X, Y, local_weights=local_weights
+        )
+        Rxy_actual = XCorr_actual.values
+        lags_actual = XCorr_actual.lags
+
+        # Assert
+        assert np.allclose(Rxy_actual[:, 0, 0], Rx1y1_expected_2, atol=1e-4)
+        assert np.allclose(Rxy_actual[:, 0, 1], Rx1y2_expected_2, atol=1e-4)
+        assert np.allclose(Rxy_actual[:, 1, 0], Rx2y1_expected_2, atol=1e-4)
+        assert np.allclose(Rxy_actual[:, 1, 1], Rx2y2_expected_2, atol=1e-4)
+        assert np.allclose(lags_actual, lags_expected_2)
+
+        # ===============================================
+        # Test local_weights and nlags: local_weights.size shall take over
+        # ==================================================
+        # Setup
+        nlags = 2
+        local_weights = np.ones(7)
+        half_nlags = local_weights.size // 2
+        is_odd = 1 if local_weights.size % 2 == 1 else 0
+
+        lags_expected = np.arange(-half_nlags, half_nlags + is_odd)
+        mid_point = Rx1y1_expected.shape[0] // 2
+        print(mid_point - half_nlags)
+        print(Rx1y1_expected.size)
+        Rx1y1_expected = Rx1y1_expected[
+            mid_point - half_nlags : mid_point + half_nlags + is_odd
+        ]
+        Rx1y2_expected = Rx1y2_expected[
+            mid_point - half_nlags : mid_point + half_nlags + is_odd
+        ]
+        Rx2y1_expected = Rx2y1_expected[
+            mid_point - half_nlags : mid_point + half_nlags + is_odd
+        ]
+        Rx2y2_expected = Rx2y2_expected[
+            mid_point - half_nlags : mid_point + half_nlags + is_odd
+        ]
+
+        # Act
+        XCorr_actual = dmv.XCorrelation(
+            "foo", X, Y, local_weights=local_weights, nlags=nlags
+        )
+        Rxy_actual = XCorr_actual.values
+        lags_actual = XCorr_actual.lags
+
+        # Assert
         assert np.allclose(Rxy_actual[:, 0, 0], Rx1y1_expected, atol=1e-4)
         assert np.allclose(Rxy_actual[:, 0, 1], Rx1y2_expected, atol=1e-4)
         assert np.allclose(Rxy_actual[:, 1, 0], Rx2y1_expected, atol=1e-4)
         assert np.allclose(Rxy_actual[:, 1, 1], Rx2y2_expected, atol=1e-4)
         assert np.allclose(lags_actual, lags_expected)
-        assert Rxy_actual.shape[0] == len(lags_expected)
 
 
 class Test_rsquared:
