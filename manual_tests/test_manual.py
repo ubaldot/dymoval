@@ -200,7 +200,7 @@ ds = ds.remove_NaNs()
 
 # R_trim = dmv.XCorrelation("", signal_list[0]["samples"])
 R = dmv.XCorrelation(
-    "", signal_list[0]["samples"], nlags=23, local_weights=np.ones(10)
+    "pippo", signal_list[0]["samples"], nlags=23, local_weights=np.ones(10)
 )
 R.plot()
 # R_trim = dmv.XCorrelation("", signal_list[0]["samples"], nlags=6)

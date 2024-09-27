@@ -102,10 +102,11 @@ dev = [
              "config",
          ]
 
-# flake 8 does not work with pyproject files
 
+        # flake8 does not work with pyproject.toml
          # [tool.flake8]
-         # exclude = F403, F405
+         # extend-ignore = F403,F405, E501, W291,E203, W503
+         # exclude = .git,__pycache__,docs/source/conf.py,build
 
 
 # pytest

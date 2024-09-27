@@ -3,26 +3,20 @@
 import pathlib
 from typing import Literal, cast, Any
 import typing
-import subprocess
+import shutil
 
 
 # Initialize the latex_installed variable
-latex_installed = False
+is_latex_installed = False
 
 
-def is_latex_installed() -> bool:
-    """Check if LaTeX is installed by looking for pdflatex in PATH."""
-    try:
-        subprocess.run(
-            ["pdflatex", "--version"],
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        return True
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return False
+def check_latex_installed() -> bool:
+    """Check if LaTeX is installed."""
+    return shutil.which("pdflatex") is not None
 
+
+# Set the variable based on the check
+is_latex_installed = check_latex_installed()
 
 # Constants exposed to the user
 config = {

@@ -21,7 +21,7 @@ from .config import (
     COLORMAP,
     Statistic_type,
     STATISTIC_TYPE,
-    latex_installed,
+    is_latex_installed,
 )
 from .utils import (
     is_interactive_shell,
@@ -255,10 +255,20 @@ class XCorrelation:
         q = self.values.shape[2]
         fig, ax = plt.subplots(p, q, sharex=True, squeeze=False)
         plt.setp(ax, ylim=(-1.2, 1.2))
-        partial_title = "u" if self.kind == "cross-correlation" else "eps"
 
         for ii in range(p):
             for jj in range(q):
+                if is_latex_installed:
+                    title_acorr = rf"$\hat r_{{\epsilon_{ii}\epsilon_{jj}}}$"
+                    title_xcorr = rf"$\hat r_{{u_{ii}\epsilon_{jj}}}$"
+                else:
+                    title_acorr = rf"r_eps{ii}eps{jj}$"
+                    title_xcorr = rf"r_u{ii}eps{jj}$"
+                title = (
+                    title_acorr
+                    if self.kind == "auto-correlation"
+                    else title_xcorr
+                )
                 ax[ii, jj].plot(
                     self.lags,
                     self.values[:, ii, jj],
@@ -266,10 +276,9 @@ class XCorrelation:
                 )
                 ax[ii, jj].grid(True)
                 ax[ii, jj].set_xlabel("Lags")
-                ax[ii, jj].set_title(rf"r_{partial_title}{ii}eps{jj}")
-                # For the following the user needs LaTeX.
-                # ax2[ii, jj].set_title(rf"$\hat r_{{u_{ii}\epsilon_{jj}}}$")
-                ax[ii, jj].legend()
+                ax[ii, jj].set_title(title)
+                if self.name != "":
+                    ax[ii, jj].legend()
         fig.suptitle(f"{self.kind}")
 
         if is_interactive_shell():
@@ -1092,11 +1101,10 @@ class ValidationSession:
 
         fig1, ax1 = plt.subplots(q, q, sharex=True, squeeze=False)
         plt.setp(ax1, ylim=(-1.2, 1.2))
-        print("latex_installes", latex_installed)
         for sim_name in list_sims:
             for ii in range(q):
                 for jj in range(q):
-                    if latex_installed:
+                    if is_latex_installed:
                         title = rf"$\hat r_{{\epsilon_{ii}\epsilon_{jj}}}$"
                     else:
                         title = rf"r_eps{ii}eps_{jj}"
@@ -1127,7 +1135,7 @@ class ValidationSession:
         for sim_name in list_sims:
             for ii in range(p):
                 for jj in range(q):
-                    if latex_installed:
+                    if is_latex_installed:
                         title = rf"$\hat r_{{u_{ii}\epsilon_{jj}}}$"
                     else:
                         title = rf"r_u{ii}eps{jj}"
