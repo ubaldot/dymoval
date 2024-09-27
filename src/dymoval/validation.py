@@ -96,6 +96,18 @@ class XCorrelation:
             p = X.shape[1]
             q = Y.shape[1]
 
+            # Input validation
+            if global_weights is not None:
+                val = (
+                    "number_of_outputs * number_of_outputs"
+                    if (np.allclose(X, Y) or Y is None)
+                    else "number_of_inputs * number_of_outputs"
+                )
+                if global_weights.size != p * q:
+                    raise ValueError(
+                        f"Length of 'global_weights' must be equal to '{val}'"
+                    )
+
             all_lags = signal.correlation_lags(len(X), len(Y))
             Rxy = np.zeros([len(all_lags), p, q])
             for ii in range(p):
@@ -124,9 +136,13 @@ class XCorrelation:
 
             # Trim the cross-correlation results if the user wants less lags
             if local_weights is not None:
-                num_lags = local_weights.size
+                num_lags = (
+                    local_weights.size
+                    if local_weights.size < all_lags.size
+                    else all_lags.size
+                )
             elif nlags is not None:
-                num_lags = nlags
+                num_lags = nlags if nlags < all_lags.size else all_lags.size
             else:
                 num_lags = all_lags.size
 
@@ -140,7 +156,6 @@ class XCorrelation:
                 :,
                 :,
             ]
-            print("Rxy[:,0,0]", len(Rxy[:, 0, 0]), ", num_lags", len(lags))
 
             return Rxy, lags
 
@@ -1119,10 +1134,15 @@ class ValidationSession:
         self,
         list_sims: str | list[str] | None = None,
         *,
+        plot_input: bool = True,
         layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
-    ) -> tuple[matplotlib.figure.Figure, matplotlib.figure.Figure]:
+    ) -> tuple[
+        matplotlib.figure.Figure,
+        matplotlib.figure.Figure,
+        matplotlib.figure.Figure,
+    ]:
         """Plot the residuals.
 
         Parameters
@@ -1187,36 +1207,37 @@ class ValidationSession:
         # Plot input auto-correlation
         # ===============================================================
 
-        fig, ax = plt.subplots(p, p, sharex=True, squeeze=False)
-        plt.setp(ax, ylim=(-1.2, 1.2))
-        for ii in range(p):
-            for jj in range(p):
-                if is_latex_installed:
-                    title = rf"$\hat r_{{u_{ii}u_{jj}}}$"
-                else:
-                    title = rf"r_u{ii}u_{jj}"
-                ax[ii, jj].plot(
-                    Ruu.lags,
-                    Ruu.values[:, ii, jj],
-                    label=title,
-                )
-                ax[ii, jj].grid(True)
-                ax[ii, jj].set_xlabel("Lags")
-                ax[ii, jj].set_title(title)
-                ax[ii, jj].legend()
-        fig.suptitle("Input auto-correlation")
+        if plot_input:
+            fig, ax = plt.subplots(p, p, sharex=True, squeeze=False)
+            plt.setp(ax, ylim=(-1.2, 1.2))
+            for ii in range(p):
+                for jj in range(p):
+                    if is_latex_installed:
+                        title = rf"$\hat r_{{u_{ii}u_{jj}}}$"
+                    else:
+                        title = rf"r_u{ii}u_{jj}"
+                    ax[ii, jj].plot(
+                        Ruu.lags,
+                        Ruu.values[:, ii, jj],
+                        label=title,
+                    )
+                    ax[ii, jj].grid(True)
+                    ax[ii, jj].set_xlabel("Lags")
+                    ax[ii, jj].set_title(title)
+                    ax[ii, jj].legend()
+            fig.suptitle("Input auto-correlation")
 
-        # Adjust fig size and layout
-        # Walrus operator to make mypy happy. Alternatively, you could use
-        # assert, see below.
-        if (gs := fig.get_axes()[0].get_gridspec()) is not None:
-            nrows, ncols = gs.get_geometry()
-        fig.set_size_inches(ncols * ax_width, nrows * ax_height + 1.25)
-        fig.set_layout_engine(layout)
+            # Adjust fig size and layout
+            # Walrus operator to make mypy happy. Alternatively, you could use
+            # assert, see below.
+            if (gs := fig.get_axes()[0].get_gridspec()) is not None:
+                nrows, ncols = gs.get_geometry()
+            fig.set_size_inches(ncols * ax_width, nrows * ax_height + 1.25)
+            fig.set_layout_engine(layout)
+
         # ===============================================================
         # Plot residuals auto-correlation
         # ===============================================================
-
         fig1, ax1 = plt.subplots(q, q, sharex=True, squeeze=False)
         plt.setp(ax1, ylim=(-1.2, 1.2))
         for sim_name in list_sims:
@@ -1282,7 +1303,7 @@ class ValidationSession:
         else:
             plt.show()
 
-        return fig1, fig2
+        return fig, fig1, fig2
 
     def simulation_signals_list(self, sim_name: str | list[str]) -> list[str]:
         """

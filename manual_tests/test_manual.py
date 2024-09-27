@@ -186,7 +186,6 @@ ds = ds.remove_NaNs()
 # Other methods of the class Dataset are self-explanatory.
 #
 #
-#
 # ===========================================================================
 # validation module
 # Now that we have a good Dataset, we can create a dymoval ValidationSession
@@ -195,18 +194,11 @@ ds = ds.remove_NaNs()
 # ===========================================================================
 # Test XCorrelation constructor
 
-# R = dmv.XCorrelation("", signal_list[0]["samples"])
-# R.plot()
 
-# R_trim = dmv.XCorrelation("", signal_list[0]["samples"])
-# R = dmv.XCorrelation(
-#     "pippo", signal_list[0]["samples"], nlags=23, local_weights=np.ones(10)
-# )
-# R.plot()
 R_trim = dmv.XCorrelation(
     "foo",
     signal_list[0]["samples"],
-    signal_list[0]["samples"],
+    signal_list[1]["samples"],
     nlags=50,
     local_weights=np.ones(7),
 )
@@ -226,7 +218,6 @@ vs = dmv.ValidationSession(
     input_local_weights=np.ones(21),
 )
 
-# vs = dmv.ValidationSession("my_validation", ds, nlags=25)
 # %%
 
 sim1_name = "Model 1"
@@ -254,8 +245,8 @@ sim1_whiteness, X = dmv.whiteness_level(
 # vs = vs.append_simulation(sim1_name, sim1_labels, sim1_values)
 # %%
 vs = vs.append_simulation(sim2_name, sim2_labels, sim2_values)
-vs.plot_residuals()
-vs = vs.clear()
+vs.plot_residuals(plot_input=True)
+
 # %%
 vs = vs.trim(dataset="out")
 
@@ -264,7 +255,6 @@ fig = vs.plot_simulations()
 
 # fig.savefig("foo.png")
 
+vs.validation_results
 
-# vs.validation_results
-
-# vs.clear()
+vs.clear()

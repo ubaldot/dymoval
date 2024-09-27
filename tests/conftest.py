@@ -393,3 +393,84 @@ def constant_ones_dataframe(request):  # type: ignore
     df.round(NUM_DECIMALS)
     df.columns = df.columns.to_flat_index()
     return df, u_names, y_names, u_units, y_units, fixture_type
+
+
+@pytest.fixture(params=dataset_type)
+def correlation_tensors(request):  # type: ignore
+    # Dataframe of all ones.
+    # fixture_type = request.param
+
+    x1 = np.array([0.1419, 0.4218, 0.9157, 0.7922, 0.9595])
+    x2 = np.array([0.6557, 0.0357, 0.8491, 0.9340, 0.6787])
+    X = np.array([x1, x2]).T
+
+    y1 = np.array([0.7577, 0.7431, 0.3922, 0.6555, 0.1712])
+    y2 = np.array([0.7060, 0.0318, 0.2769, 0.0462, 0.0971])
+    Y = np.array([y1, y2]).T
+
+    # Expected values pre-computed with Matlab
+    # Same for all tests
+    Rx1y1_expected = np.array(
+        [
+            0.5233,
+            0.0763,
+            -0.1363,
+            -0.2526,
+            -0.8181,
+            0.0515,
+            0.1090,
+            0.2606,
+            0.1864,
+        ]
+    )
+
+    Rx1y2_expected = np.array(
+        [
+            0.1702,
+            0.3105,
+            -0.0438,
+            0.0526,
+            -0.6310,
+            -0.5316,
+            0.2833,
+            0.0167,
+            0.3730,
+        ]
+    )
+
+    Rx2y1_expected = np.array(
+        [
+            -0.0260,
+            0.6252,
+            -0.4220,
+            0.0183,
+            -0.3630,
+            -0.3462,
+            0.2779,
+            0.2072,
+            0.0286,
+        ]
+    )
+
+    Rx2y2_expected = np.array(
+        [
+            -0.0085,
+            0.1892,
+            0.2061,
+            -0.2843,
+            0.1957,
+            -0.8060,
+            0.1135,
+            0.3371,
+            0.0573,
+        ]
+    )
+
+    return (
+        Rx1y1_expected,
+        Rx2y1_expected,
+        Rx1y2_expected,
+        Rx2y2_expected,
+        X,
+        Y,
+    )
