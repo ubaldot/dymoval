@@ -242,6 +242,7 @@ class XCorrelation:
                 W=W_global,
                 rij_tau=R_matrix.flatten(),
             )
+            # TODO: return also R_matrix or add a 'partial' argument
             return whiteness_level
 
         # =========================================
