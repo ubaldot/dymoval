@@ -1228,7 +1228,6 @@ class ValidationSession:
         # ===============================================================
         # Plot input auto-correlation
         # ===============================================================
-
         if plot_input:
             fig, ax = plt.subplots(p, p, sharex=True, squeeze=False)
             plt.setp(ax, ylim=(-1.2, 1.2))
