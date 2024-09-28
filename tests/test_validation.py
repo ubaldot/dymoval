@@ -631,7 +631,7 @@ class Test_XCorrelation:
                 -0.31803681,
             ]
         )
-        x1x1_whiteness_expected = 0.015625
+        x1x1_whiteness_expected = 0.125
 
         # Act
         XCorr_actual = dmv.XCorrelation("foo", x1, x1)
@@ -891,8 +891,8 @@ class Test_whiteness:
     def test_whiteness_level(self) -> None:
 
         x1 = np.array([0.1419, 0.4218, 0.9157, 0.7922, 0.9595])
-        whiteness_expected = 0.015625
+        whiteness_expected = 0.125
 
-        whiteness_actual, _ = dmv.whiteness_level(x1)
+        whiteness_actual, _, _ = dmv.whiteness_level(x1)
 
         assert np.isclose(whiteness_expected, whiteness_actual, atol=ATOL)

@@ -245,7 +245,7 @@ sim1_whiteness, X = dmv.whiteness_level(
 # vs = vs.append_simulation(sim1_name, sim1_labels, sim1_values)
 # %%
 vs = vs.append_simulation(sim2_name, sim2_labels, sim2_values)
-vs.plot_residuals(plot_input=True)
+# vs.plot_residuals(plot_input=True)
 
 # %%
 vs = vs.trim(dataset="out")

@@ -166,38 +166,6 @@ class XCorrelation:
             global_weights: np.ndarray | None = None,
         ) -> Any:
 
-            def _compute_statistic(
-                statistic: Statistic_type,
-                W: np.ndarray,
-                rij_tau: np.ndarray,
-            ) -> Any:
-
-                if statistic == "quadratic":
-                    result = (
-                        rij_tau.T
-                        @ np.diag(W)
-                        @ rij_tau
-                        / (np.sum(W) * rij_tau.size)
-                    )
-                elif statistic == "max":
-                    # Element-wise multiplication for weighted inf norm
-                    result = np.max(np.abs(W.T * rij_tau)) / np.sum(W)
-                elif statistic == "mean":
-                    result = np.sum(W * rij_tau) / (np.sum(W) * rij_tau.size)
-                elif statistic == "std":
-                    weighted_mean_tmp = np.sum(W * rij_tau) / (
-                        np.sum(W) * rij_tau.size
-                    )
-                    weighted_variance = np.sum(
-                        W * (rij_tau - weighted_mean_tmp) ** 2
-                    ) / (np.sum(W) * rij_tau.size)
-                    result = np.sqrt(weighted_variance)
-                else:
-                    raise ValueError(
-                        f"'statistic' must be one of [{STATISTIC_TYPE}]"
-                    )
-                return result
-
             # MAIN whiteness level =================================
             R = self.values
             num_lags = R.shape[0]  # Number of lags
@@ -230,19 +198,19 @@ class XCorrelation:
                         W = W_local
                         rij_tau = R[:, ii, jj]
 
-                    R_matrix[ii, jj] = _compute_statistic(
+                    R_matrix[ii, jj] = compute_statistic(
                         statistic=local_statistic,
                         W=W,
-                        rij_tau=rij_tau,
+                        x=rij_tau,
                     )
 
             # Compute the overall statistic of the resulting matrix
-            whiteness_level = _compute_statistic(
+            whiteness_level = compute_statistic(
                 statistic=global_statistic,
                 W=W_global,
-                rij_tau=R_matrix.flatten(),
+                x=R_matrix,
             )
-            return whiteness_level
+            return whiteness_level, R_matrix
 
         # =========================================
         # Attributes
@@ -255,7 +223,7 @@ class XCorrelation:
             self.values, self.lags = _init_tensor(X, Y, nlags)
             self.kind = "cross-correlation"
 
-        self.whiteness = _whiteness_level(
+        self.whiteness, self.R_matrix = _whiteness_level(
             local_statistic=local_statistic,
             local_weights=local_weights,
             global_statistic=global_statistic,
@@ -304,6 +272,60 @@ class XCorrelation:
         return fig
 
 
+def compute_statistic(
+    statistic: Statistic_type,
+    W: np.ndarray,
+    x: np.ndarray,
+) -> Any:
+    """DOCSTRING
+
+    If x.shape dimension is greater than 1 it will be flatten to a 1D array.
+
+    """
+
+    if len(x.shape) > 1:
+        x = x.flatten()
+
+    if statistic == "quadratic":
+        if W is None:
+            result = (
+                x.T @ x
+            ) / x.size  # Simple mean calculation without weights
+        else:
+            result = x.T @ np.diag(W) @ x / np.sum(W)
+    elif statistic == "max":
+        if W is None:
+            result = np.max(
+                np.abs(x)
+            )  # No weighting, just take the max of the absolute values
+        else:
+            result = np.max(np.abs(W.T * x)) / np.sum(
+                W
+            )  # Use weights if W is provided
+    elif statistic == "mean":
+        if W is None:
+            result = np.mean(x)
+        else:
+            result = np.sum(W * x) / np.sum(W)
+    elif statistic == "std":
+        if W is None:
+            variance = np.var(x)  # Variance calculation
+            result = np.sqrt(variance)  # Standard deviation
+        else:
+            # Calculate weighted mean
+            weighted_mean_tmp = np.sum(W * x) / np.sum(W)  # No need for x.size
+            # Calculate weighted variance
+            weighted_variance = np.sum(
+                W * (x - weighted_mean_tmp) ** 2
+            ) / np.sum(
+                W
+            )  # No need for x.size
+            result = np.sqrt(weighted_variance)  # Standard deviation
+    else:
+        raise ValueError(f"'statistic' must be one of [{STATISTIC_TYPE}]")
+    return result
+
+
 def rsquared(x: np.ndarray, y: np.ndarray) -> float:
     """
     Return the :math:`R^2` value of two signals.
@@ -343,7 +365,7 @@ def whiteness_level(
     local_weights: np.ndarray | None = None,  # shall be a 1D vector
     global_statistic: Statistic_type = "max",
     global_weights: np.ndarray | None = None,
-) -> tuple[np.floating, XCorrelation]:
+) -> tuple[np.floating, np.ndarray, XCorrelation]:
     # Convert signals into XCorrelation tensors and compute the
     # whiteness_level
 
@@ -369,7 +391,7 @@ def whiteness_level(
         global_weights=global_weights,
     )
 
-    return Rxx.whiteness, Rxx
+    return Rxx.whiteness, Rxx.R_matrix, Rxx
 
 
 @dataclass
@@ -463,7 +485,7 @@ class ValidationSession:
         self._input_local_weights = input_local_weights
         self._input_global_weights = input_global_weights
 
-        Ruu_1st, Ruu = whiteness_level(
+        Ruu_1st, _, Ruu = whiteness_level(
             self.Dataset.dataset["INPUT"].to_numpy(),
             nlags=self._input_nlags,
             local_statistic=self._input_local_statistic_1st,
@@ -657,7 +679,7 @@ class ValidationSession:
         # rsquared and various statistics
         r2 = rsquared(y_values, y_sim_values)
         # Here I can do it at once
-        Ree_1st, Ree = whiteness_level(
+        Ree_1st, _, Ree = whiteness_level(
             eps,
             nlags=self._nlags,
             local_statistic=self._acorr_local_statistic_1st,
