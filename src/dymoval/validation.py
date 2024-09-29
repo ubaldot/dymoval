@@ -30,7 +30,7 @@ from .utils import (
 )
 
 from .dataset import Dataset, Signal
-from typing import List, Tuple, Literal, Any
+from typing import List, Tuple, Dict, Literal, Any
 from dataclasses import dataclass
 
 __all__ = [
@@ -582,25 +582,27 @@ class ValidationSession:
         # pd.options.display.float_format = lambda x: f"{x:.{NUM_DECIMALS}f}"
 
         repr_str = (
-            f"-\n"
-            f"Validation session name: {self.name}\n"
-            f"-\n"
+            f"Validation session name: {self.name}\n\n"
+            f"Validation setup:\n----------------\n"
             f"Input\n"
+            f"1st statistic: {self._input_local_statistic_name_1st}-{self._input_global_statistic_name_1st}\n"
+            f"2nd statistic: {self._input_local_statistic_name_2nd}-{self._input_global_statistic_name_2nd}\n"
             f"local weights: {self._input_local_weights}\n"
             f"global weights: {self._input_global_weights}\n"
-            f"num lags: {self._input_nlags}\n"
-            f"-\n"
+            f"num lags: {self._input_nlags}\n\n"
             f"Residuals auto-correlation:\n"
+            f"1st statistic: {self._acorr_local_statistic_name_1st}-{self._acorr_global_statistic_name_1st}\n"
+            f"2nd statistic: {self._acorr_local_statistic_name_2nd}-{self._acorr_global_statistic_name_2nd}\n"
             f"local weights: {self._acorr_local_weights}\n"
             f"global weights: {self._acorr_global_weights}\n"
-            f"num lags: {self._nlags}\n"
-            f"-\n"
+            f"num lags: {self._nlags}\n\n"
             f"Input-residuals cross-correlation:\n"
+            f"1st statistic: {self._xcorr_local_statistic_name_1st}-{self._xcorr_global_statistic_name_1st}\n"
+            f"2nd statistic: {self._xcorr_local_statistic_name_2nd}-{self._xcorr_global_statistic_name_2nd}\n"
             f"local weights: {self._xcorr_local_weights}\n"
             f"global weights: {self._xcorr_global_weights}\n"
-            f"num lags: {self._nlags}\n"
-            f"-\n"
-            f"Validation results:\n"
+            f"num lags: {self._nlags}\n\n"
+            f"Validation results:\n-------------------\n"
             f"{self._validation_results}\n"
         )
 
@@ -1462,7 +1464,7 @@ def validate_models(
     dataset_out: np.ndarray | List[Signal] | List[np.ndarray],
     sampling_period: float,
     *sims_out: np.ndarray,
-) -> Tuple[List[Literal["PASS", "FAIL"]], ValidationSession]:
+) -> Tuple[List[Literal["PASS", "FAIL"]], ValidationSession, Dict[str, float]]:
 
     def _dummy_signal_list(
         dataset: np.ndarray,
@@ -1558,4 +1560,4 @@ def validate_models(
         else:
             global_outcome.append("FAIL")
 
-    return global_outcome, vs
+    return global_outcome, vs, validation_thresholds_dict
