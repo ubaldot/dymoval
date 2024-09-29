@@ -29,8 +29,8 @@ from .utils import (
     str2list,
 )
 
-from .dataset import Dataset
-from typing import Literal, Any
+from .dataset import Dataset, Signal
+from typing import List, Tuple, Literal, Any
 from dataclasses import dataclass
 
 __all__ = [
@@ -196,15 +196,15 @@ class XCorrelation:
 
                     R_matrix[ii, jj] = compute_statistic(
                         statistic=local_statistic,
-                        W=W,
-                        x=rij_tau,
+                        weights=W,
+                        data=rij_tau,
                     )
 
             # Compute the overall statistic of the resulting matrix
             whiteness_level = compute_statistic(
                 statistic=global_statistic,
-                W=W_global,
-                x=R_matrix,
+                weights=W_global,
+                data=R_matrix,
             )
             return whiteness_level, R_matrix
 
@@ -305,53 +305,41 @@ class XCorrelation:
 
 def compute_statistic(
     statistic: Statistic_type,
-    W: np.ndarray,
-    x: np.ndarray,
+    weights: np.ndarray,
+    data: np.ndarray,
 ) -> Any:
     """DOCSTRING
 
-    If x.shape dimension is greater than 1 it will be flatten to a 1D array.
+    If data.shape dimension is greater than 1 it will be flatten to a 1D array.
 
     """
 
-    if len(x.shape) > 1:
-        x = x.flatten()
+    if len(data.shape) > 1:
+        data = data.flatten()
+
+    if weights is None:
+        weights = np.ones(data.size)
 
     if statistic == "quadratic":
-        if W is None:
-            result = (
-                x.T @ x
-            ) / x.size  # Simple mean calculation without weights
-        else:
-            result = x.T @ np.diag(W) @ x / np.sum(W)
+        result = data.T @ np.diag(weights) @ data / np.sum(weights)
     elif statistic == "max":
-        if W is None:
-            result = np.max(
-                np.abs(x)
-            )  # No weighting, just take the max of the absolute values
-        else:
-            result = np.max(np.abs(W.T * x)) / np.sum(
-                W
-            )  # Use weights if W is provided
+        result = np.max(np.abs(weights.T * data)) / np.sum(
+            weights
+        )  # Use weights if weights is provided
     elif statistic == "mean":
-        if W is None:
-            result = np.mean(x)
-        else:
-            result = np.sum(W * x) / np.sum(W)
+        result = np.sum(weights * data) / np.sum(weights)
     elif statistic == "std":
-        if W is None:
-            variance = np.var(x)  # Variance calculation
-            result = np.sqrt(variance)  # Standard deviation
-        else:
-            # Calculate weighted mean
-            weighted_mean_tmp = np.sum(W * x) / np.sum(W)  # No need for x.size
-            # Calculate weighted variance
-            weighted_variance = np.sum(
-                W * (x - weighted_mean_tmp) ** 2
-            ) / np.sum(
-                W
-            )  # No need for x.size
-            result = np.sqrt(weighted_variance)  # Standard deviation
+        # Calculate weighted mean
+        weighted_mean_tmp = np.sum(weights * data) / np.sum(
+            weights
+        )  # No need for data.size
+        # Calculate weighted variance
+        weighted_variance = np.sum(
+            weights * (data - weighted_mean_tmp) ** 2
+        ) / np.sum(
+            weights
+        )  # No need for data.size
+        result = np.sqrt(weighted_variance)  # Standard deviation
     else:
         raise ValueError(f"'statistic' must be one of [{STATISTIC_TYPE}]")
     return result
@@ -388,7 +376,7 @@ def rsquared(x: np.ndarray, y: np.ndarray) -> float:
 
 
 def whiteness_level(
-    X: np.ndarray,
+    data: np.ndarray,
     nlags: int | None = None,
     local_statistic: Statistic_type = "mean",
     local_weights: np.ndarray | None = None,  # shall be a 1D vector
@@ -411,7 +399,7 @@ def whiteness_level(
 
     Rxx = XCorrelation(
         "",
-        X=X,
+        X=data,
         Y=None,
         nlags=num_lags,
         local_statistic=local_statistic,
@@ -480,7 +468,7 @@ class ValidationSession:
         # Simulation based
         self.name: str = name  #: The validation session name.
 
-        self._simulations_results: pd.DataFrame = pd.DataFrame(
+        self._simulations_values: pd.DataFrame = pd.DataFrame(
             index=validation_dataset.dataset.index, columns=[[], [], []]
         )
         """The appended simulation results.
@@ -620,7 +608,7 @@ class ValidationSession:
         #     if self.validation_results is not None:
         #         repr_str = repr(self.validation_results)
         #     if self.simulations_results is not None:
-        #         repr_str = repr(self.simulations_results)
+        #         repr_str = repr(self.simulations_values)
         # finally:
         #     np.set_printoptions(**np_options)
         #     pd.reset_option("display.float_format")
@@ -632,13 +620,13 @@ class ValidationSession:
     def dataset(self) -> Dataset:
         return self._Dataset
 
-    def simulations_results(self) -> pd.DataFrame:
-        return self._simulations_results
+    def simulations_values(self) -> pd.DataFrame:
+        return self._simulations_values
 
     @property
     def simulations_names(self) -> list[str]:
         """Return a list of names of the stored simulations."""
-        return list(self._simulations_results.columns.levels[0])
+        return list(self._simulations_values.columns.levels[0])
 
     # @property
     # def _input_acorr_tensors(self) -> XCorrelation:
@@ -699,7 +687,7 @@ class ValidationSession:
         u_values = df_val["INPUT"].to_numpy()
 
         # Simulation results
-        y_sim_values = self._simulations_results[sim_name].to_numpy()
+        y_sim_values = self._simulations_values[sim_name].to_numpy()
 
         # Residuals
         eps = y_values - y_sim_values
@@ -772,7 +760,7 @@ class ValidationSession:
         if len(y_names) != len(set(y_names)):
             raise ValueError("Signals name must be unique.")
         if (
-            not self._simulations_results.empty
+            not self._simulations_values.empty
             and sim_name in self.simulations_names
         ):
             raise ValueError(
@@ -882,7 +870,7 @@ class ValidationSession:
         vs = self
         ds_val = self._Dataset
         df_val = ds_val.dataset
-        df_sim = self._simulations_results
+        df_sim = self._simulations_values
         p = len(df_val["INPUT"].columns.get_level_values("names"))
         q = len(df_val["OUTPUT"].columns.get_level_values("names"))
         # ================================================================
@@ -1168,10 +1156,10 @@ class ValidationSession:
         vs._Dataset.dataset = vs._Dataset.dataset
 
         # Also trim the simulations
-        vs._simulations_results = vs.simulations_results().loc[
+        vs._simulations_values = vs.simulations_values().loc[
             tin_sel:tout_sel, :  # type: ignore[misc]
         ]
-        vs.simulations_results().index = vs._Dataset.dataset.index
+        vs.simulations_values().index = vs._Dataset.dataset.index
 
         for sim_name in vs.simulations_names:
             vs._append_validation_results(sim_name)
@@ -1367,14 +1355,14 @@ class ValidationSession:
             If the requested simulation is not in the simulation list.
         """
         self._sim_list_validate()
-        return list(self._simulations_results[sim_name].columns)
+        return list(self._simulations_values[sim_name].columns)
 
     def clear(self) -> Self:
         """Clear all the stored simulation results."""
         vs_temp = deepcopy(self)
         sim_names = vs_temp.simulations_names
         for x in sim_names:
-            vs_temp = vs_temp.drop_simulation(x)
+            vs_temp = vs_temp.drop_simulations(x)
         return vs_temp
 
     def append_simulation(
@@ -1386,7 +1374,7 @@ class ValidationSession:
         """
         Append simulation results.
         The results are stored in the
-        :py:attr:`<dymoval.validation.ValidationSession.simulations_results>` attribute.
+        :py:attr:`<dymoval.validation.ValidationSession.simulations_values>` attribute.
 
         The validation statistics are automatically computed and stored in the
         :py:attr:`<dymoval.validation.ValidationSession.validation_results>` attribute.
@@ -1402,7 +1390,7 @@ class ValidationSession:
             with `N` observations of `q` signals.
         """
         vs_temp = deepcopy(self)
-        # df_sim = vs_temp.simulations_results
+        # df_sim = vs_temp.simulations_values
 
         y_names = str2list(y_names)
         vs_temp._simulation_validation(sim_name, y_names, y_data)
@@ -1419,8 +1407,8 @@ class ValidationSession:
         )
 
         # Concatenate df_sim with the current sim results
-        vs_temp._simulations_results = (
-            vs_temp.simulations_results()
+        vs_temp._simulations_values = (
+            vs_temp.simulations_values()
             .join(df_sim, how="right")
             .rename_axis(df_sim.columns.names, axis=1)
         )
@@ -1430,7 +1418,7 @@ class ValidationSession:
 
         return vs_temp
 
-    def drop_simulation(self, *sims: str) -> Self:
+    def drop_simulations(self, *sims: str) -> Self:
         """Drop simulation results from the validation session.
 
 
@@ -1452,11 +1440,11 @@ class ValidationSession:
         for sim_name in sims:
             if sim_name not in vs_temp.simulations_names:
                 raise ValueError(f"Simulation {sim_name} not found.")
-            vs_temp._simulations_results = vs_temp.simulations_results().drop(
+            vs_temp._simulations_values = vs_temp.simulations_values().drop(
                 sim_name, axis=1, level="sim_names"
             )
-            vs_temp.simulations_results().columns = (
-                vs_temp.simulations_results().columns.remove_unused_levels()
+            vs_temp.simulations_values().columns = (
+                vs_temp.simulations_values().columns.remove_unused_levels()
             )
 
             vs_temp._auto_correlation_tensors.pop(sim_name)
@@ -1467,3 +1455,107 @@ class ValidationSession:
             )
 
         return vs_temp
+
+
+def validate_models(
+    dataset_in: np.ndarray | List[Signal] | List[np.ndarray],
+    dataset_out: np.ndarray | List[Signal] | List[np.ndarray],
+    sampling_period: float,
+    *sims_out: np.ndarray,
+) -> Tuple[List[Literal["PASS", "FAIL"]], ValidationSession]:
+
+    def _dummy_signal_list(
+        dataset: np.ndarray,
+        sampling_period: float,
+        kind: Literal["in", "out"],
+    ) -> List[Signal]:
+
+        uy = "u" if kind == "in" else "y"
+        signal_list = []
+        for ii in range(dataset.shape[1]):
+            tmp: Signal = {
+                "name": f"{uy}{ii}",
+                "samples": dataset[:, ii],
+                "signal_unit": "NA",
+                "sampling_period": sampling_period,
+                "time_unit": "NA",
+            }
+            signal_list.append(deepcopy(tmp))
+        return signal_list
+
+    def _to_list_of_Signal(
+        data: List[np.ndarray] | np.ndarray | List[Signal],
+        sampling_period: float,
+        kind: Literal["in", "out"],
+    ) -> List[Signal]:
+        # Case List[np.ndarray]
+        if isinstance(data, list) and all(
+            isinstance(item, np.ndarray) for item in data
+        ):
+            return np.column_stack(data)  # type: ignore
+        # Case np.ndarray
+        elif isinstance(data, np.ndarray):
+            data_list = _dummy_signal_list(
+                dataset=data, sampling_period=sampling_period, kind=kind
+            )
+        # TODO
+        # elif isinstance(data, list) and set(data[0].keys()) == set(SIGNAL_KEYS):
+        #     data_list = data
+        # else:
+        #     raise ValueError(f"Simulation {sim_name} not found.")
+        return data_list
+
+    # ======== MAIN ================
+    validation_thresholds_dict = {
+        "Ruu_whiteness_1st": 0.35,
+        "Ruu_whiteness_2nd": 0.5,
+        "r2": 65,
+        "Ree_whiteness_1st": 0.35,
+        "Ree_whiteness_2nd": 0.55,
+        "Rue_whiteness_1st": 0.35,
+        "Rue_whiteness_2nd": 0.55,
+    }
+
+    # TODO: check dimensions, etc.
+    # Convert everything into List[Signal]
+    dataset_in_list = _to_list_of_Signal(
+        data=dataset_in, sampling_period=sampling_period, kind="in"
+    )
+    dataset_out_list = _to_list_of_Signal(
+        data=dataset_out, sampling_period=sampling_period, kind="out"
+    )
+
+    # Build Dataset instance and Validation instance
+    input_labels = [s["name"] for s in dataset_in_list]
+    output_labels = [s["name"] for s in dataset_out_list]
+    signal_list = dataset_in_list + dataset_out_list
+    # TODO
+    # dmv.validate_signals(*signal_list)
+    ds = Dataset("dummy", signal_list, input_labels, output_labels)
+    vs = ValidationSession("quick & dirty", ds)
+
+    # Actual test
+    global_outcome: List[Literal["PASS", "FAIL"]] = []
+    for ii, sim in enumerate(sims_out):
+        local_outcome = []
+        sim_name = f"Sim_{ii}"
+        vs.append_simulation(
+            sim_name=sim_name, y_names=output_labels, y_data=sim[:, ii]
+        )
+        validation_dict = vs.validation_values(sim_name)
+
+        for k in validation_dict.keys():
+            if k != "r2":
+                local_outcome.append(
+                    validation_dict[k] < validation_thresholds_dict[k]
+                )
+            else:
+                local_outcome.append(
+                    validation_dict[k] > validation_thresholds_dict[k]
+                )
+        if all(local_outcome):
+            global_outcome.append("PASS")
+        else:
+            global_outcome.append("FAIL")
+
+    return global_outcome, vs

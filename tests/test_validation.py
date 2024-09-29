@@ -63,14 +63,14 @@ class Test_ClassValidationNominal:
 
         vs = vs.append_simulation(sim1_name, sim1_labels, sim1_values)
         # At least the names are there...
-        assert sim1_name in vs.simulations_results().columns.get_level_values(
+        assert sim1_name in vs.simulations_values().columns.get_level_values(
             "sim_names"
         )
         assert sim1_name in vs._auto_correlation_tensors.keys()
         assert sim1_name in vs._cross_correlation_tensors.keys()
         assert sim1_name in vs._validation_results.columns
 
-        assert np.allclose(sim1_values, vs.simulations_results()[sim1_name])
+        assert np.allclose(sim1_values, vs.simulations_values()[sim1_name])
 
         # # Add second model
         sim2_name = "Model 2"
@@ -84,14 +84,14 @@ class Test_ClassValidationNominal:
 
         vs = vs.append_simulation(sim2_name, sim2_labels, sim2_values)
         # At least the names are there...
-        assert sim2_name in vs.simulations_results().columns.get_level_values(
+        assert sim2_name in vs.simulations_values().columns.get_level_values(
             "sim_names"
         )
         assert sim2_name in vs._auto_correlation_tensors.keys()
         assert sim2_name in vs._cross_correlation_tensors.keys()
         assert sim2_name in vs._validation_results.columns
 
-        assert np.allclose(sim2_values, vs.simulations_results()[sim2_name])
+        assert np.allclose(sim2_values, vs.simulations_values()[sim2_name])
 
         # ===============================================
         # Test simulation_signals_list and list_simulations
@@ -113,13 +113,11 @@ class Test_ClassValidationNominal:
         # ==================================
         # drop_simulation sim
         # ==================================
-        vs = vs.drop_simulation(sim1_name)
+        vs = vs.drop_simulations(sim1_name)
         # At least the names are nt there any longer.
         assert (
             sim1_name
-            not in vs.simulations_results().columns.get_level_values(
-                "sim_names"
-            )
+            not in vs.simulations_values().columns.get_level_values("sim_names")
         )
         assert sim1_name not in vs._auto_correlation_tensors.keys()
         assert sim1_name not in vs._cross_correlation_tensors.keys()
@@ -132,7 +130,7 @@ class Test_ClassValidationNominal:
 
         vs = vs.clear()
 
-        assert [] == list(vs.simulations_results().columns)
+        assert [] == list(vs.simulations_values().columns)
         assert [] == list(vs._auto_correlation_tensors.keys())
         assert [] == list(vs._cross_correlation_tensors.keys())
         assert [] == list(vs._validation_results.columns)
@@ -190,10 +188,10 @@ class Test_ClassValidationNominal:
         )
 
         assert np.isclose(
-            expected_tin, vs.simulations_results().index[0], atol=ATOL
+            expected_tin, vs.simulations_values().index[0], atol=ATOL
         )
         assert np.isclose(
-            expected_tout, vs.simulations_results().index[-1], atol=ATOL
+            expected_tout, vs.simulations_values().index[-1], atol=ATOL
         )
 
     def test_get_sim_signal_list_and_statistics_raise(
@@ -379,7 +377,7 @@ class Test_ClassValidatioNominal_sim_validation:
         with pytest.raises(IndexError):
             vs.append_simulation(sim1_name, sim1_labels, sim1_values)
 
-    def test_drop_simulation_raise(self, good_dataframe: pd.DataFrame) -> None:
+    def test_drop_simulations_raise(self, good_dataframe: pd.DataFrame) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
         ds = dmv.Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
@@ -400,7 +398,7 @@ class Test_ClassValidatioNominal_sim_validation:
         vs = vs.append_simulation(sim1_name, sim1_labels, sim1_values)
 
         with pytest.raises(ValueError):
-            vs.drop_simulation("potato")
+            vs.drop_simulations("potato")
 
 
 class Test_Plots:
@@ -446,7 +444,7 @@ class Test_Plots:
 
         name_vs = "my_validation"
         vs = dmv.ValidationSession(name_vs, ds)
-        print(vs.simulations_results)
+        print(vs.simulations_values)
 
         # Add one model
         sim1_name = "Model 1"
@@ -467,7 +465,7 @@ class Test_Plots:
             len(vs.dataset.dataset["OUTPUT"].values), 1
         )
         vs = vs.append_simulation(sim2_name, sim2_labels, sim2_values)
-        print(vs.simulations_results)
+        print(vs.simulations_values)
 
         # =============================
         # plot simulations

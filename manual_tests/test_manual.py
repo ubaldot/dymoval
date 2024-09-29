@@ -242,7 +242,7 @@ sim1_whiteness, _, X = dmv.whiteness_level(
 # We use the ValidationSession's method append_simulation to append the simulation
 # results.
 # vs = vs.drop_simulation(sim1_name)
-# vs = vs.append_simulation(sim1_name, sim1_labels, sim1_values)
+vs = vs.append_simulation(sim1_name, sim1_labels, sim1_values)
 # %%
 vs = vs.append_simulation(sim2_name, sim2_labels, sim2_values)
 # vs.plot_residuals(plot_input=True)
