@@ -20,10 +20,7 @@ from .validation import (
     whiteness_level,
 )
 
-from .config import (
-    NUM_DECIMALS,
-    COLORMAP,
-)
+from .config import COLORMAP
 
 # Package public API
 __all__ = [
@@ -39,6 +36,5 @@ __all__ = [
     "whiteness_level",
     "ValidationSession",
     "open_tutorial",
-    "NUM_DECIMALS",
     "COLORMAP",
 ]

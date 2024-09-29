@@ -22,7 +22,6 @@ import matplotlib.gridspec as gridspec
 from matplotlib import pyplot as plt
 from scipy import io, fft
 from .config import (
-    NUM_DECIMALS,
     COLORMAP,
     SIGNAL_KEYS,
     ATOL,
@@ -322,8 +321,8 @@ class Dataset:
                 "Input must be a Signal list or a pandas DataFrame type.",
             )
 
-    def __str__(self) -> str:
-        return f"Dymoval dataset called '{self.name}'."
+    def __repr__(self) -> str:
+        return f"{self.dataset}"
 
     # ==============================================
     #   Class methods
@@ -373,10 +372,10 @@ class Dataset:
         self,
     ) -> tuple[pd.Series, pd.DataFrame, pd.Series, pd.DataFrame]:
         df = self.dataset
-        u_mean = df["INPUT"].mean(axis=0).round(NUM_DECIMALS)
-        u_cov = df["INPUT"].cov().round(NUM_DECIMALS)
-        y_mean = df["OUTPUT"].mean(axis=0).round(NUM_DECIMALS)
-        y_cov = df["OUTPUT"].cov().round(NUM_DECIMALS)
+        u_mean = df["INPUT"].mean(axis=0)
+        u_cov = df["INPUT"].cov()
+        y_mean = df["OUTPUT"].mean(axis=0)
+        y_cov = df["OUTPUT"].cov()
 
         return u_mean, u_cov, y_mean, y_cov
 
@@ -410,12 +409,12 @@ class Dataset:
         tin: float = self.dataset.index[0]
         timeVectorFromZero: np.ndarray = self.dataset.index - tin
         new_index = pd.Index(
-            np.round(timeVectorFromZero, NUM_DECIMALS),
+            timeVectorFromZero,
             name=self.dataset.index.name,
         )
         # Update the index
         self.dataset.index = new_index
-        self.dataset = self.dataset.round(NUM_DECIMALS)
+        self.dataset = self.dataset
 
         # Shift also the NaN_intervals to tin = 0.0.
         NaN_intervals = self._nan_intervals
@@ -423,9 +422,7 @@ class Dataset:
         for k in NaN_intervals.keys():
             for idx, nan_chunk in enumerate(NaN_intervals[k]):
                 nan_chunk_translated = nan_chunk - tin
-                NaN_intervals[k][idx] = np.round(
-                    nan_chunk_translated, NUM_DECIMALS
-                )
+                NaN_intervals[k][idx] = nan_chunk_translated
                 NaN_intervals[k][idx] = nan_chunk_translated[
                     nan_chunk_translated >= 0.0
                 ]
@@ -501,8 +498,8 @@ class Dataset:
         # Set easy-to-set attributes
         self.name = name  #: Dataset name.
         self.information_level = 0.0  #: *Not implemented yet!*
-        self.sampling_period = np.round(
-            df.index[1] - df.index[0], NUM_DECIMALS
+        self.sampling_period = (
+            df.index[1] - df.index[0]
         )  #: Dataset sampling period.
 
         # Excluded signals list is either passed by _new_dataset_from_signals()
@@ -559,8 +556,8 @@ class Dataset:
         # Trim the dataset
         # =============================================
         if full_time_interval:
-            tin = np.round(self.dataset.index[0], NUM_DECIMALS)
-            tout = np.round(self.dataset.index[-1], NUM_DECIMALS)
+            tin = self.dataset.index[0]
+            tout = self.dataset.index[-1]
 
         # All possible names
         u_names = list(self.dataset["INPUT"].columns.get_level_values("names"))
@@ -653,7 +650,7 @@ class Dataset:
 
         df_data: np.ndarray = np.zeros((max_idx, n))
         for ii, s in enumerate(resampled_signals):
-            df_data[:, ii] = s["samples"][0:max_idx].round(NUM_DECIMALS)
+            df_data[:, ii] = s["samples"][0:max_idx]
 
         # Create actual DataFrame
         # Single column level but the cols name is a tuple (name,unit)
@@ -1094,9 +1091,7 @@ class Dataset:
 
         # Create DataFrame from signals to be appended (concatenated) to
         # the current dataset
-        data = (
-            np.stack([s["samples"] for s in signals_ok]).round(NUM_DECIMALS).T
-        )
+        data = np.stack([s["samples"] for s in signals_ok]).T
         df_temp = pd.DataFrame(data=data, index=ds.dataset.index)
         df_temp.columns = pd.MultiIndex.from_tuples(
             zip(str2list(kind) * len(signals_name), signals_name, signals_unit),
@@ -1114,7 +1109,6 @@ class Dataset:
             NaN_intervals
         )  # Join two dictionaries through update()
 
-        ds.dataset = ds.dataset.round(NUM_DECIMALS)
         return ds
 
     def trim(
@@ -1171,7 +1165,7 @@ class Dataset:
             selection = {"tin": 0.0, "tout": ds.dataset.index[-1]}
 
             def update_time_interval(ax):  # type:ignore
-                time_interval = np.round(ax.get_xlim(), NUM_DECIMALS)
+                time_interval = ax.get_xlim()
                 selection["tin"], selection["tout"] = time_interval
                 selection["tin"] = max(selection["tin"], 0.0)
                 selection["tout"] = max(selection["tout"], 0.0)
@@ -1188,7 +1182,7 @@ class Dataset:
             assert fig is not None
             fig.suptitle(
                 "Sampling time "
-                f"= {np.round(self.dataset.index[1]-self.dataset.index[0], NUM_DECIMALS)} {self.dataset.index.name[1]}.\n"
+                f"= {self.dataset.index[1]-self.dataset.index[0]} {self.dataset.index.name[1]}.\n"
                 "Select the dataset time interval by resizing "
                 "the picture."
             )
@@ -1216,9 +1210,7 @@ class Dataset:
             tin_sel = selection["tin"]
             tout_sel = selection["tout"]
 
-            return np.round(tin_sel, NUM_DECIMALS), np.round(
-                tout_sel, NUM_DECIMALS
-            )
+            return tin_sel, tout_sel
 
         # =============================================
         # Trim Dataset main function
@@ -1236,8 +1228,8 @@ class Dataset:
             tin_sel = tin
             tout_sel = ds.dataset.index[-1]
         elif tin is not None and tout is not None:
-            tin_sel = np.round(tin, NUM_DECIMALS)
-            tout_sel = np.round(tout, NUM_DECIMALS)
+            tin_sel = tin
+            tout_sel = tout
         else:  # pragma: no cover
             tin_sel, tout_sel = _graph_selection(self, *signals, **kwargs)
 
@@ -1254,7 +1246,6 @@ class Dataset:
 
         # ... and shift everything such that tin = 0.0
         ds._shift_dataset_tin_to_zero()
-        ds.dataset = ds.dataset.round(NUM_DECIMALS)
 
         return ds
 
@@ -1274,21 +1265,17 @@ class Dataset:
 
         # If there is a scalar input or output to avoid returning a column vector.
         if len(self.dataset["INPUT"].columns.get_level_values("names")) == 1:
-            u_values = (
-                self.dataset["INPUT"].to_numpy().round(NUM_DECIMALS)[:, 0]
-            )
+            u_values = self.dataset["INPUT"].to_numpy()[:, 0]
         else:
-            u_values = self.dataset["INPUT"].to_numpy().round(NUM_DECIMALS)
+            u_values = self.dataset["INPUT"].to_numpy()
 
         if len(self.dataset["OUTPUT"].columns.get_level_values("names")) == 1:
-            y_values = (
-                self.dataset["OUTPUT"].to_numpy().round(NUM_DECIMALS)[:, 0]
-            )
+            y_values = self.dataset["OUTPUT"].to_numpy()[:, 0]
         else:
-            y_values = self.dataset["OUTPUT"].to_numpy().round(NUM_DECIMALS)
+            y_values = self.dataset["OUTPUT"].to_numpy()
 
         return (
-            self.dataset.index.to_numpy().round(NUM_DECIMALS),
+            self.dataset.index.to_numpy(),
             u_values,
             y_values,
         )
@@ -1342,7 +1329,7 @@ class Dataset:
                 # The following is the syntax for defining a dymoval signal
                 temp: Signal = {
                     "name": names[ii],
-                    "samples": df.loc[:, val].to_numpy().round(NUM_DECIMALS),
+                    "samples": df.loc[:, val].to_numpy(),
                     "signal_unit": signal_units[ii],
                     "sampling_period": sampling_period,
                     "time_unit": time_unit,
@@ -1825,7 +1812,6 @@ class Dataset:
             )
             / N
         )
-        vals = vals.round(NUM_DECIMALS)
 
         # Create a new Dataframe
         u_cols = [col for col in df_temp.columns for u in u_names if u in col]
@@ -1861,7 +1847,7 @@ class Dataset:
         # replace the values
         df_freq.index = pd.Index(f_bins, name=new_index_name)
 
-        return df_freq.round(NUM_DECIMALS)
+        return df_freq
 
     def plot_spectrum(
         self,
@@ -2327,7 +2313,7 @@ class Dataset:
         )
 
         # round result
-        ds_temp.dataset = df_temp.round(NUM_DECIMALS)
+        ds_temp.dataset = df_temp
 
         return ds_temp
 
@@ -2399,8 +2385,6 @@ class Dataset:
             df_temp.loc[:, cols] = df_temp.loc[:, cols].apply(
                 lambda x: x.subtract(y_offset), axis=1
             )
-
-        df_temp.round(NUM_DECIMALS)
 
         return ds_temp
 
@@ -2487,8 +2471,6 @@ class Dataset:
                         fc / fs
                     ) * u_filt[kk]
                 df_temp.loc[:, ("OUTPUT", y, y_units[ii])] = y_filt
-        # Round value
-        ds_temp.dataset = df_temp.round(NUM_DECIMALS)
 
         return ds_temp
 
@@ -2557,11 +2539,9 @@ class Dataset:
 
         # Start to apply functions
         for s in passed_names:
-            ds_temp.dataset.loc[:, sig_cols[s]] = (
-                ds_temp.dataset.loc[:, sig_cols[s]]
-                .apply(sig_func[s])
-                .round(NUM_DECIMALS)
-            )
+            ds_temp.dataset.loc[:, sig_cols[s]] = ds_temp.dataset.loc[
+                :, sig_cols[s]
+            ].apply(sig_func[s])
 
             # Update units.
             # You must rewrite the whole columns MultiIndex
@@ -2602,7 +2582,6 @@ class Dataset:
         # Safe copy
         ds_temp = deepcopy(self)
         ds_temp.dataset = ds_temp.dataset.interpolate(**kwargs)
-        ds_temp.dataset = ds_temp.dataset.round(NUM_DECIMALS)
 
         return ds_temp
 

@@ -17,7 +17,6 @@ from matplotlib import pyplot as plt
 from copy import deepcopy
 import scipy.signal as signal
 from .config import (
-    NUM_DECIMALS,
     COLORMAP,
     Statistic_type,
     STATISTIC_TYPE,
@@ -126,13 +125,10 @@ class XCorrelation:
                     #
                     # At the end, for each pair (ii,jj) you have Rxy = r_{x_ii,y_jj}(\tau), therefore
                     # for each (ii,jj) we compute a correlation.
-                    Rxy[:, ii, jj] = (
-                        signal.correlate(
-                            (X[:, ii] - np.mean(X[:, ii])) / np.std(X[:, ii]),
-                            (Y[:, jj] - np.mean(Y[:, jj])) / np.std(Y[:, jj]),
-                        )
-                        / min(len(X), len(Y))
-                    ).round(NUM_DECIMALS)
+                    Rxy[:, ii, jj] = signal.correlate(
+                        (X[:, ii] - np.mean(X[:, ii])) / np.std(X[:, ii]),
+                        (Y[:, jj] - np.mean(Y[:, jj])) / np.std(Y[:, jj]),
+                    ) / min(len(X), len(Y))
 
             # Trim the cross-correlation results if the user wants less lags
             if local_weights is not None:
@@ -223,6 +219,10 @@ class XCorrelation:
             self.values, self.lags = _init_tensor(X, Y, nlags)
             self.kind = "cross-correlation"
 
+        self._local_statistics = local_statistic
+        self._local_weights = local_weights
+        self._global_statistics = global_statistic
+        self._global_weights = global_weights
         self.whiteness, self.R_matrix = _whiteness_level(
             local_statistic=local_statistic,
             local_weights=local_weights,
@@ -232,6 +232,37 @@ class XCorrelation:
 
         """Lags of the cross-correlation.
         It is a vector of length *N*, where *N* is the number of lags."""
+
+    def __repr__(self) -> str:
+        # Save existing settings
+        # np_options = np.get_printoptions()
+        # pd_options = pd.options.display.float_format
+
+        # np.set_printoptions(precision=NUM_DECIMALS, suppress=True)
+        # pd.options.display.float_format = lambda x: f"{x:.{NUM_DECIMALS}f}"
+        repr_str = (
+            f"XCorrelation tensor name: {self.name}\n"
+            f"type: {self.kind}\n"
+            f"local statistic: {self._local_statistics}\n"
+            f"local weights: {self._local_weights}\n"
+            f"global statistic: {self._global_statistics}\n"
+            f"global weights: {self._global_weights}\n"
+            f"num lags: {self.lags.size}\n"
+            f"whiteness: {self.whiteness}\n"
+        )
+
+        # try:
+        #     if self.values is not None:
+        #         repr_str = repr(self.values)
+        #     if self.whiteness is not None:
+        #         repr_str = repr(self.whiteness)
+        #     if self.R_matrix is not None:
+        #         repr_str = repr(self.R_matrix)
+        # finally:
+        #     np.set_printoptions(**np_options)
+        # pd.reset_option("display.-float_format")
+
+        return repr_str
 
     def plot(self) -> matplotlib.figure.Figure:
         p = self.values.shape[1]
@@ -350,11 +381,9 @@ def rsquared(x: np.ndarray, y: np.ndarray) -> float:
     eps = x - y
     # Compute r-square fit (%)
     x_mean = np.mean(x, axis=0)
-    r2 = np.round(
-        (1.0 - np.linalg.norm(eps, 2) ** 2 / np.linalg.norm(x - x_mean, 2) ** 2)
-        * 100,
-        NUM_DECIMALS,
-    )
+    r2 = (
+        1.0 - np.linalg.norm(eps, 2) ** 2 / np.linalg.norm(x - x_mean, 2) ** 2
+    ) * 100
     return r2  # type: ignore
 
 
@@ -416,24 +445,24 @@ class ValidationSession:
         nlags: int | None = None,
         input_nlags: int | None = None,
         # input auto-correlation
-        input_local_statistic_1st: Statistic_type = "mean",
-        input_global_statistic_1st: Statistic_type = "max",
-        input_local_statistic_2nd: Statistic_type = "max",
-        input_global_statistic_2nd: Statistic_type = "max",
+        input_local_statistic_name_1st: Statistic_type = "mean",
+        input_global_statistic_name_1st: Statistic_type = "max",
+        input_local_statistic_name_2nd: Statistic_type = "max",
+        input_global_statistic_name_2nd: Statistic_type = "max",
         input_local_weights: np.ndarray | None = None,
         input_global_weights: np.ndarray | None = None,
         # residuals auto-correlation
-        acorr_local_statistic_1st: Statistic_type = "mean",
-        acorr_global_statistic_1st: Statistic_type = "max",
-        acorr_local_statistic_2nd: Statistic_type = "max",
-        acorr_global_statistic_2nd: Statistic_type = "max",
+        acorr_local_statistic_name_1st: Statistic_type = "mean",
+        acorr_global_statistic_name_1st: Statistic_type = "max",
+        acorr_local_statistic_name_2nd: Statistic_type = "max",
+        acorr_global_statistic_name_2nd: Statistic_type = "max",
         acorr_local_weights: np.ndarray | None = None,
         acorr_global_weights: np.ndarray | None = None,
         # input-residuals cross-Correlation
-        xcorr_local_statistic_1st: Statistic_type = "mean",
-        xcorr_global_statistic_1st: Statistic_type = "max",
-        xcorr_local_statistic_2nd: Statistic_type = "max",
-        xcorr_global_statistic_2nd: Statistic_type = "max",
+        xcorr_local_statistic_name_1st: Statistic_type = "mean",
+        xcorr_global_statistic_name_1st: Statistic_type = "max",
+        xcorr_local_statistic_name_2nd: Statistic_type = "max",
+        xcorr_global_statistic_name_2nd: Statistic_type = "max",
         xcorr_local_weights: np.ndarray | None = None,
         xcorr_global_weights: np.ndarray | None = None,
     ) -> None:
@@ -475,36 +504,36 @@ class ValidationSession:
         elif input_nlags is not None:
             self._input_nlags = input_nlags
         else:
-            n = self.Dataset.dataset.shape[0]
+            n = self._Dataset.dataset.shape[0]
             self._input_nlags = signal.correlation_lags(n, n).size
 
-        self._input_local_statistic_1st = input_local_statistic_1st
-        self._input_global_statistic_1st = input_global_statistic_1st
-        self._input_local_statistic_2nd = input_local_statistic_2nd
-        self._input_global_statistic_2nd = input_global_statistic_2nd
+        self._input_local_statistic_name_1st = input_local_statistic_name_1st
+        self._input_global_statistic_name_1st = input_global_statistic_name_1st
+        self._input_local_statistic_name_2nd = input_local_statistic_name_2nd
+        self._input_global_statistic_name_2nd = input_global_statistic_name_2nd
         self._input_local_weights = input_local_weights
         self._input_global_weights = input_global_weights
 
-        Ruu_1st, _, Ruu = whiteness_level(
-            self.Dataset.dataset["INPUT"].to_numpy(),
+        Ruu_whiteness_1st, _, Ruu = whiteness_level(
+            self._Dataset.dataset["INPUT"].to_numpy(),
             nlags=self._input_nlags,
-            local_statistic=self._input_local_statistic_1st,
+            local_statistic=self._input_local_statistic_name_1st,
             local_weights=self._input_local_weights,
-            global_statistic=self._input_global_statistic_1st,
+            global_statistic=self._input_global_statistic_name_1st,
             global_weights=self._input_global_weights,
         )
-        Ruu_2nd = whiteness_level(
-            self.Dataset.dataset["INPUT"].to_numpy(),
+        Ruu_whiteness_2nd = whiteness_level(
+            self._Dataset.dataset["INPUT"].to_numpy(),
             nlags=self._input_nlags,
-            local_statistic=self._input_local_statistic_2nd,
+            local_statistic=self._input_local_statistic_name_2nd,
             local_weights=self._input_local_weights,
-            global_statistic=self._input_global_statistic_2nd,
+            global_statistic=self._input_global_statistic_name_2nd,
             global_weights=self._input_global_weights,
         )[0]
 
         self._input_acorr_tensor = Ruu
-        self._input_acorr_1st_value = Ruu_1st
-        self._input_acorr_2nd_value = Ruu_2nd
+        self._input_acorr_whiteness_1st = Ruu_whiteness_1st
+        self._input_acorr_whiteness_2nd = Ruu_whiteness_2nd
 
         # nlags: pick the minumum of the lengths between acorr_local_weights and
         # xcorr_local_weights.
@@ -523,31 +552,31 @@ class ValidationSession:
         elif nlags is not None:
             self._nlags = nlags
         else:
-            n = self.Dataset.dataset.shape[0]
+            n = self._Dataset.dataset.shape[0]
             self._nlags = signal.correlation_lags(n, n).size
-        self._acorr_local_statistic_1st = acorr_local_statistic_1st
-        self._acorr_global_statistic_1st = acorr_global_statistic_1st
-        self._acorr_local_statistic_2nd = acorr_local_statistic_2nd
-        self._acorr_global_statistic_2nd = acorr_global_statistic_2nd
+        self._acorr_local_statistic_name_1st = acorr_local_statistic_name_1st
+        self._acorr_global_statistic_name_1st = acorr_global_statistic_name_1st
+        self._acorr_local_statistic_name_2nd = acorr_local_statistic_name_2nd
+        self._acorr_global_statistic_name_2nd = acorr_global_statistic_name_2nd
         self._acorr_local_weights = acorr_local_weights
         self._acorr_global_weights = acorr_global_weights
 
-        self._xcorr_local_statistic_1st = xcorr_local_statistic_1st
-        self._xcorr_global_statistic_1st = xcorr_global_statistic_1st
-        self._xcorr_local_statistic_2nd = xcorr_local_statistic_2nd
-        self._xcorr_global_statistic_2nd = xcorr_global_statistic_2nd
+        self._xcorr_local_statistic_name_1st = xcorr_local_statistic_name_1st
+        self._xcorr_global_statistic_name_1st = xcorr_global_statistic_name_1st
+        self._xcorr_local_statistic_name_2nd = xcorr_local_statistic_name_2nd
+        self._xcorr_global_statistic_name_2nd = xcorr_global_statistic_name_2nd
         self._xcorr_local_weights = xcorr_local_weights
         self._xcorr_global_weights = xcorr_global_weights
 
         # Initialize validation results DataFrame.
         idx = [
-            f"Input Auto-Corr ({self._input_local_statistic_1st}-{self._input_global_statistic_1st})",
-            f"Input Auto-Corr ({self._input_local_statistic_2nd}-{self._input_global_statistic_2nd})",
+            f"Input whiteness ({self._input_local_statistic_name_1st}-{self._input_global_statistic_name_1st})",
+            f"Input whiteness ({self._input_local_statistic_name_2nd}-{self._input_global_statistic_name_2nd})",
             "R-Squared (%)",
-            f"Residuals Auto-Corr ({self._acorr_local_statistic_1st}-{self._acorr_global_statistic_1st})",
-            f"Residuals Auto-Corr ({self._acorr_local_statistic_2nd}-{self._acorr_global_statistic_2nd})",
-            f"Input-Res Cross-Corr ({self._xcorr_local_statistic_1st}-{self._xcorr_global_statistic_1st})",
-            f"Input-Res Cross-Corr ({self._xcorr_local_statistic_2nd}-{self._xcorr_global_statistic_2nd})",
+            f"Residuals whiteness ({self._acorr_local_statistic_name_1st}-{self._acorr_global_statistic_name_1st})",
+            f"Residuals whiteness ({self._acorr_local_statistic_name_2nd}-{self._acorr_global_statistic_name_2nd})",
+            f"Input-Res whiteness ({self._xcorr_local_statistic_name_1st}-{self._xcorr_global_statistic_name_1st})",
+            f"Input-Res whiteness ({self._xcorr_local_statistic_name_2nd}-{self._xcorr_global_statistic_name_2nd})",
         ]
         self._validation_results: pd.DataFrame = pd.DataFrame(
             index=idx, columns=[]
@@ -556,110 +585,109 @@ class ValidationSession:
         This attribute is automatically set
         and it should be considered as a *read-only* attribute."""
 
+    def __repr__(self) -> str:
+        # Save existing settings
+        # np_options = np.get_printoptions()
+        # pd_options = pd.options.display.float_format
+
+        # np.set_printoptions(precision=NUM_DECIMALS, suppress=True)
+        # pd.options.display.float_format = lambda x: f"{x:.{NUM_DECIMALS}f}"
+
+        repr_str = (
+            f"-\n"
+            f"Validation session name: {self.name}\n"
+            f"-\n"
+            f"Input\n"
+            f"local weights: {self._input_local_weights}\n"
+            f"global weights: {self._input_global_weights}\n"
+            f"num lags: {self._input_nlags}\n"
+            f"-\n"
+            f"Residuals auto-correlation:\n"
+            f"local weights: {self._acorr_local_weights}\n"
+            f"global weights: {self._acorr_global_weights}\n"
+            f"num lags: {self._nlags}\n"
+            f"-\n"
+            f"Input-residuals cross-correlation:\n"
+            f"local weights: {self._xcorr_local_weights}\n"
+            f"global weights: {self._xcorr_global_weights}\n"
+            f"num lags: {self._nlags}\n"
+            f"-\n"
+            f"Validation results:\n"
+            f"{self._validation_results}\n"
+        )
+
+        # try:
+        #     if self.validation_results is not None:
+        #         repr_str = repr(self.validation_results)
+        #     if self.simulations_results is not None:
+        #         repr_str = repr(self.simulations_results)
+        # finally:
+        #     np.set_printoptions(**np_options)
+        #     pd.reset_option("display.float_format")
+
+        return repr_str
+
     # ========== All attributes are read-only ====================
     @property
-    def Dataset(self) -> Dataset:
+    def dataset(self) -> Dataset:
         return self._Dataset
 
-    @property
     def simulations_results(self) -> pd.DataFrame:
         return self._simulations_results
 
     @property
-    def input_acorr_tensors(self) -> XCorrelation:
-        return self._input_acorr_tensor
+    def simulations_names(self) -> list[str]:
+        """Return a list of names of the stored simulations."""
+        return list(self._simulations_results.columns.levels[0])
 
-    @property
-    def input_local_statistic_1st(self) -> Statistic_type:
-        return self._input_local_statistic_1st
+    # @property
+    # def _input_acorr_tensors(self) -> XCorrelation:
+    #     return self._input_acorr_tensor
 
-    @property
-    def input_global_statistic_1st(self) -> Statistic_type:
-        return self._input_global_statistic_1st
+    # @property
+    # def _input_local_weights(self) -> np.ndarray | None:
+    #     return self._input_local_weights
 
-    @property
-    def input_local_statistic_2nd(self) -> Statistic_type:
-        return self._input_local_statistic_2nd
+    # @property
+    # def _input_global_weights(self) -> np.ndarray | None:
+    #     return self._input_global_weights
 
-    @property
-    def input_global_statistic_2nd(self) -> Statistic_type:
-        return self._input_global_statistic_2nd
+    # @property
+    # def input_nlags(self) -> int:
+    #     return self._input_nlags
 
-    @property
-    def input_local_weights(self) -> np.ndarray | None:
-        return self._input_local_weights
+    # @property
+    # def nlags(self) -> int:
+    #     return self._nlags
 
-    @property
-    def input_global_weights(self) -> np.ndarray | None:
-        return self._input_global_weights
+    # @property
+    # def _acorr_local_weights(self) -> np.ndarray | None:
+    #     return self._acorr_local_weights
 
-    @property
-    def input_nlags(self) -> int:
-        return self._input_nlags
+    # @property
+    # def _acorr_global_weights(self) -> np.ndarray | None:
+    #     return self._acorr_global_weights
 
-    @property
-    def auto_correlation_tensors(self) -> dict[str, XCorrelation]:
-        return self._auto_correlation_tensors
+    # @property
+    # def _xcorr_local_weights(self) -> np.ndarray | None:
+    #     return self._xcorr_local_weights
 
-    @property
-    def cross_correlation_tensors(self) -> dict[str, XCorrelation]:
-        return self._cross_correlation_tensors
+    # @property
+    # def _xcorr_global_weights(self) -> np.ndarray | None:
+    #     return self._xcorr_global_weights
 
-    @property
-    def nlags(self) -> int:
-        return self._nlags
-
-    @property
-    def acorr_local_statistic_1st(self) -> Statistic_type:
-        return self._acorr_local_statistic_1st
-
-    @property
-    def acorr_global_statistic_1st(self) -> Statistic_type:
-        return self._acorr_global_statistic_1st
-
-    @property
-    def acorr_local_statistic_2nd(self) -> Statistic_type:
-        return self._acorr_local_statistic_2nd
-
-    @property
-    def acorr_global_statistic_2nd(self) -> Statistic_type:
-        return self._acorr_global_statistic_2nd
-
-    @property
-    def acorr_local_weights(self) -> np.ndarray | None:
-        return self._acorr_local_weights
-
-    @property
-    def acorr_global_weights(self) -> np.ndarray | None:
-        return self._acorr_global_weights
-
-    @property
-    def xcorr_local_statistic_1st(self) -> Statistic_type:
-        return self._xcorr_local_statistic_1st
-
-    @property
-    def xcorr_global_statistic_1st(self) -> Statistic_type:
-        return self._xcorr_global_statistic_1st
-
-    @property
-    def xcorr_local_statistic_2nd(self) -> Statistic_type:
-        return self._xcorr_local_statistic_2nd
-
-    @property
-    def xcorr_global_statistic_2nd(self) -> Statistic_type:
-        return self._xcorr_global_statistic_2nd
-
-    @property
-    def xcorr_local_weights(self) -> np.ndarray | None:
-        return self._xcorr_local_weights
-
-    @property
-    def xcorr_global_weights(self) -> np.ndarray | None:
-        return self._xcorr_global_weights
-
-    @property
-    def validation_results(self) -> pd.DataFrame:
-        return self._validation_results
+    def validation_values(self, sim_name: str) -> Any:
+        keys = [
+            "Ruu_whiteness_1st",
+            "Ruu_whiteness_2nd",
+            "r2",
+            "Ree_whiteness_1st",
+            "Ree_whiteness_2nd",
+            "Rue_whiteness_1st",
+            "Rue_whiteness_2nd",
+        ]
+        vals = self._validation_results[sim_name].to_numpy()
+        return dict(zip(keys, vals))
 
     def _append_validation_results(
         self,
@@ -679,20 +707,20 @@ class ValidationSession:
         # rsquared and various statistics
         r2 = rsquared(y_values, y_sim_values)
         # Here I can do it at once
-        Ree_1st, _, Ree = whiteness_level(
+        Ree_whiteness_1st, _, Ree = whiteness_level(
             eps,
             nlags=self._nlags,
-            local_statistic=self._acorr_local_statistic_1st,
+            local_statistic=self._acorr_local_statistic_name_1st,
             local_weights=self._acorr_local_weights,
-            global_statistic=self._acorr_global_statistic_1st,
+            global_statistic=self._acorr_global_statistic_name_1st,
             global_weights=self._acorr_global_weights,
         )
-        Ree_2nd = whiteness_level(
+        Ree_whiteness_2nd = whiteness_level(
             eps,
             nlags=self._nlags,
-            local_statistic=self._acorr_local_statistic_2nd,
+            local_statistic=self._acorr_local_statistic_name_2nd,
             local_weights=self._acorr_local_weights,
-            global_statistic=self._acorr_global_statistic_2nd,
+            global_statistic=self._acorr_global_statistic_name_2nd,
             global_weights=self._acorr_global_weights,
         )[0]
         # Here I cannot.
@@ -701,38 +729,38 @@ class ValidationSession:
             u_values,
             eps,
             nlags=self._nlags,
-            local_statistic=self._xcorr_local_statistic_1st,
+            local_statistic=self._xcorr_local_statistic_name_1st,
             local_weights=self._xcorr_local_weights,
-            global_statistic=self._xcorr_global_statistic_1st,
+            global_statistic=self._xcorr_global_statistic_name_1st,
             global_weights=self._xcorr_global_weights,
         )
 
-        Rue_1st = Rue.whiteness
-        Rue_2nd = XCorrelation(
+        Rue_whiteness_1st = Rue.whiteness
+        Rue_whiteness_2nd = XCorrelation(
             "Rue",
             u_values,
             eps,
             nlags=self._nlags,
-            local_statistic=self._xcorr_local_statistic_2nd,
+            local_statistic=self._xcorr_local_statistic_name_2nd,
             local_weights=self._xcorr_local_weights,
-            global_statistic=self._xcorr_global_statistic_2nd,
+            global_statistic=self._xcorr_global_statistic_name_2nd,
             global_weights=self._xcorr_global_weights,
         ).whiteness
 
         self._auto_correlation_tensors[sim_name] = Ree
         self._cross_correlation_tensors[sim_name] = Rue
         self._validation_results[sim_name] = [
-            self._input_acorr_1st_value,
-            self._input_acorr_2nd_value,
+            self._input_acorr_whiteness_1st,
+            self._input_acorr_whiteness_2nd,
             r2,
-            Ree_1st,
-            Ree_2nd,
-            Rue_1st,
-            Rue_2nd,
+            Ree_whiteness_1st,
+            Ree_whiteness_2nd,
+            Rue_whiteness_1st,
+            Rue_whiteness_2nd,
         ]
 
     def _sim_list_validate(self) -> None:
-        if not self.simulations_names():
+        if not self.simulations_names:
             raise KeyError(
                 "The simulations list looks empty. "
                 "Check the available simulation names with 'simulations_namess()'"
@@ -745,12 +773,12 @@ class ValidationSession:
             raise ValueError("Signals name must be unique.")
         if (
             not self._simulations_results.empty
-            and sim_name in self.simulations_names()
+            and sim_name in self.simulations_names
         ):
             raise ValueError(
                 f"Simulation name '{sim_name}' already exists. \n"
                 "HINT: check the loaded simulations names with"
-                "'simulations_names()' method."
+                "'simulations_names' method."
             )
         if len(set(y_names)) != len(
             set(self._Dataset.dataset["OUTPUT"].columns)
@@ -838,11 +866,11 @@ class ValidationSession:
         # Check the passed list of simulations is non-empty.
         # or that the passed name actually exist
         if not list_sims:
-            list_sims = self.simulations_names()
+            list_sims = self.simulations_names
         else:
             list_sims = str2list(list_sims)
             sim_not_found = difference_lists_of_str(
-                list_sims, self.simulations_names()
+                list_sims, self.simulations_names
             )
             if sim_not_found:
                 raise KeyError(
@@ -876,7 +904,7 @@ class ValidationSession:
         # Start the simulations plots
         # ================================================================
         # Iterate through all the simulations
-        sims = list(vs.simulations_names())
+        sims = list(vs.simulations_names)
         for kk, sim in enumerate(sims):
             signals_units = vs.simulation_signals_list(sim)
             for ii, s in enumerate(signals_units):
@@ -1062,7 +1090,7 @@ class ValidationSession:
             selection = {"tin": 0.0, "tout": vs._Dataset.dataset.index[-1]}
 
             def update_time_interval(ax):  # type:ignore
-                time_interval = np.round(ax.get_xlim(), NUM_DECIMALS)
+                time_interval = ax.get_xlim()
                 selection["tin"], selection["tout"] = time_interval
                 selection["tin"] = max(selection["tin"], 0.0)
                 selection["tout"] = max(selection["tout"], 0.0)
@@ -1101,9 +1129,7 @@ class ValidationSession:
             tin_sel = selection["tin"]
             tout_sel = selection["tout"]
 
-            return np.round(tin_sel, NUM_DECIMALS), np.round(
-                tout_sel, NUM_DECIMALS
-            )
+            return tin_sel, tout_sel
 
         # =============================================
         # Trim ValidationSession main function
@@ -1121,8 +1147,8 @@ class ValidationSession:
             tin_sel = tin
             tout_sel = vs._Dataset.dataset.index[-1]
         elif tin is not None and tout is not None:
-            tin_sel = np.round(tin, NUM_DECIMALS)
-            tout_sel = np.round(tout, NUM_DECIMALS)
+            tin_sel = tin
+            tout_sel = tout
         else:  # pragma: no cover
             tin_sel, tout_sel = _graph_selection(self, **kwargs)
 
@@ -1139,15 +1165,15 @@ class ValidationSession:
 
         # ... and shift everything such that tin = 0.0
         vs._Dataset._shift_dataset_tin_to_zero()
-        vs._Dataset.dataset = vs._Dataset.dataset.round(NUM_DECIMALS)
+        vs._Dataset.dataset = vs._Dataset.dataset
 
         # Also trim the simulations
-        vs._simulations_results = vs.simulations_results.loc[
+        vs._simulations_results = vs.simulations_results().loc[
             tin_sel:tout_sel, :  # type: ignore[misc]
         ]
-        vs.simulations_results.index = vs._Dataset.dataset.index
+        vs.simulations_results().index = vs._Dataset.dataset.index
 
-        for sim_name in vs.simulations_names():
+        for sim_name in vs.simulations_names:
             vs._append_validation_results(sim_name)
 
         return vs
@@ -1202,11 +1228,11 @@ class ValidationSession:
         # Check if you have any simulation available
         self._sim_list_validate()
         if not list_sims:
-            list_sims = self.simulations_names()
+            list_sims = self.simulations_names
         else:
             list_sims = str2list(list_sims)
             sim_not_found = difference_lists_of_str(
-                list_sims, self.simulations_names()
+                list_sims, self.simulations_names
             )
             if sim_not_found:
                 raise KeyError(
@@ -1343,14 +1369,10 @@ class ValidationSession:
         self._sim_list_validate()
         return list(self._simulations_results[sim_name].columns)
 
-    def simulations_names(self) -> list[str]:
-        """Return a list of names of the stored simulations."""
-        return list(self._simulations_results.columns.levels[0])
-
     def clear(self) -> Self:
         """Clear all the stored simulation results."""
         vs_temp = deepcopy(self)
-        sim_names = vs_temp.simulations_names()
+        sim_names = vs_temp.simulations_names
         for x in sim_names:
             vs_temp = vs_temp.drop_simulation(x)
         return vs_temp
@@ -1397,9 +1419,11 @@ class ValidationSession:
         )
 
         # Concatenate df_sim with the current sim results
-        vs_temp._simulations_results = vs_temp.simulations_results.join(
-            df_sim, how="right"
-        ).rename_axis(df_sim.columns.names, axis=1)
+        vs_temp._simulations_results = (
+            vs_temp.simulations_results()
+            .join(df_sim, how="right")
+            .rename_axis(df_sim.columns.names, axis=1)
+        )
 
         # Update residuals auto-correlation and cross-correlation attributes
         vs_temp._append_validation_results(sim_name)
@@ -1426,19 +1450,19 @@ class ValidationSession:
         vs_temp._sim_list_validate()
 
         for sim_name in sims:
-            if sim_name not in vs_temp.simulations_names():
+            if sim_name not in vs_temp.simulations_names:
                 raise ValueError(f"Simulation {sim_name} not found.")
-            vs_temp._simulations_results = vs_temp.simulations_results.drop(
+            vs_temp._simulations_results = vs_temp.simulations_results().drop(
                 sim_name, axis=1, level="sim_names"
             )
-            vs_temp.simulations_results.columns = (
-                vs_temp.simulations_results.columns.remove_unused_levels()
+            vs_temp.simulations_results().columns = (
+                vs_temp.simulations_results().columns.remove_unused_levels()
             )
 
             vs_temp._auto_correlation_tensors.pop(sim_name)
             vs_temp._cross_correlation_tensors.pop(sim_name)
 
-            vs_temp._validation_results = vs_temp.validation_results.drop(
+            vs_temp._validation_results = vs_temp._validation_results.drop(
                 sim_name, axis=1
             )
 

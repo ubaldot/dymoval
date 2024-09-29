@@ -222,20 +222,20 @@ vs = dmv.ValidationSession(
 
 sim1_name = "Model 1"
 sim1_labels = ["my_y1", "my_y2"]
-sim1_values = vs.Dataset.dataset["OUTPUT"].values + np.random.rand(
-    len(vs.Dataset.dataset["OUTPUT"].values), 2
+sim1_values = vs.dataset.dataset["OUTPUT"].values + np.random.rand(
+    len(vs.dataset.dataset["OUTPUT"].values), 2
 )
 
 
 sim2_name = "Model 2"
 sim2_labels = ["your_y1", "your_y2"]
 
-sim2_values = vs.Dataset.dataset["OUTPUT"].values + np.random.rand(
-    len(vs.Dataset.dataset["OUTPUT"].values), 2
+sim2_values = vs.dataset.dataset["OUTPUT"].values + np.random.rand(
+    len(vs.dataset.dataset["OUTPUT"].values), 2
 )
 
 # Return whiteness level and XCorrelation tensor
-sim1_whiteness, X = dmv.whiteness_level(
+sim1_whiteness, _, X = dmv.whiteness_level(
     sim1_values, local_weights=np.ones(40)
 )
 

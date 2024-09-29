@@ -4,7 +4,6 @@ import pytest
 import dymoval as dmv
 import numpy as np
 from copy import deepcopy
-from dymoval.config import NUM_DECIMALS
 import pandas as pd
 
 # For more info on parametrized fixtures, look here:
@@ -263,7 +262,6 @@ def good_dataframe(request):  # type: ignore
     if fixture_type == "MIMO":
         cols = [*u_cols, *y_cols]
     df = df.loc[:, cols]
-    df.round(NUM_DECIMALS)
     df.columns = df.columns.to_flat_index()
     return df, u_names, y_names, u_units, y_units, fixture_type
 
@@ -274,7 +272,7 @@ def sine_dataframe(request):  # type: ignore
 
     Ts = 0.1
     N = 100
-    t = np.round(np.linspace(0, Ts * N, N + 1), NUM_DECIMALS)
+    t = np.linspace(0, Ts * N, N + 1)
 
     c1 = 2
     c2 = 3
@@ -306,11 +304,7 @@ def sine_dataframe(request):  # type: ignore
         np.sin(w1 * t) - np.sin(w2 * t) - np.sin(w3 * t),
     ]
 
-    data = (
-        np.vstack((np.asarray(u_values), np.asarray(y_values)))
-        .transpose()
-        .round(dmv.NUM_DECIMALS)
-    )
+    data = np.vstack((np.asarray(u_values), np.asarray(y_values))).transpose()
 
     cols_name = u_cols + y_cols
     df = pd.DataFrame(index=t, columns=cols_name, data=data)
@@ -340,7 +334,6 @@ def sine_dataframe(request):  # type: ignore
     if fixture_type == "MIMO":
         cols = [*u_cols, *y_cols]
     df = df.loc[:, cols]
-    df.round(NUM_DECIMALS)
     df.columns = df.columns.to_flat_index()
     return df, u_names, y_names, u_units, y_units, fixture_type
 
@@ -390,7 +383,6 @@ def constant_ones_dataframe(request):  # type: ignore
     if fixture_type == "MIMO":
         cols = [*u_cols, *y_cols]
     df = df.loc[:, cols]
-    df.round(NUM_DECIMALS)
     df.columns = df.columns.to_flat_index()
     return df, u_names, y_names, u_units, y_units, fixture_type
 
