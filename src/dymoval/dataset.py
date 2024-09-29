@@ -1009,7 +1009,7 @@ class Dataset:
         if target_sampling_period is not None:
             if (
                 not isinstance(target_sampling_period, float)
-                or target_sampling_period < 0
+                or target_sampling_period <= 0
             ):
                 raise ValueError("'target_sampling_period' must be positive.")
 

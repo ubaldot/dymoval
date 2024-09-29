@@ -142,7 +142,7 @@ class TestInitializerFromSignals:
             fixture,
         ) = good_signals
 
-        target_sampling_period = 0.0001
+        target_sampling_period = 0.001
         with pytest.raises(IndexError):
             _ = dmv.Dataset(
                 "potato",
@@ -345,7 +345,7 @@ class TestInitializerWrongInputData:
 
 
 class TestOtherStuff:
-    def test__str__(self, good_dataframe: pd.DataFrame) -> None:
+    def test__repr__(self, good_dataframe: pd.DataFrame) -> None:
         # Nominal data
         df, u_names, y_names, _, _, _ = good_dataframe
         # tin > tout
@@ -360,5 +360,4 @@ class TestOtherStuff:
             tout=tout,
         )
 
-        expected_string = "Dymoval dataset called 'potato'."
-        assert ds.__str__() == expected_string
+        assert ds.__repr__() == str(ds.dataset)
