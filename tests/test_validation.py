@@ -942,15 +942,6 @@ class Test_Validate_Models:
         # instance
         expected_stored_in = vs.dataset.dataset["INPUT"].to_numpy()
         expected_stored_out = vs.dataset.dataset["OUTPUT"].to_numpy()
-        # if fixture == "MISO" or fixture == "MIMO":
-        #     expected_stored_in = vs.dataset.dataset["INPUT"].to_numpy()
-        # else:
-        #     expected_stored_in = vs.dataset.dataset["INPUT"].to_numpy()[:, 0]
-
-        # if fixture == "SIMO" or fixture == "MIMO":
-        #     expected_stored_out = vs.dataset.dataset["OUTPUT"].to_numpy()
-        # else:
-        #     expected_stored_out = vs.dataset.dataset["OUTPUT"].to_numpy()[:, 0]
 
         dataset_in_samples = np.column_stack([s["samples"] for s in dataset_in])
         dataset_out_samples = np.column_stack(
@@ -979,7 +970,7 @@ class Test_Validate_Models:
             fixture,
         ) = good_signals_no_nans
 
-        # List of signals
+        # List of arrays
         dataset_in = [s["samples"] for s in signal_list if s["name"] in u_names]
         dataset_out = [
             s["samples"] for s in signal_list if s["name"] in y_names
@@ -998,15 +989,10 @@ class Test_Validate_Models:
         sim_bad2 = [np.random.random(dataset_out[0].size) for _ in y_names]
 
         # Override if MISO or SISO
-        if fixture == "SISO":
+        if fixture == "SISO" or fixture == "SIMO":
             dataset_in = dataset_in[0]
-            dataset_out = dataset_out[0]
 
-            sim_good = sim_good[0]
-            sim_bad = sim_bad[0]
-            sim_bad2 = sim_bad2[0]
-
-        if fixture == "MISO":
+        if fixture == "SISO" or fixture == "MISO":
             dataset_out = dataset_out[0]
 
             sim_good = sim_good[0]
@@ -1027,13 +1013,22 @@ class Test_Validate_Models:
 
         assert global_outcome == expected_outcome
 
-        # Tests if dataset is correctly stored in the ValidationSession
-        # instance
-        dataset_in_vals = np.array([s["samples"] for s in dataset_in]).T
+        # Tests if dataset is correctly stored in the ValidationSession instance
+        if fixture == "MISO" or fixture == "MIMO":
+            dataset_in_vals = np.array([s for s in dataset_in]).T
+        else:
+            dataset_in_vals = np.array([s for s in dataset_in]).T[:, np.newaxis]
+
+        if fixture == "SIMO" or fixture == "MIMO":
+            dataset_out_vals = np.array([s for s in dataset_out]).T
+        else:
+            dataset_out_vals = np.array([s for s in dataset_out]).T[
+                :, np.newaxis
+            ]
+
         assert np.allclose(
             vs.dataset.dataset["INPUT"].to_numpy(), dataset_in_vals, atol=1e-4
         )
-        dataset_out_vals = np.array([s["samples"] for s in dataset_out]).T
         assert np.allclose(
             vs.dataset.dataset["OUTPUT"].to_numpy(),
             dataset_out_vals,
@@ -1092,6 +1087,7 @@ class Test_Validate_Models:
             sim_good = sim_good[:, 0]
             sim_bad = sim_bad[:, 0]
             sim_bad2 = sim_bad2[:, 0]
+
         # act
         global_outcome, vs, validation_thresholds_dict = validate_models(
             dataset_in,

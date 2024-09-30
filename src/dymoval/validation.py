@@ -1581,7 +1581,10 @@ def validate_models(
         output_labels,
         full_time_interval=True,
     )
-    vs = ValidationSession("quick & dirty", ds)
+
+    # Reduce number of lags, don't pick less than 3 lags
+    nlags = max(signal_list[0]["samples"].size // 5, 3)
+    vs = ValidationSession("quick & dirty", ds, nlags=nlags)
 
     # Actual test
     global_outcome: List[Literal["PASS", "FAIL"]] = []
