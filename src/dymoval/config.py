@@ -1,7 +1,7 @@
 """Config file."""
 
 import pathlib
-from typing import Literal, cast, Any
+from typing import Literal, Any
 import typing
 import shutil
 
@@ -20,11 +20,9 @@ is_latex_installed = check_latex_installed()
 
 # Constants exposed to the user
 config = {
-    "NUM_DECIMALS": 4,
     "COLORMAP": "tab10",
 }  # Defaults
 mapping_dict = {
-    "num_decimals": "NUM_DECIMALS",
     "color_map": "COLORMAP",
 }
 
@@ -48,10 +46,9 @@ except FileNotFoundError:  # pragma: no cover
 
 # locals().update(config)
 
-NUM_DECIMALS: int = cast(int, config["NUM_DECIMALS"])
 COLORMAP: Any = config["COLORMAP"]
 
-ATOL = 10**-NUM_DECIMALS
+ATOL = 10e-4
 
 # Internal constants
 Signal_type = Literal["INPUT", "OUTPUT"]

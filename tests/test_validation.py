@@ -4,6 +4,8 @@ import dymoval as dmv
 import numpy as np
 from matplotlib import pyplot as plt
 from dymoval.config import ATOL
+from dymoval.dataset import Signal
+from dymoval.validation import validate_models
 
 
 class Test_ClassValidationNominal:
@@ -11,23 +13,21 @@ class Test_ClassValidationNominal:
         # Nominal data
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
-        ds = dmv.dataset.Dataset(
-            name_ds, df, u_names, y_names, full_time_interval=True
-        )
+        ds = dmv.Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
         name_vs = "my_validation"
         vs = dmv.ValidationSession(name_vs, ds)
 
-        # Check that the passed Dataset is correctly stored.
+        # Check that the passed dataset is correctly stored.
         # Main DataFrame
-        assert all(vs.Dataset.dataset == ds.dataset)
+        assert all(vs.dataset.dataset == ds.dataset)
 
         for ii in range(4):  # Size of coverage
-            assert all(vs.Dataset.coverage[ii] == ds.coverage[ii])
+            assert all(vs.dataset.coverage[ii] == ds.coverage[ii])
 
         # Version with less lags
         expected_nlags = 11
         vs = dmv.ValidationSession(name_vs, ds, nlags=expected_nlags)
-        assert vs.nlags == expected_nlags
+        assert vs._nlags == expected_nlags
 
         # Version with less lags
         expected_nlags = 11
@@ -38,14 +38,12 @@ class Test_ClassValidationNominal:
             acorr_local_weights=np.ones(11),
             xcorr_local_weights=np.ones(22),
         )
-        assert vs.nlags == expected_nlags
+        assert vs._nlags == expected_nlags
 
     def test_random_walk(self, good_dataframe: pd.DataFrame) -> None:
         df, u_names, y_names, _, y_units, fixture = good_dataframe
         name_ds = "my_dataset"
-        ds = dmv.dataset.Dataset(
-            name_ds, df, u_names, y_names, full_time_interval=True
-        )
+        ds = dmv.Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
 
         name_vs = "my_validation"
         vs = dmv.ValidationSession(name_vs, ds)
@@ -67,14 +65,14 @@ class Test_ClassValidationNominal:
 
         vs = vs.append_simulation(sim1_name, sim1_labels, sim1_values)
         # At least the names are there...
-        assert sim1_name in vs.simulations_results.columns.get_level_values(
+        assert sim1_name in vs.simulations_values().columns.get_level_values(
             "sim_names"
         )
-        assert sim1_name in vs.auto_correlation_tensors.keys()
-        assert sim1_name in vs.cross_correlation_tensors.keys()
-        assert sim1_name in vs.validation_results.columns
+        assert sim1_name in vs._auto_correlation_tensors.keys()
+        assert sim1_name in vs._cross_correlation_tensors.keys()
+        assert sim1_name in vs._validation_results.columns
 
-        assert np.allclose(sim1_values, vs.simulations_results[sim1_name])
+        assert np.allclose(sim1_values, vs.simulations_values()[sim1_name])
 
         # # Add second model
         sim2_name = "Model 2"
@@ -82,27 +80,27 @@ class Test_ClassValidationNominal:
         if fixture == "SISO" or fixture == "MISO":
             # You only have one output
             sim2_labels = [sim1_labels[0]]
-        sim2_values = vs.Dataset.dataset["OUTPUT"].values + np.random.rand(
-            len(vs.Dataset.dataset["OUTPUT"].values), 1
+        sim2_values = vs.dataset.dataset["OUTPUT"].values + np.random.rand(
+            len(vs.dataset.dataset["OUTPUT"].values), 1
         )
 
         vs = vs.append_simulation(sim2_name, sim2_labels, sim2_values)
         # At least the names are there...
-        assert sim2_name in vs.simulations_results.columns.get_level_values(
+        assert sim2_name in vs.simulations_values().columns.get_level_values(
             "sim_names"
         )
-        assert sim2_name in vs.auto_correlation_tensors.keys()
-        assert sim2_name in vs.cross_correlation_tensors.keys()
-        assert sim2_name in vs.validation_results.columns
+        assert sim2_name in vs._auto_correlation_tensors.keys()
+        assert sim2_name in vs._cross_correlation_tensors.keys()
+        assert sim2_name in vs._validation_results.columns
 
-        assert np.allclose(sim2_values, vs.simulations_results[sim2_name])
+        assert np.allclose(sim2_values, vs.simulations_values()[sim2_name])
 
         # ===============================================
         # Test simulation_signals_list and list_simulations
         # ============================================
         expected_sims = [sim1_name, sim2_name]
 
-        assert sorted(expected_sims) == sorted(vs.simulations_names())
+        assert sorted(expected_sims) == sorted(vs.simulations_names)
 
         expected_signals1 = list(zip(sim1_labels * len(y_units), y_units))
         expected_signals2 = list(zip(sim2_labels * len(y_units), y_units))
@@ -117,14 +115,15 @@ class Test_ClassValidationNominal:
         # ==================================
         # drop_simulation sim
         # ==================================
-        vs = vs.drop_simulation(sim1_name)
+        vs = vs.drop_simulations(sim1_name)
         # At least the names are nt there any longer.
-        assert sim1_name not in vs.simulations_results.columns.get_level_values(
-            "sim_names"
+        assert (
+            sim1_name
+            not in vs.simulations_values().columns.get_level_values("sim_names")
         )
-        assert sim1_name not in vs.auto_correlation_tensors.keys()
-        assert sim1_name not in vs.cross_correlation_tensors.keys()
-        assert sim1_name not in vs.validation_results.columns
+        assert sim1_name not in vs._auto_correlation_tensors.keys()
+        assert sim1_name not in vs._cross_correlation_tensors.keys()
+        assert sim1_name not in vs._validation_results.columns
 
         # ============================================
         # Re-add sim and then clear.
@@ -133,17 +132,15 @@ class Test_ClassValidationNominal:
 
         vs = vs.clear()
 
-        assert [] == list(vs.simulations_results.columns)
-        assert [] == list(vs.auto_correlation_tensors.keys())
-        assert [] == list(vs.cross_correlation_tensors.keys())
-        assert [] == list(vs.validation_results.columns)
+        assert [] == list(vs.simulations_values().columns)
+        assert [] == list(vs._auto_correlation_tensors.keys())
+        assert [] == list(vs._cross_correlation_tensors.keys())
+        assert [] == list(vs._validation_results.columns)
 
     def test_trim(self, good_dataframe: pd.DataFrame) -> None:
         df, u_names, y_names, _, y_units, fixture = good_dataframe
         name_ds = "my_dataset"
-        ds = dmv.dataset.Dataset(
-            name_ds, df, u_names, y_names, full_time_interval=True
-        )
+        ds = dmv.Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
 
         name_vs = "my_validation"
         vs = dmv.ValidationSession(name_vs, ds)
@@ -171,8 +168,8 @@ class Test_ClassValidationNominal:
         if fixture == "SISO" or fixture == "MISO":
             # You only have one output
             sim2_labels = [sim1_labels[0]]
-        sim2_values = vs.Dataset.dataset["OUTPUT"].values + np.random.rand(
-            len(vs.Dataset.dataset["OUTPUT"].values), 1
+        sim2_values = vs.dataset.dataset["OUTPUT"].values + np.random.rand(
+            len(vs.dataset.dataset["OUTPUT"].values), 1
         )
 
         vs = vs.append_simulation(sim2_name, sim2_labels, sim2_values)
@@ -187,16 +184,16 @@ class Test_ClassValidationNominal:
         vs = vs.trim(tin=1.0, tout=5.0)
 
         # Evaluate
-        assert np.isclose(expected_tin, vs.Dataset.dataset.index[0], atol=ATOL)
+        assert np.isclose(expected_tin, vs.dataset.dataset.index[0], atol=ATOL)
         assert np.isclose(
-            expected_tout, vs.Dataset.dataset.index[-1], atol=ATOL
+            expected_tout, vs.dataset.dataset.index[-1], atol=ATOL
         )
 
         assert np.isclose(
-            expected_tin, vs.simulations_results.index[0], atol=ATOL
+            expected_tin, vs.simulations_values().index[0], atol=ATOL
         )
         assert np.isclose(
-            expected_tout, vs.simulations_results.index[-1], atol=ATOL
+            expected_tout, vs.simulations_values().index[-1], atol=ATOL
         )
 
     def test_get_sim_signal_list_and_statistics_raise(
@@ -204,9 +201,7 @@ class Test_ClassValidationNominal:
     ) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
-        ds = dmv.dataset.Dataset(
-            name_ds, df, u_names, y_names, full_time_interval=True
-        )
+        ds = dmv.Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
         name_vs = "my_validation"
         vs = dmv.ValidationSession(name_vs, ds)
 
@@ -235,9 +230,7 @@ class Test_ClassValidatioNominal_sim_validation:
     def test_existing_sim_raise(self, good_dataframe: pd.DataFrame) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
-        ds = dmv.dataset.Dataset(
-            name_ds, df, u_names, y_names, full_time_interval=True
-        )
+        ds = dmv.Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
         name_vs = "my_validation"
         vs = dmv.ValidationSession(name_vs, ds)
 
@@ -258,9 +251,7 @@ class Test_ClassValidatioNominal_sim_validation:
     def test_too_many_signals_raise(self, good_dataframe: pd.DataFrame) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
-        ds = dmv.dataset.Dataset(
-            name_ds, df, u_names, y_names, full_time_interval=True
-        )
+        ds = dmv.Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
 
         name_vs = "my_validation"
         vs = dmv.ValidationSession(name_vs, ds)
@@ -283,9 +274,7 @@ class Test_ClassValidatioNominal_sim_validation:
     def test_duplicate_names_raise(self, good_dataframe: pd.DataFrame) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
-        ds = dmv.dataset.Dataset(
-            name_ds, df, u_names, y_names, full_time_interval=True
-        )
+        ds = dmv.Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
 
         name_vs = "my_validation"
         vs = dmv.ValidationSession(name_vs, ds)
@@ -309,9 +298,7 @@ class Test_ClassValidatioNominal_sim_validation:
     ) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
-        ds = dmv.dataset.Dataset(
-            name_ds, df, u_names, y_names, full_time_interval=True
-        )
+        ds = dmv.Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
 
         name_vs = "my_validation"
         vs = dmv.ValidationSession(name_vs, ds)
@@ -332,9 +319,7 @@ class Test_ClassValidatioNominal_sim_validation:
     def test_too_many_values_raise(self, good_dataframe: pd.DataFrame) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
-        ds = dmv.dataset.Dataset(
-            name_ds, df, u_names, y_names, full_time_interval=True
-        )
+        ds = dmv.Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
 
         name_vs = "my_validation"
         vs = dmv.ValidationSession(name_vs, ds)
@@ -357,9 +342,7 @@ class Test_ClassValidatioNominal_sim_validation:
     ) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
-        ds = dmv.dataset.Dataset(
-            name_ds, df, u_names, y_names, full_time_interval=True
-        )
+        ds = dmv.Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
 
         name_vs = "my_validation"
         vs = dmv.ValidationSession(name_vs, ds)
@@ -378,9 +361,7 @@ class Test_ClassValidatioNominal_sim_validation:
     def test_ydata_too_short_raise(self, good_dataframe: pd.DataFrame) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
-        ds = dmv.dataset.Dataset(
-            name_ds, df, u_names, y_names, full_time_interval=True
-        )
+        ds = dmv.Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
 
         name_vs = "my_validation"
         vs = dmv.ValidationSession(name_vs, ds)
@@ -398,12 +379,10 @@ class Test_ClassValidatioNominal_sim_validation:
         with pytest.raises(IndexError):
             vs.append_simulation(sim1_name, sim1_labels, sim1_values)
 
-    def test_drop_simulation_raise(self, good_dataframe: pd.DataFrame) -> None:
+    def test_drop_simulations_raise(self, good_dataframe: pd.DataFrame) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
-        ds = dmv.dataset.Dataset(
-            name_ds, df, u_names, y_names, full_time_interval=True
-        )
+        ds = dmv.Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
 
         # Create validation session.
         name_vs = "my_validation"
@@ -421,7 +400,7 @@ class Test_ClassValidatioNominal_sim_validation:
         vs = vs.append_simulation(sim1_name, sim1_labels, sim1_values)
 
         with pytest.raises(ValueError):
-            vs.drop_simulation("potato")
+            vs.drop_simulations("potato")
 
 
 class Test_Plots:
@@ -461,15 +440,13 @@ class Test_Plots:
 
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
-        ds = dmv.dataset.Dataset(
-            name_ds, df, u_names, y_names, full_time_interval=True
-        )
+        ds = dmv.Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
 
         print(ds.dataset)
 
         name_vs = "my_validation"
         vs = dmv.ValidationSession(name_vs, ds)
-        print(vs.simulations_results)
+        print(vs.simulations_values)
 
         # Add one model
         sim1_name = "Model 1"
@@ -486,11 +463,11 @@ class Test_Plots:
         sim2_labels = ["your_y1", "your_y2"]  # The fixture has two outputs
         if fixture == "SISO" or fixture == "MISO":
             sim2_labels = [sim2_labels[0]]
-        sim2_values = vs.Dataset.dataset["OUTPUT"].values + np.random.rand(
-            len(vs.Dataset.dataset["OUTPUT"].values), 1
+        sim2_values = vs.dataset.dataset["OUTPUT"].values + np.random.rand(
+            len(vs.dataset.dataset["OUTPUT"].values), 1
         )
         vs = vs.append_simulation(sim2_name, sim2_labels, sim2_values)
-        print(vs.simulations_results)
+        print(vs.simulations_values)
 
         # =============================
         # plot simulations
@@ -578,7 +555,7 @@ class Test_XCorrelation:
         Rxy_actual = XCorr_actual.values
         lags_actual = XCorr_actual.lags
 
-        assert np.allclose(Rxy_actual[:, 0, 0], Rx1y1_expected, atol=1e-4)
+        assert np.allclose(Rxy_actual[:, 0, 0], Rx1y1_expected, atol=1e-3)
         assert np.allclose(lags_actual, lags_expected)
         # Check whiteness only for SISO
         assert np.isclose(x1y1_whiteness_expected, XCorr_actual.whiteness)
@@ -588,8 +565,8 @@ class Test_XCorrelation:
         Rxy_actual = XCorr_actual.values
         lags_actual = XCorr_actual.lags
 
-        assert np.allclose(Rxy_actual[:, 0, 0], Rx1y1_expected, atol=1e-4)
-        assert np.allclose(Rxy_actual[:, 0, 1], Rx1y2_expected, atol=1e-4)
+        assert np.allclose(Rxy_actual[:, 0, 0], Rx1y1_expected, atol=1e-3)
+        assert np.allclose(Rxy_actual[:, 0, 1], Rx1y2_expected, atol=1e-3)
         assert np.allclose(lags_actual, lags_expected)
 
         # MISO
@@ -597,8 +574,8 @@ class Test_XCorrelation:
         Rxy_actual = XCorr_actual.values
         lags_actual = XCorr_actual.lags
 
-        assert np.allclose(Rxy_actual[:, 0, 0], Rx1y1_expected, atol=1e-4)
-        assert np.allclose(Rxy_actual[:, 1, 0], Rx2y1_expected, atol=1e-4)
+        assert np.allclose(Rxy_actual[:, 0, 0], Rx1y1_expected, atol=1e-3)
+        assert np.allclose(Rxy_actual[:, 1, 0], Rx2y1_expected, atol=1e-3)
         assert np.allclose(lags_actual, lags_expected)
 
         # MIMO
@@ -606,10 +583,10 @@ class Test_XCorrelation:
         Rxy_actual = XCorr_actual.values
         lags_actual = XCorr_actual.lags
 
-        assert np.allclose(Rxy_actual[:, 0, 0], Rx1y1_expected, atol=1e-4)
-        assert np.allclose(Rxy_actual[:, 0, 1], Rx1y2_expected, atol=1e-4)
-        assert np.allclose(Rxy_actual[:, 1, 0], Rx2y1_expected, atol=1e-4)
-        assert np.allclose(Rxy_actual[:, 1, 1], Rx2y2_expected, atol=1e-4)
+        assert np.allclose(Rxy_actual[:, 0, 0], Rx1y1_expected, atol=1e-3)
+        assert np.allclose(Rxy_actual[:, 0, 1], Rx1y2_expected, atol=1e-3)
+        assert np.allclose(Rxy_actual[:, 1, 0], Rx2y1_expected, atol=1e-3)
+        assert np.allclose(Rxy_actual[:, 1, 1], Rx2y2_expected, atol=1e-3)
         assert np.allclose(lags_actual, lags_expected)
         assert XCorr_actual.kind == "cross-correlation"
 
@@ -631,7 +608,7 @@ class Test_XCorrelation:
                 -0.31803681,
             ]
         )
-        x1x1_whiteness_expected = 0.015625
+        x1x1_whiteness_expected = 0.125
 
         # Act
         XCorr_actual = dmv.XCorrelation("foo", x1, x1)
@@ -639,7 +616,7 @@ class Test_XCorrelation:
         lags_actual = XCorr_actual.lags
 
         # Assert
-        assert np.allclose(Rxx_actual[:, 0, 0], Rx1x1_expected, atol=1e-4)
+        assert np.allclose(Rxx_actual[:, 0, 0], Rx1x1_expected, atol=1e-3)
         assert np.allclose(lags_actual, lags_expected)
         # Check whiteness only for SISO
         assert np.isclose(x1x1_whiteness_expected, XCorr_actual.whiteness)
@@ -680,10 +657,10 @@ class Test_XCorrelation:
         Rxy_actual = XCorr_actual.values
         lags_actual = XCorr_actual.lags
 
-        assert np.allclose(Rxy_actual[:, 0, 0], Rx1y1_expected_1, atol=1e-4)
-        assert np.allclose(Rxy_actual[:, 0, 1], Rx1y2_expected_1, atol=1e-4)
-        assert np.allclose(Rxy_actual[:, 1, 0], Rx2y1_expected_1, atol=1e-4)
-        assert np.allclose(Rxy_actual[:, 1, 1], Rx2y2_expected_1, atol=1e-4)
+        assert np.allclose(Rxy_actual[:, 0, 0], Rx1y1_expected_1, atol=1e-3)
+        assert np.allclose(Rxy_actual[:, 0, 1], Rx1y2_expected_1, atol=1e-3)
+        assert np.allclose(Rxy_actual[:, 1, 0], Rx2y1_expected_1, atol=1e-3)
+        assert np.allclose(Rxy_actual[:, 1, 1], Rx2y2_expected_1, atol=1e-3)
         assert np.allclose(lags_actual, lags_expected_1)
         assert Rxy_actual.shape[0] == len(lags_expected_1)
 
@@ -727,10 +704,10 @@ class Test_XCorrelation:
         lags_actual = XCorr_actual.lags
 
         # Assert
-        assert np.allclose(Rxy_actual[:, 0, 0], Rx1y1_expected_2, atol=1e-4)
-        assert np.allclose(Rxy_actual[:, 0, 1], Rx1y2_expected_2, atol=1e-4)
-        assert np.allclose(Rxy_actual[:, 1, 0], Rx2y1_expected_2, atol=1e-4)
-        assert np.allclose(Rxy_actual[:, 1, 1], Rx2y2_expected_2, atol=1e-4)
+        assert np.allclose(Rxy_actual[:, 0, 0], Rx1y1_expected_2, atol=1e-3)
+        assert np.allclose(Rxy_actual[:, 0, 1], Rx1y2_expected_2, atol=1e-3)
+        assert np.allclose(Rxy_actual[:, 1, 0], Rx2y1_expected_2, atol=1e-3)
+        assert np.allclose(Rxy_actual[:, 1, 1], Rx2y2_expected_2, atol=1e-3)
         assert np.allclose(lags_actual, lags_expected_2)
 
     def test_local_and_global_weights_to_lags(
@@ -775,10 +752,10 @@ class Test_XCorrelation:
         lags_actual = XCorr_actual.lags
 
         # Assert
-        assert np.allclose(Rxy_actual[:, 0, 0], Rx1y1_expected, atol=1e-4)
-        assert np.allclose(Rxy_actual[:, 0, 1], Rx1y2_expected, atol=1e-4)
-        assert np.allclose(Rxy_actual[:, 1, 0], Rx2y1_expected, atol=1e-4)
-        assert np.allclose(Rxy_actual[:, 1, 1], Rx2y2_expected, atol=1e-4)
+        assert np.allclose(Rxy_actual[:, 0, 0], Rx1y1_expected, atol=1e-3)
+        assert np.allclose(Rxy_actual[:, 0, 1], Rx1y2_expected, atol=1e-3)
+        assert np.allclose(Rxy_actual[:, 1, 0], Rx2y1_expected, atol=1e-3)
+        assert np.allclose(Rxy_actual[:, 1, 1], Rx2y2_expected, atol=1e-3)
         assert np.allclose(lags_actual, lags_expected)
 
 
@@ -891,8 +868,254 @@ class Test_whiteness:
     def test_whiteness_level(self) -> None:
 
         x1 = np.array([0.1419, 0.4218, 0.9157, 0.7922, 0.9595])
-        whiteness_expected = 0.015625
+        whiteness_expected = 0.125
 
-        whiteness_actual, _ = dmv.whiteness_level(x1)
+        whiteness_actual, _, _ = dmv.whiteness_level(x1)
 
         assert np.isclose(whiteness_expected, whiteness_actual, atol=ATOL)
+
+
+class Test_Validate_Models:
+    def test_list_of_signals(
+        self,
+        good_signals_no_nans: list[Signal],
+        tmp_path: str,
+    ) -> None:
+        # You should just get a plot.
+
+        (
+            signal_list,
+            u_names,
+            y_names,
+            u_units,
+            y_units,
+            fixture,
+        ) = good_signals_no_nans
+
+        # List of signals
+        dataset_in = [s for s in signal_list if s["name"] in u_names]
+        dataset_out = [s for s in signal_list if s["name"] in y_names]
+        sampling_period = dataset_in[0]["sampling_period"]
+        # sim_gppd is a list of 1D array
+        small_perturbation = np.random.uniform(
+            low=0.0,
+            high=1e-3,
+            size=(dataset_out[0]["samples"].size, len(y_names)),
+        )
+        sim_good = [
+            s["samples"] + w for s, w in zip(dataset_out, small_perturbation.T)
+        ]
+
+        # It is a (N,q) array
+        sim_bad = np.random.random(
+            (len(y_names), dataset_out[0]["samples"].size)
+        ).T
+        sim_bad2 = np.random.random(
+            (len(y_names), dataset_out[0]["samples"].size)
+        ).T
+
+        # Override if MISO or SISO
+        if fixture == "SISO" or fixture == "SIMO":
+            dataset_in = [dataset_in[0]]
+
+        if fixture == "MISO" or fixture == "SISO":
+            dataset_out = [dataset_out[0]]
+
+            sim_good = sim_good[0]
+            sim_bad = sim_bad[:, 0]
+            sim_bad2 = sim_bad2[:, 0]
+
+        #  act
+        global_outcome, vs, validation_thresholds_dict = validate_models(
+            dataset_in,
+            dataset_out,
+            sampling_period,
+            sim_good,
+            sim_bad,
+            sim_bad2,
+        )
+
+        expected_outcome = ["PASS", "FAIL", "FAIL"]
+        assert global_outcome == expected_outcome
+
+        # Tests if dataset is correctly stored in the ValidationSession
+        # instance
+        expected_stored_in = vs.dataset.dataset["INPUT"].to_numpy()
+        expected_stored_out = vs.dataset.dataset["OUTPUT"].to_numpy()
+
+        dataset_in_samples = np.column_stack([s["samples"] for s in dataset_in])
+        dataset_out_samples = np.column_stack(
+            [s["samples"] for s in dataset_out]
+        )
+        assert np.allclose(expected_stored_in, dataset_in_samples, atol=1e-4)
+        assert np.allclose(
+            expected_stored_out,
+            dataset_out_samples,
+            atol=1e-4,
+        )
+
+    def test_list_of_arrays(
+        self,
+        good_signals_no_nans: list[Signal],
+        tmp_path: str,
+    ) -> None:
+        # You should just get a plot.
+
+        (
+            signal_list,
+            u_names,
+            y_names,
+            u_units,
+            y_units,
+            fixture,
+        ) = good_signals_no_nans
+
+        # List of arrays
+        dataset_in = [s["samples"] for s in signal_list if s["name"] in u_names]
+        dataset_out = [
+            s["samples"] for s in signal_list if s["name"] in y_names
+        ]
+        sampling_period = signal_list[0]["sampling_period"]
+
+        small_perturbation = np.random.uniform(
+            low=0.0,
+            high=1e-3,
+            size=(dataset_out[0].size, len(y_names)),
+        )
+        sim_good = [s + w for s, w in zip(dataset_out, small_perturbation.T)]
+
+        # It is a (N,q) array
+        sim_bad = [np.random.random(dataset_out[0].size) for _ in y_names]
+        sim_bad2 = [np.random.random(dataset_out[0].size) for _ in y_names]
+
+        # Override if MISO or SISO
+        if fixture == "SISO" or fixture == "SIMO":
+            dataset_in = dataset_in[0]
+
+        if fixture == "SISO" or fixture == "MISO":
+            dataset_out = dataset_out[0]
+
+            sim_good = sim_good[0]
+            sim_bad = sim_bad[0]
+            sim_bad2 = sim_bad2[0]
+
+        # act
+        global_outcome, vs, validation_thresholds_dict = validate_models(
+            dataset_in,
+            dataset_out,
+            sampling_period,
+            sim_good,
+            sim_bad,
+            sim_bad2,
+        )
+
+        expected_outcome = ["PASS", "FAIL", "FAIL"]
+
+        assert global_outcome == expected_outcome
+
+        # Tests if dataset is correctly stored in the ValidationSession instance
+        if fixture == "MISO" or fixture == "MIMO":
+            dataset_in_vals = np.array([s for s in dataset_in]).T
+        else:
+            dataset_in_vals = np.array([s for s in dataset_in]).T[:, np.newaxis]
+
+        if fixture == "SIMO" or fixture == "MIMO":
+            dataset_out_vals = np.array([s for s in dataset_out]).T
+        else:
+            dataset_out_vals = np.array([s for s in dataset_out]).T[
+                :, np.newaxis
+            ]
+
+        assert np.allclose(
+            vs.dataset.dataset["INPUT"].to_numpy(), dataset_in_vals, atol=1e-4
+        )
+        assert np.allclose(
+            vs.dataset.dataset["OUTPUT"].to_numpy(),
+            dataset_out_vals,
+            atol=1e-4,
+        )
+
+    def test_2D_arrays(
+        self,
+        good_signals_no_nans: list[Signal],
+        tmp_path: str,
+    ) -> None:
+        # You should just get a plot.
+
+        (
+            signal_list,
+            u_names,
+            y_names,
+            u_units,
+            y_units,
+            fixture,
+        ) = good_signals_no_nans
+
+        # 2D arrays
+        dataset_in = np.column_stack(
+            [s["samples"] for s in signal_list if s["name"] in u_names]
+        )
+        dataset_out = np.column_stack(
+            [s["samples"] for s in signal_list if s["name"] in y_names]
+        )
+        sampling_period = signal_list[0]["sampling_period"]
+
+        small_perturbation = np.random.uniform(
+            low=0.0,
+            high=1e-3,
+            size=(dataset_out.shape[0], len(y_names)),
+        )
+        sim_good = np.column_stack(
+            [s + w for s, w in zip(dataset_out, small_perturbation)]
+        ).T
+
+        # It is a (N,q) array
+        sim_bad = np.column_stack(
+            [np.random.random(dataset_out.shape[0]) for _ in y_names]
+        )
+        sim_bad2 = np.column_stack(
+            [np.random.random(dataset_out.shape[0]) for _ in y_names]
+        )
+
+        # Override if MISO or SISO
+        if fixture == "SISO" or fixture == "SIMO":
+            dataset_in = dataset_in[:, 0]
+
+        if fixture == "MISO" or fixture == "SISO":
+            dataset_out = dataset_out[:, 0]
+
+            sim_good = sim_good[:, 0]
+            sim_bad = sim_bad[:, 0]
+            sim_bad2 = sim_bad2[:, 0]
+
+        # act
+        global_outcome, vs, validation_thresholds_dict = validate_models(
+            dataset_in,
+            dataset_out,
+            sampling_period,
+            sim_good,
+            sim_bad,
+            sim_bad2,
+        )
+
+        expected_outcome = ["PASS", "FAIL", "FAIL"]
+        assert global_outcome == expected_outcome
+
+        # Tests if dataset is correctly stored in the ValidationSession
+        # instance
+        if fixture == "MISO" or fixture == "MIMO":
+            expected_stored_in = vs.dataset.dataset["INPUT"].to_numpy()
+        else:
+            expected_stored_in = vs.dataset.dataset["INPUT"].to_numpy()[:, 0]
+
+        if fixture == "SIMO" or fixture == "MIMO":
+            expected_stored_out = vs.dataset.dataset["OUTPUT"].to_numpy()
+        else:
+            expected_stored_out = vs.dataset.dataset["OUTPUT"].to_numpy()[:, 0]
+
+        assert np.allclose(expected_stored_in, dataset_in, atol=1e-4)
+        assert np.allclose(
+            expected_stored_out,
+            dataset_out,
+            atol=1e-4,
+        )

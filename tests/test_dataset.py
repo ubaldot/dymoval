@@ -16,7 +16,7 @@ import pytest
 # )
 
 from dymoval.dataset import Signal
-from dymoval.config import NUM_DECIMALS, ATOL, Signal_type
+from dymoval.config import ATOL, Signal_type
 from dymoval.utils import str2list
 from typing import Any
 import random
@@ -245,8 +245,8 @@ class Test_Dataset_nominal:
         }
         expected_values = np.hstack(
             (
-                test_signal1["samples"][:N].reshape(N, 1).round(NUM_DECIMALS),
-                test_signal2["samples"][:N].reshape(N, 1).round(NUM_DECIMALS),
+                test_signal1["samples"][:N].reshape(N, 1),
+                test_signal2["samples"][:N].reshape(N, 1),
                 ds.dataset.loc[:, kind].head(N).to_numpy(),
             ),
         )
@@ -716,17 +716,9 @@ class Test_Dataset_nominal:
             y_units = [y_units]
 
         # Expected vectors
-        t_expected = df.index.to_numpy().round(NUM_DECIMALS)
-        u_expected = (
-            df.loc[:, list(zip(u_names, u_units))]
-            .to_numpy()
-            .round(NUM_DECIMALS)
-        )
-        y_expected = (
-            df.loc[:, list(zip(y_names, y_units))]
-            .to_numpy()
-            .round(NUM_DECIMALS)
-        )
+        t_expected = df.index.to_numpy()
+        u_expected = df.loc[:, list(zip(u_names, u_units))].to_numpy()
+        y_expected = df.loc[:, list(zip(y_names, y_units))].to_numpy()
 
         if fixture == "SISO" or fixture == "SIMO":
             u_expected = u_expected.flatten()
