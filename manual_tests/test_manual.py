@@ -34,6 +34,7 @@ import matplotlib
 
 
 matplotlib.use("qtagg")
+matplotlib.pyplot.ioff()
 
 # Let's create some Signal
 nan_intervals = np.empty(200)

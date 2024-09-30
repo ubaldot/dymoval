@@ -132,11 +132,7 @@ def good_signals(request):  # type: ignore
     )
 
 
-@pytest.fixture(params=dataset_type)
-def good_signals_no_nans(request):  # type: ignore
-    fixture_type = request.param
-    # General case (MIMO)
-
+def generate_good_signals_no_nans(fixture_type):  # type: ignore
     # %% Signals creation
     input_signal_names = ["u1", "u2", "u3"]
     input_sampling_periods = [0.1, 0.1, 0.1]
@@ -212,6 +208,13 @@ def good_signals_no_nans(request):  # type: ignore
         output_signal_units,
         fixture_type,
     )
+
+
+@pytest.fixture(params=dataset_type)
+def good_signals_no_nans(request):  # type: ignore
+    fixture_type = request.param
+    # General case (MIMO)
+    return generate_good_signals_no_nans(fixture_type)
 
 
 # ============================================

@@ -3,7 +3,7 @@
 
 import numpy as np
 
-from typing import Any
+from typing import Any, List, TypeVar
 import sys
 import os
 import subprocess
@@ -65,16 +65,21 @@ def difference_lists_of_str(
     return list(set(A) - set(B))
 
 
-def str2list(x: str | list[str]) -> list[str]:
-    """
-    Cast a *str* type to a *list[str]* type.
+T = TypeVar("T")
 
-    If the input is alread a string, then it return it as-is.
+
+# TODO: rename str2list
+def str2list(x: T | List[T]) -> List[T]:
+    # def str2list(x: Any | List[Any]) -> List[Any]:
+    """
+    Convert *obj* of type T into *list[obj]* of type T.
+
+    If *obj* is already a list, then it return it as-is.
 
     Parameters
     ----------
     x :
-        Input string or list of strings.
+        Input object.
     """
     if not isinstance(x, list):
         x = [x]

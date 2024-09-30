@@ -20,6 +20,7 @@ from .config import (
     COLORMAP,
     Statistic_type,
     STATISTIC_TYPE,
+    SIGNAL_KEYS,
     is_latex_installed,
 )
 from .utils import (
@@ -29,7 +30,7 @@ from .utils import (
     str2list,
 )
 
-from .dataset import Dataset, Signal
+from .dataset import Dataset, Signal, validate_signals
 from typing import List, Tuple, Dict, Literal, Any
 from dataclasses import dataclass
 
@@ -694,6 +695,11 @@ class ValidationSession:
         # Residuals
         eps = y_values - y_sim_values
 
+        if np.allclose(eps, 0.0):
+            raise ValueError(
+                "Simulation outputs are identical to measured outputs. Are you cheating?"
+            )
+
         # rsquared and various statistics
         r2 = rsquared(y_values, y_sim_values)
         # Here I can do it at once
@@ -788,7 +794,7 @@ class ValidationSession:
             )
         if len(y_data) != len(self._Dataset.dataset["OUTPUT"].values):
             raise IndexError(
-                "The length of the input signal must be equal to the length"
+                "The length of the input signal must be equal to the length "
                 "of the other signals in the Dataset."
             )
 
@@ -1463,21 +1469,23 @@ def validate_models(
     dataset_in: np.ndarray | List[Signal] | List[np.ndarray],
     dataset_out: np.ndarray | List[Signal] | List[np.ndarray],
     sampling_period: float,
-    *sims_out: np.ndarray,
+    *sims_out: np.ndarray | List[np.ndarray],
+    validation_thresholds: Dict[str, float] | None = None,
 ) -> Tuple[List[Literal["PASS", "FAIL"]], ValidationSession, Dict[str, float]]:
 
     def _dummy_signal_list(
-        dataset: np.ndarray,
+        dataset: np.ndarray,  # Must be 2D array
         sampling_period: float,
         kind: Literal["in", "out"],
     ) -> List[Signal]:
+        # Input must be a 2D-array, of size (N,p)
 
         uy = "u" if kind == "in" else "y"
         signal_list = []
         for ii in range(dataset.shape[1]):
             tmp: Signal = {
                 "name": f"{uy}{ii}",
-                "samples": dataset[:, ii],
+                "samples": dataset[:, ii],  # Must be a 1D array
                 "signal_unit": "NA",
                 "sampling_period": sampling_period,
                 "time_unit": "NA",
@@ -1490,35 +1498,70 @@ def validate_models(
         sampling_period: float,
         kind: Literal["in", "out"],
     ) -> List[Signal]:
-        # Case List[np.ndarray]
-        if isinstance(data, list) and all(
-            isinstance(item, np.ndarray) for item in data
-        ):
-            return np.column_stack(data)  # type: ignore
-        # Case np.ndarray
-        elif isinstance(data, np.ndarray):
+        # Convert a np.ndarray or a List[np.ndarray] to a List[Signal]
+        # It performs some checks to the input data.
+
+        # Scalar case: 1D np.ndarray: stack it into a column array
+        if isinstance(data, np.ndarray) and len(data.shape) == 1:
+            data_list = _dummy_signal_list(
+                dataset=data[:, np.newaxis],
+                sampling_period=sampling_period,
+                kind=kind,
+            )
+
+        # Case 2D np.ndarray, columns are samples
+        elif isinstance(data, np.ndarray) and len(data.shape) == 2:
             data_list = _dummy_signal_list(
                 dataset=data, sampling_period=sampling_period, kind=kind
             )
-        # TODO
-        # elif isinstance(data, list) and set(data[0].keys()) == set(SIGNAL_KEYS):
-        #     data_list = data
-        # else:
-        #     raise ValueError(f"Simulation {sim_name} not found.")
+
+        # Case List[nd.array]
+        elif isinstance(data, list) and all(
+            isinstance(item, np.ndarray) and len(item.shape) == 1
+            for item in data
+        ):
+            # Check if all arrays have the same length
+            lengths = [len(item) for item in data]
+            if len(set(lengths)) == 1:  # All lengths should be the same
+                data_list = _dummy_signal_list(
+                    dataset=np.column_stack(data),  # type: ignore
+                    sampling_period=sampling_period,
+                    kind=kind,
+                )
+            else:
+                raise ValueError("All arrays must have the same length")
+
+        # Case List[Signal]
+
+        elif isinstance(data, list) and all(
+            isinstance(item, dict) and set(item.keys()) == set(SIGNAL_KEYS)
+            for item in data
+        ):
+            # elif isinstance(data, list) and all(isinstance(item, dict) and set(item.keys()) == set(SIGNAL_KEYS), for all items in data):
+            data_list = data  # type: ignore
+        else:
+            raise ValueError(
+                "'dataset_in' and 'dataset_out' must be 2D-arrays, list of 1D-arrays, or List of Signals"
+            )
+
         return data_list
 
     # ======== MAIN ================
-    validation_thresholds_dict = {
-        "Ruu_whiteness_1st": 0.35,
-        "Ruu_whiteness_2nd": 0.5,
-        "r2": 65,
-        "Ree_whiteness_1st": 0.35,
-        "Ree_whiteness_2nd": 0.55,
-        "Rue_whiteness_1st": 0.35,
-        "Rue_whiteness_2nd": 0.55,
-    }
+    if validation_thresholds is None:
+        validation_thresholds_dict = {
+            "Ruu_whiteness_1st": 0.35,
+            "Ruu_whiteness_2nd": 0.5,
+            "r2": 65,
+            "Ree_whiteness_1st": 0.35,
+            "Ree_whiteness_2nd": 0.55,
+            "Rue_whiteness_1st": 0.35,
+            "Rue_whiteness_2nd": 0.55,
+        }
+    elif isinstance(validation_thresholds, dict):
+        validation_thresholds_dict = validation_thresholds
+    else:
+        raise TypeError("'validation thresholds' must be a dict")
 
-    # TODO: check dimensions, etc.
     # Convert everything into List[Signal]
     dataset_in_list = _to_list_of_Signal(
         data=dataset_in, sampling_period=sampling_period, kind="in"
@@ -1531,18 +1574,25 @@ def validate_models(
     input_labels = [s["name"] for s in dataset_in_list]
     output_labels = [s["name"] for s in dataset_out_list]
     signal_list = dataset_in_list + dataset_out_list
-    # TODO
-    # dmv.validate_signals(*signal_list)
-    ds = Dataset("dummy", signal_list, input_labels, output_labels)
+    validate_signals(*signal_list)
+    ds = Dataset(
+        "dummy",
+        signal_list,
+        input_labels,
+        output_labels,
+        full_time_interval=True,
+    )
     vs = ValidationSession("quick & dirty", ds)
 
     # Actual test
     global_outcome: List[Literal["PASS", "FAIL"]] = []
     for ii, sim in enumerate(sims_out):
         local_outcome = []
+        sim = np.column_stack(sim) if isinstance(sim, list) else sim
+        sim = sim[:, np.newaxis] if len(sim.shape) == 1 else sim
         sim_name = f"Sim_{ii}"
-        vs.append_simulation(
-            sim_name=sim_name, y_names=output_labels, y_data=sim[:, ii]
+        vs = vs.append_simulation(
+            sim_name=sim_name, y_names=output_labels, y_data=sim
         )
         validation_dict = vs.validation_values(sim_name)
 

@@ -4,6 +4,8 @@ import dymoval as dmv
 import numpy as np
 from matplotlib import pyplot as plt
 from dymoval.config import ATOL
+from dymoval.dataset import Signal
+from dymoval.validation import validate_models
 
 
 class Test_ClassValidationNominal:
@@ -871,3 +873,64 @@ class Test_whiteness:
         whiteness_actual, _, _ = dmv.whiteness_level(x1)
 
         assert np.isclose(whiteness_expected, whiteness_actual, atol=ATOL)
+
+
+class Test_Validate_Models:
+    def test_list_of_signals(
+        self,
+        good_signals_no_nans: list[Signal],
+        tmp_path: str,
+    ) -> None:
+        # You should just get a plot.
+
+        (
+            signal_list,
+            u_names,
+            y_names,
+            u_units,
+            y_units,
+            fixture,
+        ) = good_signals_no_nans
+
+        dataset_in = [s for s in signal_list if s["name"] in u_names]
+        dataset_out = [s for s in signal_list if s["name"] in y_names]
+        sampling_period = dataset_in[0]["sampling_period"]
+
+        small_perturbation = np.random.uniform(
+            low=0.0,
+            high=1e-3,
+            size=(dataset_out[0]["samples"].size, len(y_names)),
+        )
+        sim_good = [
+            s["samples"] + w for s, w in zip(dataset_out, small_perturbation.T)
+        ]
+
+        # It is a (N,q) array
+        sim_bad = np.random.random(
+            (len(y_names), dataset_out[0]["samples"].size)
+        ).T
+        sim_bad2 = np.random.random(
+            (len(y_names), dataset_out[0]["samples"].size)
+        ).T
+
+        # Override if MISO or SISO
+        if fixture == "SISO" or fixture == "MISO":
+            dataset_in = dataset_in[0]["samples"]
+            dataset_out = dataset_out[0]["samples"]
+
+            sim_good = sim_good[0]
+            sim_bad = sim_bad[:, 0]
+            sim_bad2 = sim_bad2[:, 0]
+
+        # %% act
+        global_outcome, vs, validation_thresholds_dict = validate_models(
+            dataset_in,
+            dataset_out,
+            sampling_period,
+            sim_good,
+            sim_bad,
+            sim_bad2,
+        )
+        expected_outcome = ["PASS", "FAIL", "FAIL"]
+
+        assert global_outcome == expected_outcome

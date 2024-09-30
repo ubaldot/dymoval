@@ -2843,11 +2843,11 @@ def validate_signals(*signals: Signal) -> None:
             not isinstance(s["samples"], np.ndarray) or s["samples"].ndim != 1
         )
         if cond:
-            raise TypeError("Key {key} must be 1-D numpy array'.")
+            raise TypeError("Key 'samples' must be 1-D numpy array.")
         if s["samples"].size < 2:
             raise IndexError(
-                "Signal {s[name']} has only one sample.",
-                "A signal must have at least two samples.",
+                f"""Signal {s['name']} has only one sample.
+                A signal must have at least two samples.""",
             )
 
         # sampling period check
