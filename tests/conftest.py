@@ -11,15 +11,11 @@ import pandas as pd
 
 dataset_type = ["MIMO", "SISO", "SIMO", "MISO"]
 
+
 # ============================================
 # All good test Signals (good)
 # ============================================
-
-
-@pytest.fixture(params=dataset_type)
-def good_signals(request):  # type: ignore
-    fixture_type = request.param
-    # General case (MIMO)
+def generate_good_signals(fixture_type):
     nan_thing = np.empty(200)
     nan_thing[:] = np.nan
 
@@ -132,6 +128,13 @@ def good_signals(request):  # type: ignore
     )
 
 
+@pytest.fixture(params=dataset_type)
+def good_signals(request):  # type: ignore
+    fixture_type = request.param
+    # General case (MIMO)
+    return generate_good_signals(fixture_type)
+
+
 def generate_good_signals_no_nans(fixture_type):  # type: ignore
     # %% Signals creation
     input_signal_names = ["u1", "u2", "u3"]
@@ -220,9 +223,7 @@ def good_signals_no_nans(request):  # type: ignore
 # ============================================
 # Good DataFrame
 # ============================================
-@pytest.fixture(params=dataset_type)
-def good_dataframe(request):  # type: ignore
-    fixture_type = request.param
+def generate_good_dataframe(fixture_type):
     # Create a dummy dataframe
     num_samples = 100
     sampling_period = 0.1
@@ -270,9 +271,12 @@ def good_dataframe(request):  # type: ignore
 
 
 @pytest.fixture(params=dataset_type)
-def sine_dataframe(request):  # type: ignore
+def good_dataframe(request):  # type: ignore
     fixture_type = request.param
+    return generate_good_dataframe(fixture_type)
 
+
+def generate_sine_dataframe(fixture_type):
     Ts = 0.1
     N = 100
     t = np.linspace(0, Ts * N, N + 1)
@@ -342,11 +346,12 @@ def sine_dataframe(request):  # type: ignore
 
 
 @pytest.fixture(params=dataset_type)
-def constant_ones_dataframe(request):  # type: ignore
-    # Dataframe of all ones.
-
+def sine_dataframe(request):  # type: ignore
     fixture_type = request.param
+    return generate_sine_dataframe(fixture_type)
 
+
+def generate_constant_ones_dataframes(fixture_type):
     N = 10
     idx = np.linspace(0, 1, N)
     u_names = ["u1", "u2", "u3"]
@@ -391,10 +396,13 @@ def constant_ones_dataframe(request):  # type: ignore
 
 
 @pytest.fixture(params=dataset_type)
-def correlation_tensors(request):  # type: ignore
+def constant_ones_dataframe(request):  # type: ignore
     # Dataframe of all ones.
-    # fixture_type = request.param
+    fixture_type = request.param
+    return generate_constant_ones_dataframes(fixture_type)
 
+
+def generate_correlation_tensor():
     x1 = np.array([0.1419, 0.4218, 0.9157, 0.7922, 0.9595])
     x2 = np.array([0.6557, 0.0357, 0.8491, 0.9340, 0.6787])
     X = np.array([x1, x2]).T
@@ -469,3 +477,10 @@ def correlation_tensors(request):  # type: ignore
         X,
         Y,
     )
+
+
+@pytest.fixture(params=dataset_type)
+def correlation_tensors(request):  # type: ignore
+    # Dataframe of all ones.
+    # fixture_type = request.param
+    return generate_correlation_tensor()
