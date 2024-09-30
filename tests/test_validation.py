@@ -892,10 +892,11 @@ class Test_Validate_Models:
             fixture,
         ) = good_signals_no_nans
 
+        # List of signals
         dataset_in = [s for s in signal_list if s["name"] in u_names]
         dataset_out = [s for s in signal_list if s["name"] in y_names]
         sampling_period = dataset_in[0]["sampling_period"]
-
+        # sim_gppd is a list of 1D array
         small_perturbation = np.random.uniform(
             low=0.0,
             high=1e-3,
@@ -914,15 +915,17 @@ class Test_Validate_Models:
         ).T
 
         # Override if MISO or SISO
-        if fixture == "SISO" or fixture == "MISO":
-            dataset_in = dataset_in[0]["samples"]
-            dataset_out = dataset_out[0]["samples"]
+        if fixture == "SISO" or fixture == "SIMO":
+            dataset_in = [dataset_in[0]]
+
+        if fixture == "MISO" or fixture == "SISO":
+            dataset_out = [dataset_out[0]]
 
             sim_good = sim_good[0]
             sim_bad = sim_bad[:, 0]
             sim_bad2 = sim_bad2[:, 0]
 
-        # %% act
+        #  act
         global_outcome, vs, validation_thresholds_dict = validate_models(
             dataset_in,
             dataset_out,
@@ -931,6 +934,192 @@ class Test_Validate_Models:
             sim_bad,
             sim_bad2,
         )
+
+        expected_outcome = ["PASS", "FAIL", "FAIL"]
+        assert global_outcome == expected_outcome
+
+        # Tests if dataset is correctly stored in the ValidationSession
+        # instance
+        expected_stored_in = vs.dataset.dataset["INPUT"].to_numpy()
+        expected_stored_out = vs.dataset.dataset["OUTPUT"].to_numpy()
+        # if fixture == "MISO" or fixture == "MIMO":
+        #     expected_stored_in = vs.dataset.dataset["INPUT"].to_numpy()
+        # else:
+        #     expected_stored_in = vs.dataset.dataset["INPUT"].to_numpy()[:, 0]
+
+        # if fixture == "SIMO" or fixture == "MIMO":
+        #     expected_stored_out = vs.dataset.dataset["OUTPUT"].to_numpy()
+        # else:
+        #     expected_stored_out = vs.dataset.dataset["OUTPUT"].to_numpy()[:, 0]
+
+        dataset_in_samples = np.column_stack([s["samples"] for s in dataset_in])
+        dataset_out_samples = np.column_stack(
+            [s["samples"] for s in dataset_out]
+        )
+        assert np.allclose(expected_stored_in, dataset_in_samples, atol=1e-4)
+        assert np.allclose(
+            expected_stored_out,
+            dataset_out_samples,
+            atol=1e-4,
+        )
+
+    def test_list_of_arrays(
+        self,
+        good_signals_no_nans: list[Signal],
+        tmp_path: str,
+    ) -> None:
+        # You should just get a plot.
+
+        (
+            signal_list,
+            u_names,
+            y_names,
+            u_units,
+            y_units,
+            fixture,
+        ) = good_signals_no_nans
+
+        # List of signals
+        dataset_in = [s["samples"] for s in signal_list if s["name"] in u_names]
+        dataset_out = [
+            s["samples"] for s in signal_list if s["name"] in y_names
+        ]
+        sampling_period = signal_list[0]["sampling_period"]
+
+        small_perturbation = np.random.uniform(
+            low=0.0,
+            high=1e-3,
+            size=(dataset_out[0].size, len(y_names)),
+        )
+        sim_good = [s + w for s, w in zip(dataset_out, small_perturbation.T)]
+
+        # It is a (N,q) array
+        sim_bad = [np.random.random(dataset_out[0].size) for _ in y_names]
+        sim_bad2 = [np.random.random(dataset_out[0].size) for _ in y_names]
+
+        # Override if MISO or SISO
+        if fixture == "SISO":
+            dataset_in = dataset_in[0]
+            dataset_out = dataset_out[0]
+
+            sim_good = sim_good[0]
+            sim_bad = sim_bad[0]
+            sim_bad2 = sim_bad2[0]
+
+        if fixture == "MISO":
+            dataset_out = dataset_out[0]
+
+            sim_good = sim_good[0]
+            sim_bad = sim_bad[0]
+            sim_bad2 = sim_bad2[0]
+
+        # act
+        global_outcome, vs, validation_thresholds_dict = validate_models(
+            dataset_in,
+            dataset_out,
+            sampling_period,
+            sim_good,
+            sim_bad,
+            sim_bad2,
+        )
+
         expected_outcome = ["PASS", "FAIL", "FAIL"]
 
         assert global_outcome == expected_outcome
+
+        # Tests if dataset is correctly stored in the ValidationSession
+        # instance
+        dataset_in_vals = np.array([s["samples"] for s in dataset_in]).T
+        assert np.allclose(
+            vs.dataset.dataset["INPUT"].to_numpy(), dataset_in_vals, atol=1e-4
+        )
+        dataset_out_vals = np.array([s["samples"] for s in dataset_out]).T
+        assert np.allclose(
+            vs.dataset.dataset["OUTPUT"].to_numpy(),
+            dataset_out_vals,
+            atol=1e-4,
+        )
+
+    def test_2D_arrays(
+        self,
+        good_signals_no_nans: list[Signal],
+        tmp_path: str,
+    ) -> None:
+        # You should just get a plot.
+
+        (
+            signal_list,
+            u_names,
+            y_names,
+            u_units,
+            y_units,
+            fixture,
+        ) = good_signals_no_nans
+
+        # 2D arrays
+        dataset_in = np.column_stack(
+            [s["samples"] for s in signal_list if s["name"] in u_names]
+        )
+        dataset_out = np.column_stack(
+            [s["samples"] for s in signal_list if s["name"] in y_names]
+        )
+        sampling_period = signal_list[0]["sampling_period"]
+
+        small_perturbation = np.random.uniform(
+            low=0.0,
+            high=1e-3,
+            size=(dataset_out.shape[0], len(y_names)),
+        )
+        sim_good = np.column_stack(
+            [s + w for s, w in zip(dataset_out, small_perturbation)]
+        ).T
+
+        # It is a (N,q) array
+        sim_bad = np.column_stack(
+            [np.random.random(dataset_out.shape[0]) for _ in y_names]
+        )
+        sim_bad2 = np.column_stack(
+            [np.random.random(dataset_out.shape[0]) for _ in y_names]
+        )
+
+        # Override if MISO or SISO
+        if fixture == "SISO" or fixture == "SIMO":
+            dataset_in = dataset_in[:, 0]
+
+        if fixture == "MISO" or fixture == "SISO":
+            dataset_out = dataset_out[:, 0]
+
+            sim_good = sim_good[:, 0]
+            sim_bad = sim_bad[:, 0]
+            sim_bad2 = sim_bad2[:, 0]
+        # act
+        global_outcome, vs, validation_thresholds_dict = validate_models(
+            dataset_in,
+            dataset_out,
+            sampling_period,
+            sim_good,
+            sim_bad,
+            sim_bad2,
+        )
+
+        expected_outcome = ["PASS", "FAIL", "FAIL"]
+        assert global_outcome == expected_outcome
+
+        # Tests if dataset is correctly stored in the ValidationSession
+        # instance
+        if fixture == "MISO" or fixture == "MIMO":
+            expected_stored_in = vs.dataset.dataset["INPUT"].to_numpy()
+        else:
+            expected_stored_in = vs.dataset.dataset["INPUT"].to_numpy()[:, 0]
+
+        if fixture == "SIMO" or fixture == "MIMO":
+            expected_stored_out = vs.dataset.dataset["OUTPUT"].to_numpy()
+        else:
+            expected_stored_out = vs.dataset.dataset["OUTPUT"].to_numpy()[:, 0]
+
+        assert np.allclose(expected_stored_in, dataset_in, atol=1e-4)
+        assert np.allclose(
+            expected_stored_out,
+            dataset_out,
+            atol=1e-4,
+        )

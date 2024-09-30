@@ -1502,7 +1502,7 @@ def validate_models(
         # It performs some checks to the input data.
 
         # Scalar case: 1D np.ndarray: stack it into a column array
-        if isinstance(data, np.ndarray) and len(data.shape) == 1:
+        if isinstance(data, np.ndarray) and data.ndim == 1:
             data_list = _dummy_signal_list(
                 dataset=data[:, np.newaxis],
                 sampling_period=sampling_period,
@@ -1510,15 +1510,14 @@ def validate_models(
             )
 
         # Case 2D np.ndarray, columns are samples
-        elif isinstance(data, np.ndarray) and len(data.shape) == 2:
+        elif isinstance(data, np.ndarray) and data.ndim == 2:
             data_list = _dummy_signal_list(
                 dataset=data, sampling_period=sampling_period, kind=kind
             )
 
         # Case List[nd.array]
         elif isinstance(data, list) and all(
-            isinstance(item, np.ndarray) and len(item.shape) == 1
-            for item in data
+            isinstance(item, np.ndarray) and item.ndim == 1 for item in data
         ):
             # Check if all arrays have the same length
             lengths = [len(item) for item in data]
