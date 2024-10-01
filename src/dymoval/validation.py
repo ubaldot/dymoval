@@ -450,23 +450,23 @@ class ValidationSession:
         nlags: int | None = None,
         input_nlags: int | None = None,
         # input auto-correlation
-        input_local_statistic_name_1st: Statistic_type = "quadratic",
+        input_local_statistic_name_1st: Statistic_type = "mean",
         input_global_statistic_name_1st: Statistic_type = "max",
-        input_local_statistic_name_2nd: Statistic_type = "std",
+        input_local_statistic_name_2nd: Statistic_type = "quadratic",
         input_global_statistic_name_2nd: Statistic_type = "max",
         input_local_weights: np.ndarray | None = None,
         input_global_weights: np.ndarray | None = None,
         # residuals auto-correlation
-        acorr_local_statistic_name_1st: Statistic_type = "quadratic",
+        acorr_local_statistic_name_1st: Statistic_type = "mean",
         acorr_global_statistic_name_1st: Statistic_type = "max",
-        acorr_local_statistic_name_2nd: Statistic_type = "std",
+        acorr_local_statistic_name_2nd: Statistic_type = "quadratic",
         acorr_global_statistic_name_2nd: Statistic_type = "max",
         acorr_local_weights: np.ndarray | None = None,
         acorr_global_weights: np.ndarray | None = None,
         # input-residuals cross-Correlation
-        xcorr_local_statistic_name_1st: Statistic_type = "quadratic",
+        xcorr_local_statistic_name_1st: Statistic_type = "mean",
         xcorr_global_statistic_name_1st: Statistic_type = "max",
-        xcorr_local_statistic_name_2nd: Statistic_type = "std",
+        xcorr_local_statistic_name_2nd: Statistic_type = "quadratic",
         xcorr_global_statistic_name_2nd: Statistic_type = "max",
         xcorr_local_weights: np.ndarray | None = None,
         xcorr_global_weights: np.ndarray | None = None,
@@ -1482,16 +1482,19 @@ class ValidationSession:
 
 
 def validate_models(
-    dataset_in: np.ndarray | List[Signal] | List[np.ndarray],
-    dataset_out: np.ndarray | List[Signal] | List[np.ndarray],
-    sims_out: np.ndarray | List[np.ndarray],
+    measured_in: np.ndarray | List[Signal] | List[np.ndarray],
+    measured_out: np.ndarray | List[Signal] | List[np.ndarray],
+    simulated_out: np.ndarray | List[np.ndarray],
     sampling_period: float | None = None,
     validation_thresholds: Dict[str, float] | None = None,
+    ignore_input: bool = False,
 ) -> Tuple[List[Literal["PASS", "FAIL"]], ValidationSession, Dict[str, float]]:
     """akakakak
 
     sampling_period will retrieved from Signal id List[Signal], otherwise must
     be explicitely passed.
+    # TODO retrieve information from Signals (sampling period, etc). Ignore
+    # input
     """
 
     def _dummy_signal_list(
@@ -1561,49 +1564,54 @@ def validate_models(
             data_list = data  # type: ignore
         else:
             raise ValueError(
-                "'dataset_in' and 'dataset_out' must be 2D-arrays, list of 1D-arrays, or List of Signals"
+                "'measured_in' and 'measured_out' must be 2D-arrays, list of 1D-arrays, or List of Signals"
             )
 
         return data_list
 
     # ======== MAIN ================
-    if validation_thresholds is None:
-        validation_thresholds_dict = {
-            "Ruu_whiteness_1st": 0.6,
-            "Ruu_whiteness_2nd": 0.6,
-            "r2": 65,
-            "Ree_whiteness_1st": 0.4,
-            "Ree_whiteness_2nd": 0.4,
-            "Rue_whiteness_1st": 0.4,
-            "Rue_whiteness_2nd": 0.4,
-        }
-    elif isinstance(validation_thresholds, dict):
+    validation_thresholds_dict = {
+        "Ruu_whiteness_1st": 0.6,
+        "Ruu_whiteness_2nd": 0.6,
+        "r2": 65,
+        "Ree_whiteness_1st": 0.4,
+        "Ree_whiteness_2nd": 0.4,
+        "Rue_whiteness_1st": 0.4,
+        "Rue_whiteness_2nd": 0.4,
+    }
+
+    if validation_thresholds is not None and isinstance(
+        validation_thresholds, dict
+    ):
         validation_thresholds_dict = validation_thresholds
-    else:
+    elif validation_thresholds is not None:
         raise TypeError("'validation thresholds' must be a dict")
+    elif ignore_input is True:
+        del validation_thresholds_dict["Ruu_whiteness_1st"]
+        del validation_thresholds_dict["Ruu_whiteness_2nd"]
 
     # Gather sampling_period from Signals
     if (
-        isinstance(dataset_in, list)
-        and isinstance(dataset_in[0], dict)
-        and set(dataset_in[0].keys()) == set(SIGNAL_KEYS)
+        isinstance(measured_in, list)
+        and isinstance(measured_in[0], dict)
+        and set(measured_in[0].keys()) == set(SIGNAL_KEYS)
     ):
-        sampling_period = dataset_in[0]["sampling_period"]
+        sampling_period = measured_in[0]["sampling_period"]
     elif sampling_period is None:
         raise TypeError("'sampling_period' missing")
 
     # Convert everything into List[Signal]
-    dataset_in_list = _to_list_of_Signal(
-        data=dataset_in, sampling_period=sampling_period, kind="in"
+    measured_in_list = _to_list_of_Signal(
+        data=measured_in, sampling_period=sampling_period, kind="in"
     )
-    dataset_out_list = _to_list_of_Signal(
-        data=dataset_out, sampling_period=sampling_period, kind="out"
+    measured_out_list = _to_list_of_Signal(
+        data=measured_out, sampling_period=sampling_period, kind="out"
     )
 
     # Build Dataset instance and Validation instance
-    input_labels = [s["name"] for s in dataset_in_list]
-    output_labels = [s["name"] for s in dataset_out_list]
-    signal_list = dataset_in_list + dataset_out_list
+    input_labels = [s["name"] for s in measured_in_list]
+    output_labels = [s["name"] for s in measured_out_list]
+    signal_list = measured_in_list + measured_out_list
     validate_signals(*signal_list)
     ds = Dataset(
         "dummy",
@@ -1619,7 +1627,7 @@ def validate_models(
 
     # Actual test
     global_outcome: List[Literal["PASS", "FAIL"]] = []
-    for ii, sim in enumerate(sims_out):
+    for ii, sim in enumerate(simulated_out):
         local_outcome = []
         sim = np.column_stack(sim) if isinstance(sim, list) else sim
         sim = sim[:, np.newaxis] if len(sim.shape) == 1 else sim
@@ -1629,7 +1637,7 @@ def validate_models(
         )
         validation_dict = vs.validation_values(sim_name)
 
-        for k in validation_dict.keys():
+        for k in validation_thresholds_dict.keys():
             if k != "r2":
                 local_outcome.append(
                     validation_dict[k] < validation_thresholds_dict[k]
