@@ -928,7 +928,7 @@ class Test_Validate_Models:
         global_outcome, vs, validation_thresholds_dict = validate_models(
             dataset_in,
             dataset_out,
-            sims_out=[sim_good, sim_bad, sim_bad2],
+            simulated_out=[sim_good, sim_bad, sim_bad2],
         )
 
         expected_outcome = ["PASS", "FAIL", "FAIL"]
@@ -999,7 +999,7 @@ class Test_Validate_Models:
         global_outcome, vs, validation_thresholds_dict = validate_models(
             dataset_in,
             dataset_out,
-            sims_out=[sim_good, sim_bad, sim_bad2],
+            simulated_out=[sim_good, sim_bad, sim_bad2],
             sampling_period=sampling_period,
         )
 
@@ -1086,7 +1086,7 @@ class Test_Validate_Models:
         global_outcome, vs, validation_thresholds_dict = validate_models(
             dataset_in,
             dataset_out,
-            sims_out=[sim_good, sim_bad, sim_bad2],
+            simulated_out=[sim_good, sim_bad, sim_bad2],
             sampling_period=sampling_period,
         )
 
@@ -1181,7 +1181,7 @@ class Test_Validate_Models:
         global_outcome, vs, validation_thresholds_dict = validate_models(
             dataset_in,
             dataset_out,
-            sims_out=[sim_good, sim_bad, sim_bad2],
+            simulated_out=[sim_good, sim_bad, sim_bad2],
             sampling_period=sampling_period,
             validation_thresholds=validation_thresholds_dict,
         )
@@ -1267,7 +1267,7 @@ class Test_Validate_Models:
             global_outcome, vs, validation_thresholds_dict = validate_models(
                 dataset_in,
                 dataset_out,
-                sims_out=[sim_good, sim_bad, sim_bad2],
+                simulated_out=[sim_good, sim_bad, sim_bad2],
             )
 
 
