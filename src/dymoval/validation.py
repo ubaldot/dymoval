@@ -319,7 +319,7 @@ def compute_statistic(
     Define W based on the Ljung-Box statistic formula
     lags = np.arange(1, data.size + 1)
     W = np.diag(1 / (data.size - lags))
-    normalization_factor = np.max(weights) * (data.T @ data)
+    normalization_factor = np.max(weights)
 
     Inf norm is not constrained between 0 and 1.
 

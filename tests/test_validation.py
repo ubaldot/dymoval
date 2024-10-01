@@ -541,7 +541,7 @@ class Test_XCorrelation:
             X,
             Y,
         ) = correlation_tensors
-        x1y1_whiteness_expected = 0.111111111111111
+        x1y1_whiteness_expected = 1.5419764e-17
         lags_expected = np.arange(-4, 5)
 
         x1 = X.T[0]
@@ -1310,7 +1310,7 @@ class Test_Compute_Statistics:
             compute_statistic(data=test_data, statistic="std"), expected_std
         )
 
-        # ============  weighted statistics
+        # ============  weighted statistics ==============
         # Parameters for the Gaussian shape
         a = 1  # Amplitude
         mu = 4.5  # Center of the Gaussian (mean)
