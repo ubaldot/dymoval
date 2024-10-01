@@ -923,7 +923,7 @@ class ValidationSession:
         # Start the simulations plots
         # ================================================================
         # Iterate through all the simulations
-        sims = list(vs.simulations_names)
+        sims = list_sims
         for kk, sim in enumerate(sims):
             signals_units = vs.simulation_signals_list(sim)
             for ii, s in enumerate(signals_units):
