@@ -320,6 +320,12 @@ def compute_statistic(
 
     if weights is None:
         weights = np.ones(data.size)
+    elif np.min(weights) <= 0:
+        raise ValueError("All weights must be positive")
+    elif weights.ndim != 1:
+        raise ValueError("'weights' must be a 1D array")
+    elif data.size != weights.size:
+        raise IndexError("'data' and 'weights' must have the same length")
 
     if statistic == "quadratic":
         result = data.T @ np.diag(weights) @ data / np.sum(weights)
@@ -328,18 +334,14 @@ def compute_statistic(
             weights
         )  # Use weights if weights is provided
     elif statistic == "mean":
-        result = np.sum(weights * data) / np.sum(weights)
+        result = np.average(data, weights=weights)
     elif statistic == "std":
-        # Calculate weighted mean
-        weighted_mean_tmp = np.sum(weights * data) / np.sum(
-            weights
-        )  # No need for data.size
-        # Calculate weighted variance
-        weighted_variance = np.sum(
-            weights * (data - weighted_mean_tmp) ** 2
-        ) / np.sum(
-            weights
-        )  # No need for data.size
+        # Compute the weighted average
+        weighted_avg = np.average(data, weights=weights)
+        # Compute the weighted variance
+        weighted_variance = np.average(
+            (data - weighted_avg) ** 2, weights=weights
+        )
         result = np.sqrt(weighted_variance)  # Standard deviation
     else:
         raise ValueError(f"'statistic' must be one of [{STATISTIC_TYPE}]")
