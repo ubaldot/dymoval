@@ -895,11 +895,10 @@ class Test_Validate_Models:
         # List of signals
         dataset_in = [s for s in signal_list if s["name"] in u_names]
         dataset_out = [s for s in signal_list if s["name"] in y_names]
-        sampling_period = dataset_in[0]["sampling_period"]
         # sim_gppd is a list of 1D array
         small_perturbation = np.random.uniform(
             low=0.0,
-            high=1e-3,
+            high=1e-4,
             size=(dataset_out[0]["samples"].size, len(y_names)),
         )
         sim_good = [
@@ -929,10 +928,7 @@ class Test_Validate_Models:
         global_outcome, vs, validation_thresholds_dict = validate_models(
             dataset_in,
             dataset_out,
-            sampling_period,
-            sim_good,
-            sim_bad,
-            sim_bad2,
+            sims_out=[sim_good, sim_bad, sim_bad2],
         )
 
         expected_outcome = ["PASS", "FAIL", "FAIL"]
@@ -979,7 +975,7 @@ class Test_Validate_Models:
 
         small_perturbation = np.random.uniform(
             low=0.0,
-            high=1e-3,
+            high=1e-4,
             size=(dataset_out[0].size, len(y_names)),
         )
         sim_good = [s + w for s, w in zip(dataset_out, small_perturbation.T)]
@@ -1003,10 +999,8 @@ class Test_Validate_Models:
         global_outcome, vs, validation_thresholds_dict = validate_models(
             dataset_in,
             dataset_out,
-            sampling_period,
-            sim_good,
-            sim_bad,
-            sim_bad2,
+            sims_out=[sim_good, sim_bad, sim_bad2],
+            sampling_period=sampling_period,
         )
 
         expected_outcome = ["PASS", "FAIL", "FAIL"]
@@ -1062,7 +1056,7 @@ class Test_Validate_Models:
 
         small_perturbation = np.random.uniform(
             low=0.0,
-            high=1e-3,
+            high=1e-4,
             size=(dataset_out.shape[0], len(y_names)),
         )
         sim_good = np.column_stack(
@@ -1092,10 +1086,8 @@ class Test_Validate_Models:
         global_outcome, vs, validation_thresholds_dict = validate_models(
             dataset_in,
             dataset_out,
-            sampling_period,
-            sim_good,
-            sim_bad,
-            sim_bad2,
+            sims_out=[sim_good, sim_bad, sim_bad2],
+            sampling_period=sampling_period,
         )
 
         # Test will fail on r2 because the bad simulation are random noise
@@ -1189,10 +1181,8 @@ class Test_Validate_Models:
         global_outcome, vs, validation_thresholds_dict = validate_models(
             dataset_in,
             dataset_out,
-            sampling_period,
-            sim_good,
-            sim_bad,
-            sim_bad2,
+            sims_out=[sim_good, sim_bad, sim_bad2],
+            sampling_period=sampling_period,
             validation_thresholds=validation_thresholds_dict,
         )
 
@@ -1220,6 +1210,66 @@ class Test_Validate_Models:
             atol=1e-4,
         )
 
+    def test_sampling_period_raise(
+        self,
+        good_signals_no_nans: list[Signal],
+        tmp_path: str,
+    ) -> None:
+        # You should just get a plot.
+
+        (
+            signal_list,
+            u_names,
+            y_names,
+            u_units,
+            y_units,
+            fixture,
+        ) = good_signals_no_nans
+
+        # 2D arrays
+        dataset_in = np.column_stack(
+            [s["samples"] for s in signal_list if s["name"] in u_names]
+        )
+        dataset_out = np.column_stack(
+            [s["samples"] for s in signal_list if s["name"] in y_names]
+        )
+
+        small_perturbation = np.random.uniform(
+            low=0.0,
+            high=1e-4,
+            size=(dataset_out.shape[0], len(y_names)),
+        )
+        sim_good = np.column_stack(
+            [s + w for s, w in zip(dataset_out, small_perturbation)]
+        ).T
+
+        # It is a (N,q) array
+        sim_bad = np.column_stack(
+            [np.random.random(dataset_out.shape[0]) for _ in y_names]
+        )
+        sim_bad2 = np.column_stack(
+            [np.random.random(dataset_out.shape[0]) for _ in y_names]
+        )
+
+        # Override if MISO or SISO
+        if fixture == "SISO" or fixture == "SIMO":
+            dataset_in = dataset_in[:, 0]
+
+        if fixture == "MISO" or fixture == "SISO":
+            dataset_out = dataset_out[:, 0]
+
+            sim_good = sim_good[:, 0]
+            sim_bad = sim_bad[:, 0]
+            sim_bad2 = sim_bad2[:, 0]
+
+        # act: sampling_period missing
+        with pytest.raises(TypeError):
+            global_outcome, vs, validation_thresholds_dict = validate_models(
+                dataset_in,
+                dataset_out,
+                sims_out=[sim_good, sim_bad, sim_bad2],
+            )
+
 
 class Test_Compute_Statistics:
     def test_compute_statistics(
@@ -1241,10 +1291,10 @@ class Test_Compute_Statistics:
             ]
         )
 
-        expected_mean = 0.1
+        expected_mean = 0.37307871099999995
         expected_inf = 0.89125522
-        expected_quad = 0.1
-        expected_std = 0.16293074489876824
+        expected_quad = 0.5992223630447827
+        expected_std = 0.22428335785688763
 
         assert np.isclose(
             compute_statistic(data=test_data, statistic="mean"), expected_mean
@@ -1272,10 +1322,10 @@ class Test_Compute_Statistics:
         # Calculate Gaussian weights
         weights = a * np.exp(-((x - mu) ** 2) / (2 * sigma**2))
 
-        expected_mean_weighted = 0.15996088480356185
+        expected_mean_weighted = 0.5967800071293234
         expected_inf_weighted = 0.89125522
-        expected_quad_weighted = 0.3227235671113982
-        expected_std_weighted = 0.20056732313994574
+        expected_quad_weighted = 0.8141111410026658
+        expected_std_weighted = 0.27609223009533146
 
         assert np.isclose(
             compute_statistic(

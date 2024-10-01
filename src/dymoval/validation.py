@@ -321,6 +321,8 @@ def compute_statistic(
     W = np.diag(1 / (data.size - lags))
     normalization_factor = np.max(weights) * (data.T @ data)
 
+    Inf norm is not constrained between 0 and 1.
+
 
     """
 
@@ -337,32 +339,23 @@ def compute_statistic(
         raise IndexError("'data' and 'weights' must have the same length")
 
     if statistic == "quadratic":
-        # Calculate the quadratic form
         quadratic_form = data.T @ np.diag(weights) @ data
-
-        # Calculate the infinity norm
-        normalization_factor = (data.T @ data) * (weights.T @ weights)
-
-        # Avoid division by zero
-        if normalization_factor == 0 or np.all(data == 0):
-            raise ValueError("'data' and 'weights' cannot be all zeros")
-
+        normalization_factor = np.sqrt(weights.T @ weights)
         result = quadratic_form / normalization_factor
 
     elif statistic == "max":
-        result = np.max(np.abs(weights.T * data)) / np.max(
-            weights
-        )  # Use weights if weights is provided
+        result = np.max(np.abs(weights.T * data)) / (
+            np.linalg.norm(weights, ord=np.inf)
+        )
     elif statistic == "mean":
-        # result = np.average(data, weights=weights)
-        result = np.sum(weights * data) / (np.sum(weights) * np.sum(data))
+        result = weights.T @ data / np.sum(weights)
     elif statistic == "std":
         # Compute the weighted average
-        weighted_avg = np.average(data, weights=weights)
+        weighted_avg = weights.T @ data / np.sum(weights)
         # Compute the weighted variance
-        weighted_variance = (
-            np.average((data - weighted_avg) ** 2, weights=weights)
-        ) / np.sum(data**2)
+        weighted_variance = np.average(
+            (data - weighted_avg) ** 2, weights=weights
+        )
         result = np.sqrt(weighted_variance)  # Standard deviation
     else:
         raise ValueError(f"'statistic' must be one of [{STATISTIC_TYPE}]")
@@ -1491,10 +1484,15 @@ class ValidationSession:
 def validate_models(
     dataset_in: np.ndarray | List[Signal] | List[np.ndarray],
     dataset_out: np.ndarray | List[Signal] | List[np.ndarray],
-    sampling_period: float,
-    *sims_out: np.ndarray | List[np.ndarray],
+    sims_out: np.ndarray | List[np.ndarray],
+    sampling_period: float | None = None,
     validation_thresholds: Dict[str, float] | None = None,
 ) -> Tuple[List[Literal["PASS", "FAIL"]], ValidationSession, Dict[str, float]]:
+    """akakakak
+
+    sampling_period will retrieved from Signal id List[Signal], otherwise must
+    be explicitely passed.
+    """
 
     def _dummy_signal_list(
         dataset: np.ndarray,  # Must be 2D array
@@ -1583,6 +1581,16 @@ def validate_models(
         validation_thresholds_dict = validation_thresholds
     else:
         raise TypeError("'validation thresholds' must be a dict")
+
+    # Gather sampling_period from Signals
+    if (
+        isinstance(dataset_in, list)
+        and isinstance(dataset_in[0], dict)
+        and set(dataset_in[0].keys()) == set(SIGNAL_KEYS)
+    ):
+        sampling_period = dataset_in[0]["sampling_period"]
+    elif sampling_period is None:
+        raise TypeError("'sampling_period' missing")
 
     # Convert everything into List[Signal]
     dataset_in_list = _to_list_of_Signal(
