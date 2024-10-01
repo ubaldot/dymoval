@@ -6,9 +6,6 @@ import numpy as np
 from copy import deepcopy
 import pandas as pd
 
-from dymoval.dataset import Signal
-from typing import Tuple, List, Literal, Iterable
-
 # For more info on parametrized fixtures, look here:
 # https://www.youtube.com/watch?v=aQH7hyJn-No
 
@@ -18,21 +15,12 @@ dataset_type = ["MIMO", "SISO", "SIMO", "MISO"]
 # ============================================
 # All good test Signals (good)
 # ============================================
-def generate_good_signals(
-    fixture_type,
-) -> Tuple[
-    List[Signal],
-    List[str] | str,
-    List[str] | str,
-    List[str] | str,
-    List[str] | str,
-    Literal[*dataset_type],
-]:
+def generate_good_signals(fixture_type):
     nan_thing = np.empty(200)
     nan_thing[:] = np.nan
 
     # Signals creation
-    input_signal_names: str | List[str] = ["u1", "u2", "u3"]
+    input_signal_names = ["u1", "u2", "u3"]
     input_sampling_periods = [0.01, 0.1, 0.1]
     input_signal_values = [
         np.hstack(
@@ -49,7 +37,7 @@ def generate_good_signals(
         np.hstack((np.random.rand(80), nan_thing, np.random.rand(100))),
     ]
 
-    input_signal_units: str | List[str] = ["m/s", "%", "°C"]
+    input_signal_units = ["m/s", "%", "°C"]
 
     in_lst = []
     for ii, val in enumerate(input_signal_names):
@@ -63,7 +51,7 @@ def generate_good_signals(
         in_lst.append(deepcopy(temp_in))
 
     # Output signal
-    output_signal_names: str | List[str] = ["y1", "y2", "y3", "y4"]
+    output_signal_names = ["y1", "y2", "y3", "y4"]
     output_sampling_periods = [0.1, 0.1, 0.1, 0.1]
     output_signal_values = [
         np.hstack(
@@ -95,7 +83,7 @@ def generate_good_signals(
         ),
     ]
 
-    output_signal_units: str | List[str] = ["m/s", "deg", "°C", "kPa"]
+    output_signal_units = ["m/s", "deg", "°C", "kPa"]
     out_lst = []
     for ii, val in enumerate(output_signal_names):
         # This is the syntax for defining a dymoval signal
@@ -147,22 +135,15 @@ def good_signals(request):  # type: ignore
     return generate_good_signals(fixture_type)
 
 
-def generate_good_signals_no_nans(fixture_type: str) -> Tuple[
-    List[Signal],
-    List[str] | str,
-    List[str] | str,
-    List[str] | str,
-    List[str] | str,
-    Literal[*dataset_type],
-]:
+def generate_good_signals_no_nans(fixture_type):  # type: ignore
     # %% Signals creation
-    input_signal_names: str | List[str] = ["u1", "u2", "u3"]
+    input_signal_names = ["u1", "u2", "u3"]
     input_sampling_periods = [0.1, 0.1, 0.1]
     input_signal_values = np.concatenate(
         [np.random.rand(50), np.random.rand(50), np.random.rand(50)]
     ).reshape(3, 50)
 
-    input_signal_units: str | List[str] = ["m/s", "%", "°C"]
+    input_signal_units = ["m/s", "%", "°C"]
 
     in_lst = []
     for ii, val in enumerate(input_signal_names):
@@ -176,7 +157,7 @@ def generate_good_signals_no_nans(fixture_type: str) -> Tuple[
         in_lst.append(deepcopy(temp_in))
 
     # Output signal
-    output_signal_names: str | List[str] = ["y1", "y2", "y3", "y4"]
+    output_signal_names = ["y1", "y2", "y3", "y4"]
     output_sampling_periods = [0.1, 0.1, 0.1, 0.1]
     output_signal_values = np.concatenate(
         [
@@ -187,7 +168,7 @@ def generate_good_signals_no_nans(fixture_type: str) -> Tuple[
         ]
     ).reshape(4, 50)
 
-    output_signal_units: str | List[str] = ["m/s", "deg", "°C", "kPa"]
+    output_signal_units = ["m/s", "deg", "°C", "kPa"]
     out_lst = []
     for ii, val in enumerate(output_signal_names):
         # This is the syntax for defining a dymoval signal
@@ -242,24 +223,17 @@ def good_signals_no_nans(request):  # type: ignore
 # ============================================
 # Good DataFrame
 # ============================================
-def generate_good_dataframe(fixture_type) -> Tuple[
-    pd.DataFrame,
-    List[str] | str,
-    List[str] | str,
-    List[str] | str,
-    List[str] | str,
-    Literal[*dataset_type],
-]:
+def generate_good_dataframe(fixture_type):
     # Create a dummy dataframe
     num_samples = 100
     sampling_period = 0.1
     idx = np.arange(num_samples) * sampling_period
-    u_names: str | List[str] = ["u1", "u2", "u3"]
-    y_names: str | List[str] = ["y1", "y2"]
-    u_units: str | List[str] = ["kPa", "°C", "m/s"]
-    y_units: str | List[str] = ["kPa", "m/s**2"]
-    u_cols: Iterable[str] = list(zip(u_names, u_units))
-    y_cols: Iterable[str] = list(zip(y_names, y_units))
+    u_names = ["u1", "u2", "u3"]
+    y_names = ["y1", "y2"]
+    u_units = ["kPa", "°C", "m/s"]
+    y_units = ["kPa", "m/s**2"]
+    u_cols = list(zip(u_names, u_units))
+    y_cols = list(zip(y_names, y_units))
     cols_name = u_cols + y_cols
     df = pd.DataFrame(
         np.random.randn(num_samples, len(cols_name)),
@@ -302,14 +276,7 @@ def good_dataframe(request):  # type: ignore
     return generate_good_dataframe(fixture_type)
 
 
-def generate_sine_dataframe(fixture_type) -> Tuple[
-    pd.DataFrame,
-    List[str] | str,
-    List[str] | str,
-    List[str] | str,
-    List[str] | str,
-    Literal[*dataset_type],
-]:
+def generate_sine_dataframe(fixture_type):
     Ts = 0.1
     N = 100
     t = np.linspace(0, Ts * N, N + 1)
@@ -325,8 +292,8 @@ def generate_sine_dataframe(fixture_type) -> Tuple[
     f3 = 4.8
     w3 = 2 * np.pi * f3
 
-    u_names: str | List[str] = ["u1", "u2", "u3"]
-    u_units: str | List[str] = ["kPa", "bar", "deg"]
+    u_names = ["u1", "u2", "u3"]
+    u_units = ["kPa", "bar", "deg"]
     u_cols = list(zip(u_names, u_units))
     u_values = [
         c1 + np.sin(w1 * t) + np.sin(w2 * t),
@@ -334,8 +301,8 @@ def generate_sine_dataframe(fixture_type) -> Tuple[
         c1 + np.sin(w3 * t),
     ]
 
-    y_names: str | List[str] = ["y1", "y2", "y3", "y4"]
-    y_units: str | List[str] = ["deg", "rad/s", "V", "A"]
+    y_names = ["y1", "y2", "y3", "y4"]
+    y_units = ["deg", "rad/s", "V", "A"]
     y_cols = list(zip(y_names, y_units))
     y_values = [
         c1 + np.sin(w1 * t) + np.sin(w3 * t),
@@ -384,15 +351,7 @@ def sine_dataframe(request):  # type: ignore
     return generate_sine_dataframe(fixture_type)
 
 
-def generate_constant_ones_dataframes(fixture_type) -> Tuple[
-    pd.DataFrame,
-    List[str] | str,
-    List[str] | str,
-    List[str] | str,
-    List[str] | str,
-    Literal[dataset_type],
-]:
-
+def generate_constant_ones_dataframes(fixture_type):
     N = 10
     idx = np.linspace(0, 1, N)
     u_names = ["u1", "u2", "u3"]
@@ -443,11 +402,7 @@ def constant_ones_dataframe(request):  # type: ignore
     return generate_constant_ones_dataframes(fixture_type)
 
 
-def generate_correlation_tensor() -> (
-    Tuple[
-        np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray
-    ]
-):
+def generate_correlation_tensor():
     x1 = np.array([0.1419, 0.4218, 0.9157, 0.7922, 0.9595])
     x2 = np.array([0.6557, 0.0357, 0.8491, 0.9340, 0.6787])
     X = np.array([x1, x2]).T
