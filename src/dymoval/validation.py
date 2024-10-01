@@ -78,7 +78,7 @@ class XCorrelation:
         X: np.ndarray,
         Y: np.ndarray | None = None,
         nlags: int | None = None,
-        local_statistic: Statistic_type = "mean",
+        local_statistic: Statistic_type = "quadratic",
         local_weights: np.ndarray | None = None,  # shall be a 1D vector
         global_statistic: Statistic_type = "max",
         global_weights: np.ndarray | None = None,
@@ -157,7 +157,7 @@ class XCorrelation:
             return Rxy, lags
 
         def _whiteness_level(
-            local_statistic: Statistic_type = "mean",
+            local_statistic: Statistic_type = "quadratic",
             local_weights: np.ndarray | None = None,  # shall be a 1D vector
             global_statistic: Statistic_type = "max",
             global_weights: np.ndarray | None = None,
@@ -340,7 +340,7 @@ def compute_statistic(
 
     if statistic == "quadratic":
         quadratic_form = data.T @ np.diag(weights) @ data
-        normalization_factor = np.sqrt(weights.T @ weights)
+        normalization_factor = weights.T @ weights
         result = quadratic_form / normalization_factor
 
     elif statistic == "max":
@@ -395,7 +395,7 @@ def rsquared(x: np.ndarray, y: np.ndarray) -> float:
 def whiteness_level(
     data: np.ndarray,
     nlags: int | None = None,
-    local_statistic: Statistic_type = "mean",
+    local_statistic: Statistic_type = "quadratic",
     local_weights: np.ndarray | None = None,  # shall be a 1D vector
     global_statistic: Statistic_type = "max",
     global_weights: np.ndarray | None = None,
@@ -407,12 +407,12 @@ def whiteness_level(
     # Check that the global_weights length is equal to p * q
 
     # Compute correlation tensor from input signals
-    if local_weights is None:
-        num_lags = None
-    elif nlags is None:
+    if nlags is not None:
+        num_lags = nlags
+    elif local_weights is not None:
         num_lags = local_weights.shape[0]
     else:
-        num_lags = nlags
+        num_lags = None
 
     Rxx = XCorrelation(
         "",
@@ -450,23 +450,23 @@ class ValidationSession:
         nlags: int | None = None,
         input_nlags: int | None = None,
         # input auto-correlation
-        input_local_statistic_name_1st: Statistic_type = "mean",
+        input_local_statistic_name_1st: Statistic_type = "quadratic",
         input_global_statistic_name_1st: Statistic_type = "max",
-        input_local_statistic_name_2nd: Statistic_type = "max",
+        input_local_statistic_name_2nd: Statistic_type = "std",
         input_global_statistic_name_2nd: Statistic_type = "max",
         input_local_weights: np.ndarray | None = None,
         input_global_weights: np.ndarray | None = None,
         # residuals auto-correlation
-        acorr_local_statistic_name_1st: Statistic_type = "mean",
+        acorr_local_statistic_name_1st: Statistic_type = "quadratic",
         acorr_global_statistic_name_1st: Statistic_type = "max",
-        acorr_local_statistic_name_2nd: Statistic_type = "max",
+        acorr_local_statistic_name_2nd: Statistic_type = "std",
         acorr_global_statistic_name_2nd: Statistic_type = "max",
         acorr_local_weights: np.ndarray | None = None,
         acorr_global_weights: np.ndarray | None = None,
         # input-residuals cross-Correlation
-        xcorr_local_statistic_name_1st: Statistic_type = "mean",
+        xcorr_local_statistic_name_1st: Statistic_type = "quadratic",
         xcorr_global_statistic_name_1st: Statistic_type = "max",
-        xcorr_local_statistic_name_2nd: Statistic_type = "max",
+        xcorr_local_statistic_name_2nd: Statistic_type = "std",
         xcorr_global_statistic_name_2nd: Statistic_type = "max",
         xcorr_local_weights: np.ndarray | None = None,
         xcorr_global_weights: np.ndarray | None = None,
@@ -1569,13 +1569,13 @@ def validate_models(
     # ======== MAIN ================
     if validation_thresholds is None:
         validation_thresholds_dict = {
-            "Ruu_whiteness_1st": 0.35,
-            "Ruu_whiteness_2nd": 0.5,
+            "Ruu_whiteness_1st": 0.6,
+            "Ruu_whiteness_2nd": 0.6,
             "r2": 65,
-            "Ree_whiteness_1st": 0.35,
-            "Ree_whiteness_2nd": 0.55,
-            "Rue_whiteness_1st": 0.35,
-            "Rue_whiteness_2nd": 0.55,
+            "Ree_whiteness_1st": 0.4,
+            "Ree_whiteness_2nd": 0.4,
+            "Rue_whiteness_1st": 0.4,
+            "Rue_whiteness_2nd": 0.4,
         }
     elif isinstance(validation_thresholds, dict):
         validation_thresholds_dict = validation_thresholds
@@ -1615,7 +1615,7 @@ def validate_models(
 
     # Reduce number of lags, don't pick less than 3 lags
     nlags = max(signal_list[0]["samples"].size // 5, 3)
-    vs = ValidationSession("quick & dirty", ds, nlags=nlags)
+    vs = ValidationSession("quick & dirty", ds, nlags=nlags, input_nlags=nlags)
 
     # Actual test
     global_outcome: List[Literal["PASS", "FAIL"]] = []

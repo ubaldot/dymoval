@@ -541,7 +541,7 @@ class Test_XCorrelation:
             X,
             Y,
         ) = correlation_tensors
-        x1y1_whiteness_expected = 1.5419764e-17
+        x1y1_whiteness_expected = 0.12760343971349097
         lags_expected = np.arange(-4, 5)
 
         x1 = X.T[0]
@@ -608,7 +608,7 @@ class Test_XCorrelation:
                 -0.31803681,
             ]
         )
-        x1x1_whiteness_expected = 0.125
+        x1x1_whiteness_expected = 0.072689427139946
 
         # Act
         XCorr_actual = dmv.XCorrelation("foo", x1, x1)
@@ -868,7 +868,7 @@ class Test_whiteness:
     def test_whiteness_level(self) -> None:
 
         x1 = np.array([0.1419, 0.4218, 0.9157, 0.7922, 0.9595])
-        whiteness_expected = 0.125
+        whiteness_expected = 0.07268942713994662
 
         whiteness_actual, _, _ = dmv.whiteness_level(x1)
 
@@ -1293,7 +1293,7 @@ class Test_Compute_Statistics:
 
         expected_mean = 0.37307871099999995
         expected_inf = 0.89125522
-        expected_quad = 0.5992223630447827
+        expected_quad = 0.18949074921298226
         expected_std = 0.22428335785688763
 
         assert np.isclose(
@@ -1324,7 +1324,7 @@ class Test_Compute_Statistics:
 
         expected_mean_weighted = 0.5967800071293234
         expected_inf_weighted = 0.89125522
-        expected_quad_weighted = 0.8141111410026658
+        expected_quad_weighted = 0.6115313052062501
         expected_std_weighted = 0.27609223009533146
 
         assert np.isclose(
