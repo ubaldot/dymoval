@@ -305,13 +305,22 @@ class XCorrelation:
 
 
 def compute_statistic(
-    statistic: Statistic_type,
-    weights: np.ndarray,
     data: np.ndarray,
+    statistic: Statistic_type = "mean",
+    weights: np.ndarray | None = None,
 ) -> Any:
     """DOCSTRING
 
     If data.shape dimension is greater than 1 it will be flatten to a 1D array.
+
+    The  return values are normalized such that the function always return
+    values between 0 and 1.
+    This measure the normalized distance from the origin in a Euclidean space
+    Define W based on the Ljung-Box statistic formula
+    lags = np.arange(1, data.size + 1)
+    W = np.diag(1 / (data.size - lags))
+    normalization_factor = np.max(weights) * (data.T @ data)
+
 
     """
 
@@ -328,20 +337,32 @@ def compute_statistic(
         raise IndexError("'data' and 'weights' must have the same length")
 
     if statistic == "quadratic":
-        result = data.T @ np.diag(weights) @ data / np.sum(weights)
+        # Calculate the quadratic form
+        quadratic_form = data.T @ np.diag(weights) @ data
+
+        # Calculate the infinity norm
+        normalization_factor = (data.T @ data) * (weights.T @ weights)
+
+        # Avoid division by zero
+        if normalization_factor == 0 or np.all(data == 0):
+            raise ValueError("'data' and 'weights' cannot be all zeros")
+
+        result = quadratic_form / normalization_factor
+
     elif statistic == "max":
-        result = np.max(np.abs(weights.T * data)) / np.sum(
+        result = np.max(np.abs(weights.T * data)) / np.max(
             weights
         )  # Use weights if weights is provided
     elif statistic == "mean":
-        result = np.average(data, weights=weights)
+        # result = np.average(data, weights=weights)
+        result = np.sum(weights * data) / (np.sum(weights) * np.sum(data))
     elif statistic == "std":
         # Compute the weighted average
         weighted_avg = np.average(data, weights=weights)
         # Compute the weighted variance
-        weighted_variance = np.average(
-            (data - weighted_avg) ** 2, weights=weights
-        )
+        weighted_variance = (
+            np.average((data - weighted_avg) ** 2, weights=weights)
+        ) / np.sum(data**2)
         result = np.sqrt(weighted_variance)  # Standard deviation
     else:
         raise ValueError(f"'statistic' must be one of [{STATISTIC_TYPE}]")

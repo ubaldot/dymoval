@@ -25,7 +25,7 @@ def is_interactive_shell() -> bool:
     try:
         from IPython import get_ipython
 
-        if get_ipython():
+        if get_ipython():  # type: ignore
             isinteractive = True
     except ImportError:
         pass

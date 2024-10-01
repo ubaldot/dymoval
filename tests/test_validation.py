@@ -5,7 +5,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from dymoval.config import ATOL
 from dymoval.dataset import Signal
-from dymoval.validation import validate_models
+from dymoval.validation import validate_models, compute_statistic
 
 
 class Test_ClassValidationNominal:
@@ -541,7 +541,7 @@ class Test_XCorrelation:
             X,
             Y,
         ) = correlation_tensors
-        x1y1_whiteness_expected = 1.5419e-17
+        x1y1_whiteness_expected = 0.111111111111111
         lags_expected = np.arange(-4, 5)
 
         x1 = X.T[0]
@@ -1098,6 +1098,8 @@ class Test_Validate_Models:
             sim_bad2,
         )
 
+        # Test will fail on r2 because the bad simulation are random noise
+        # anyway (they have low autocorrelation values)
         expected_outcome = ["PASS", "FAIL", "FAIL"]
         assert global_outcome == expected_outcome
 
@@ -1118,4 +1120,180 @@ class Test_Validate_Models:
             expected_stored_out,
             dataset_out,
             atol=1e-4,
+        )
+
+    def test_strict_eval_thresholds(
+        self,
+        good_signals_no_nans: list[Signal],
+        tmp_path: str,
+    ) -> None:
+        # You should just get a plot.
+
+        (
+            signal_list,
+            u_names,
+            y_names,
+            u_units,
+            y_units,
+            fixture,
+        ) = good_signals_no_nans
+
+        # 2D arrays
+        dataset_in = np.column_stack(
+            [s["samples"] for s in signal_list if s["name"] in u_names]
+        )
+        dataset_out = np.column_stack(
+            [s["samples"] for s in signal_list if s["name"] in y_names]
+        )
+        sampling_period = signal_list[0]["sampling_period"]
+
+        small_perturbation = np.random.uniform(
+            low=0.0,
+            high=1e-3,
+            size=(dataset_out.shape[0], len(y_names)),
+        )
+        sim_good = np.column_stack(
+            [s + w for s, w in zip(dataset_out, small_perturbation)]
+        ).T
+
+        # It is a (N,q) array
+        sim_bad = np.column_stack(
+            [np.random.random(dataset_out.shape[0]) for _ in y_names]
+        )
+        sim_bad2 = np.column_stack(
+            [np.random.random(dataset_out.shape[0]) for _ in y_names]
+        )
+
+        # Override if MISO or SISO
+        if fixture == "SISO" or fixture == "SIMO":
+            dataset_in = dataset_in[:, 0]
+
+        if fixture == "MISO" or fixture == "SISO":
+            dataset_out = dataset_out[:, 0]
+
+            sim_good = sim_good[:, 0]
+            sim_bad = sim_bad[:, 0]
+            sim_bad2 = sim_bad2[:, 0]
+
+        validation_thresholds_dict = {
+            "Ruu_whiteness_1st": 0.35,
+            "Ruu_whiteness_2nd": 0.5,
+            "r2": 100,  # This is impossible to achieve
+            "Ree_whiteness_1st": 0.35,
+            "Ree_whiteness_2nd": 0.55,
+            "Rue_whiteness_1st": 0.35,
+            "Rue_whiteness_2nd": 0.55,
+        }
+
+        # act
+        global_outcome, vs, validation_thresholds_dict = validate_models(
+            dataset_in,
+            dataset_out,
+            sampling_period,
+            sim_good,
+            sim_bad,
+            sim_bad2,
+            validation_thresholds=validation_thresholds_dict,
+        )
+
+        # Test will fail on r2 because the bad simulation are random noise
+        # anyway (they have low autocorrelation values)
+        expected_outcome = ["FAIL", "FAIL", "FAIL"]
+        assert global_outcome == expected_outcome
+
+        # Tests if dataset is correctly stored in the ValidationSession
+        # instance
+        if fixture == "MISO" or fixture == "MIMO":
+            expected_stored_in = vs.dataset.dataset["INPUT"].to_numpy()
+        else:
+            expected_stored_in = vs.dataset.dataset["INPUT"].to_numpy()[:, 0]
+
+        if fixture == "SIMO" or fixture == "MIMO":
+            expected_stored_out = vs.dataset.dataset["OUTPUT"].to_numpy()
+        else:
+            expected_stored_out = vs.dataset.dataset["OUTPUT"].to_numpy()[:, 0]
+
+        assert np.allclose(expected_stored_in, dataset_in, atol=1e-4)
+        assert np.allclose(
+            expected_stored_out,
+            dataset_out,
+            atol=1e-4,
+        )
+
+
+class Test_Compute_Statistics:
+    def test_compute_statistics(
+        self,
+    ) -> None:
+
+        test_data = np.array(
+            [
+                0.49065828,
+                0.1754277,
+                0.37027646,
+                0.26591682,
+                0.62597191,
+                0.89125522,
+                0.14112183,
+                0.16938656,
+                0.31309603,
+                0.2876763,
+            ]
+        )
+
+        expected_mean = 0.1
+        expected_inf = 0.89125522
+        expected_quad = 0.1
+        expected_std = 0.16293074489876824
+
+        assert np.isclose(
+            compute_statistic(data=test_data, statistic="mean"), expected_mean
+        )
+        assert np.isclose(
+            compute_statistic(data=test_data, statistic="max"), expected_inf
+        )
+        assert np.isclose(
+            compute_statistic(data=test_data, statistic="quadratic"),
+            expected_quad,
+        )
+        assert np.isclose(
+            compute_statistic(data=test_data, statistic="std"), expected_std
+        )
+
+        # ============  weighted statistics
+        # Parameters for the Gaussian shape
+        a = 1  # Amplitude
+        mu = 4.5  # Center of the Gaussian (mean)
+        sigma = 1  # Standard deviation
+
+        # Generate x values (indices)
+        x = np.arange(10)
+
+        # Calculate Gaussian weights
+        weights = a * np.exp(-((x - mu) ** 2) / (2 * sigma**2))
+
+        expected_mean_weighted = 0.15996088480356185
+        expected_inf_weighted = 0.89125522
+        expected_quad_weighted = 0.3227235671113982
+        expected_std_weighted = 0.20056732313994574
+
+        assert np.isclose(
+            compute_statistic(
+                data=test_data, statistic="mean", weights=weights
+            ),
+            expected_mean_weighted,
+        )
+        assert np.isclose(
+            compute_statistic(data=test_data, statistic="max", weights=weights),
+            expected_inf_weighted,
+        )
+        assert np.isclose(
+            compute_statistic(
+                data=test_data, statistic="quadratic", weights=weights
+            ),
+            expected_quad_weighted,
+        )
+        assert np.isclose(
+            compute_statistic(data=test_data, statistic="std", weights=weights),
+            expected_std_weighted,
         )
