@@ -347,7 +347,7 @@ def compute_statistic(
         # all positive entries it hold |W| = lamnda_max(W). To secure the
         # metric to be always < 1 you have to divide by |x|**2|W|
         quadratic_form = data.T @ np.diag(weights) @ data
-        normalization_factor = weights.T @ weights
+        normalization_factor = np.sqrt(weights.T @ weights)
         result = quadratic_form / normalization_factor
 
     elif statistic == "max":
@@ -644,6 +644,15 @@ class ValidationSession:
             outcomes_head += f"\t{k} "
             outcomes_body += f"\t{self._outcome[k]}"
 
+        if self._ignore_input:
+            Ruu_whiteness_1st = ""
+            Ruu_whiteness_2nd = ""
+            validation_results = self._validation_results.iloc[2:, :]
+        else:
+            Ruu_whiteness_1st = f"{self._validation_results.index[0]}: {self._validation_thresholds['Ruu_whiteness_1st']} \n"
+            Ruu_whiteness_2nd = f"{self._validation_results.index[1]}: {self._validation_thresholds['Ruu_whiteness_2nd']} \n"
+            validation_results = self._validation_results
+
         repr_str = (
             f"Validation session name: {self.name}\n\n"
             f"Validation setup:\n----------------\n"
@@ -666,15 +675,15 @@ class ValidationSession:
             f"global weights: {self._xcorr_global_weights}\n"
             f"num lags: {self._nlags}\n\n"
             f"Validation thresholds: \n"
-            f"{self._validation_results.index[0]}: {self._validation_thresholds['Ruu_whiteness_1st']} \n"
-            f"{self._validation_results.index[1]}: {self._validation_thresholds['Ruu_whiteness_2nd']} \n"
+            f"{Ruu_whiteness_1st}"
+            f"{Ruu_whiteness_2nd}"
             f"{self._validation_results.index[2]}: {self._validation_thresholds['r2']} \n"
             f"{self._validation_results.index[3]}: {self._validation_thresholds['Ree_whiteness_1st']} \n"
             f"{self._validation_results.index[4]}: {self._validation_thresholds['Ree_whiteness_2nd']} \n"
             f"{self._validation_results.index[5]}: {self._validation_thresholds['Rue_whiteness_1st']} \n"
             f"{self._validation_results.index[6]}: {self._validation_thresholds['Rue_whiteness_2nd']} \n\n"
             f"Validation results:\n-------------------\n"
-            f"{self._validation_results}\n\n"
+            f"{validation_results}\n\n"
             f"{outcomes_head}\n"
             f"{outcomes_body}\n\n"
             f"Input ignored: {self._ignore_input}\n"
@@ -1556,8 +1565,6 @@ def validate_models(
     measured_out: np.ndarray | List[Signal] | List[np.ndarray],
     simulated_out: np.ndarray | List[np.ndarray],
     sampling_period: float | None = None,
-    validation_thresholds: Dict[str, float] | None = None,
-    ignore_input: bool = False,
     **kwargs: Any,
 ) -> ValidationSession:
     """akakakak
@@ -1641,14 +1648,13 @@ def validate_models(
         return data_list
 
     # ======== MAIN ================
-
     # Gather sampling_period from Signals
     if (
-        isinstance(measured_in, list)
-        and isinstance(measured_in[0], dict)
-        and set(measured_in[0].keys()) == set(SIGNAL_KEYS)
+        isinstance(measured_out, list)
+        and isinstance(measured_out[0], dict)
+        and set(measured_out[0].keys()) == set(SIGNAL_KEYS)
     ):
-        sampling_period = measured_in[0]["sampling_period"]
+        sampling_period = measured_out[0]["sampling_period"]
     elif sampling_period is None:
         raise TypeError("'sampling_period' missing")
 
