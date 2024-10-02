@@ -31,7 +31,7 @@ from .utils import (
 )
 
 from .dataset import Dataset, Signal, validate_signals
-from typing import List, Tuple, Dict, Literal, Any
+from typing import List, Dict, Literal, Any
 from dataclasses import dataclass
 
 __all__ = [
@@ -341,7 +341,7 @@ def compute_statistic(
     # TODO: add this
     # if (data.T @ data) == 0:
     #     result = 0
-    elif statistic == "quadratic":
+    if statistic == "quadratic":
         # TODO divide by np.sqrt(w.T @ W)*np.sqrt(data.T @ data), mind that
         # x'Wx < lambda_max(W) |x|^2 and given that W is diagonal and with
         # all positive entries it hold |W| = lamnda_max(W). To secure the
@@ -479,6 +479,9 @@ class ValidationSession:
         xcorr_global_statistic_name_2nd: Statistic_type = "max",
         xcorr_local_weights: np.ndarray | None = None,
         xcorr_global_weights: np.ndarray | None = None,
+        # Model validation
+        validation_thresholds: Dict[str, float] | None = None,
+        ignore_input: bool = False,
     ) -> None:
         # Once you created a ValidationSession you should not change the validation dataset.
         # Create another ValidationSession with another validation dataset
@@ -511,6 +514,34 @@ class ValidationSession:
         """The cross-correlation tensors.
         This attribute is automatically set
         and it should be considered as a *read-only* attribute."""
+
+        # =========== Model validation =============================
+        validation_thresholds_default = {
+            "Ruu_whiteness_1st": 0.6,
+            "Ruu_whiteness_2nd": 0.6,
+            "r2": 65,
+            "Ree_whiteness_1st": 0.4,
+            "Ree_whiteness_2nd": 0.4,
+            "Rue_whiteness_1st": 0.4,
+            "Rue_whiteness_2nd": 0.4,
+        }
+
+        # Set validation thresholds
+        if validation_thresholds is not None and isinstance(
+            validation_thresholds, dict
+        ):
+            validation_thresholds_default = validation_thresholds
+        elif validation_thresholds is not None:
+            raise TypeError("'validation thresholds' must be a dict")
+        elif ignore_input is True:
+            del validation_thresholds_default["Ruu_whiteness_1st"]
+            del validation_thresholds_default["Ruu_whiteness_2nd"]
+
+        self._validation_thresholds = validation_thresholds_default
+        self._ignore_input = ignore_input
+
+        # Initialize PASS/FAIL
+        self._outcome: Dict[str, str] = {}
 
         # =========== Input management =======================
         if input_local_weights is not None:
@@ -595,6 +626,7 @@ class ValidationSession:
         self._validation_results: pd.DataFrame = pd.DataFrame(
             index=idx, columns=[]
         )
+
         """The validation results.
         This attribute is automatically set
         and it should be considered as a *read-only* attribute."""
@@ -606,6 +638,11 @@ class ValidationSession:
 
         # np.set_printoptions(precision=NUM_DECIMALS, suppress=True)
         # pd.options.display.float_format = lambda x: f"{x:.{NUM_DECIMALS}f}"
+        outcomes_head = "\t"
+        outcomes_body = "Outcome: "
+        for k, v in self._outcome.items():
+            outcomes_head += f"\t{k} "
+            outcomes_body += f"\t{self._outcome[k]}"
 
         repr_str = (
             f"Validation session name: {self.name}\n\n"
@@ -628,8 +665,19 @@ class ValidationSession:
             f"local weights: {self._xcorr_local_weights}\n"
             f"global weights: {self._xcorr_global_weights}\n"
             f"num lags: {self._nlags}\n\n"
+            f"Validation thresholds: \n"
+            f"{self._validation_results.index[0]}: {self._validation_thresholds['Ruu_whiteness_1st']} \n"
+            f"{self._validation_results.index[1]}: {self._validation_thresholds['Ruu_whiteness_2nd']} \n"
+            f"{self._validation_results.index[2]}: {self._validation_thresholds['r2']} \n"
+            f"{self._validation_results.index[3]}: {self._validation_thresholds['Ree_whiteness_1st']} \n"
+            f"{self._validation_results.index[4]}: {self._validation_thresholds['Ree_whiteness_2nd']} \n"
+            f"{self._validation_results.index[5]}: {self._validation_thresholds['Rue_whiteness_1st']} \n"
+            f"{self._validation_results.index[6]}: {self._validation_thresholds['Rue_whiteness_2nd']} \n\n"
             f"Validation results:\n-------------------\n"
-            f"{self._validation_results}\n"
+            f"{self._validation_results}\n\n"
+            f"{outcomes_head}\n"
+            f"{outcomes_body}\n\n"
+            f"Input ignored: {self._ignore_input}\n"
         )
 
         # try:
@@ -656,13 +704,9 @@ class ValidationSession:
         """Return a list of names of the stored simulations."""
         return list(self._simulations_values.columns.levels[0])
 
-    # @property
-    # def _input_acorr_tensors(self) -> XCorrelation:
-    #     return self._input_acorr_tensor
-
-    # @property
-    # def _input_local_weights(self) -> np.ndarray | None:
-    #     return self._input_local_weights
+    @property
+    def outcome(self) -> Dict[str, str]:
+        return self._outcome
 
     # @property
     # def _input_global_weights(self) -> np.ndarray | None:
@@ -779,6 +823,23 @@ class ValidationSession:
             Rue_whiteness_1st,
             Rue_whiteness_2nd,
         ]
+
+        # Compute outcome
+        local_outcome = []
+        validation_dict = self.validation_values(sim_name)
+        for k in self._validation_thresholds.keys():
+            if k != "r2":
+                local_outcome.append(
+                    validation_dict[k] < self._validation_thresholds[k]
+                )
+            else:
+                local_outcome.append(
+                    validation_dict[k] > self._validation_thresholds[k]
+                )
+        if all(local_outcome):
+            self._outcome[sim_name] = "PASS"
+        else:
+            self._outcome[sim_name] = "FAIL"
 
     def _sim_list_validate(self) -> None:
         if not self.simulations_names:
@@ -1497,7 +1558,8 @@ def validate_models(
     sampling_period: float | None = None,
     validation_thresholds: Dict[str, float] | None = None,
     ignore_input: bool = False,
-) -> Tuple[List[Literal["PASS", "FAIL"]], ValidationSession, Dict[str, float]]:
+    **kwargs: Any,
+) -> ValidationSession:
     """akakakak
 
     sampling_period will retrieved from Signal id List[Signal], otherwise must
@@ -1550,7 +1612,7 @@ def validate_models(
 
         # Case List[nd.array]
         elif isinstance(data, list) and all(
-            isinstance(item, np.ndarray) and item.ndim == 1 for item in data
+            isinstance(item, np.ndarray) for item in data
         ):
             # Check if all arrays have the same length
             lengths = [len(item) for item in data]
@@ -1579,25 +1641,6 @@ def validate_models(
         return data_list
 
     # ======== MAIN ================
-    validation_thresholds_dict = {
-        "Ruu_whiteness_1st": 0.6,
-        "Ruu_whiteness_2nd": 0.6,
-        "r2": 65,
-        "Ree_whiteness_1st": 0.4,
-        "Ree_whiteness_2nd": 0.4,
-        "Rue_whiteness_1st": 0.4,
-        "Rue_whiteness_2nd": 0.4,
-    }
-
-    if validation_thresholds is not None and isinstance(
-        validation_thresholds, dict
-    ):
-        validation_thresholds_dict = validation_thresholds
-    elif validation_thresholds is not None:
-        raise TypeError("'validation thresholds' must be a dict")
-    elif ignore_input is True:
-        del validation_thresholds_dict["Ruu_whiteness_1st"]
-        del validation_thresholds_dict["Ruu_whiteness_2nd"]
 
     # Gather sampling_period from Signals
     if (
@@ -1632,32 +1675,17 @@ def validate_models(
 
     # Reduce number of lags, don't pick less than 3 lags
     nlags = max(signal_list[0]["samples"].size // 5, 3)
-    vs = ValidationSession("quick & dirty", ds, nlags=nlags, input_nlags=nlags)
+    vs_kwargs = kwargs.copy()
+    vs_kwargs["nlags"] = nlags
+    vs_kwargs["input_nlags"] = nlags
+    vs = ValidationSession("quick & dirty", ds, **vs_kwargs)
 
-    # Actual test
-    global_outcome: List[Literal["PASS", "FAIL"]] = []
     for ii, sim in enumerate(simulated_out):
-        local_outcome = []
         sim = np.column_stack(sim) if isinstance(sim, list) else sim
         sim = sim[:, np.newaxis] if len(sim.shape) == 1 else sim
         sim_name = f"Sim_{ii}"
         vs = vs.append_simulation(
             sim_name=sim_name, y_names=output_labels, y_data=sim
         )
-        validation_dict = vs.validation_values(sim_name)
 
-        for k in validation_thresholds_dict.keys():
-            if k != "r2":
-                local_outcome.append(
-                    validation_dict[k] < validation_thresholds_dict[k]
-                )
-            else:
-                local_outcome.append(
-                    validation_dict[k] > validation_thresholds_dict[k]
-                )
-        if all(local_outcome):
-            global_outcome.append("PASS")
-        else:
-            global_outcome.append("FAIL")
-
-    return global_outcome, vs, validation_thresholds_dict
+    return vs

@@ -925,14 +925,14 @@ class Test_Validate_Models:
             sim_bad2 = sim_bad2[:, 0]
 
         #  act
-        global_outcome, vs, validation_thresholds_dict = validate_models(
+        vs = validate_models(
             dataset_in,
             dataset_out,
             simulated_out=[sim_good, sim_bad, sim_bad2],
         )
 
         expected_outcome = ["PASS", "FAIL", "FAIL"]
-        assert global_outcome == expected_outcome
+        assert list(vs.outcome.values()) == expected_outcome
 
         # Tests if dataset is correctly stored in the ValidationSession
         # instance
@@ -996,7 +996,7 @@ class Test_Validate_Models:
             sim_bad2 = sim_bad2[0]
 
         # act
-        global_outcome, vs, validation_thresholds_dict = validate_models(
+        vs = validate_models(
             dataset_in,
             dataset_out,
             simulated_out=[sim_good, sim_bad, sim_bad2],
@@ -1005,7 +1005,7 @@ class Test_Validate_Models:
 
         expected_outcome = ["PASS", "FAIL", "FAIL"]
 
-        assert global_outcome == expected_outcome
+        assert list(list(vs.outcome.values())) == expected_outcome
 
         # Tests if dataset is correctly stored in the ValidationSession instance
         if fixture == "MISO" or fixture == "MIMO":
@@ -1083,7 +1083,7 @@ class Test_Validate_Models:
             sim_bad2 = sim_bad2[:, 0]
 
         # act
-        global_outcome, vs, validation_thresholds_dict = validate_models(
+        vs = validate_models(
             dataset_in,
             dataset_out,
             simulated_out=[sim_good, sim_bad, sim_bad2],
@@ -1093,7 +1093,7 @@ class Test_Validate_Models:
         # Test will fail on r2 because the bad simulation are random noise
         # anyway (they have low autocorrelation values)
         expected_outcome = ["PASS", "FAIL", "FAIL"]
-        assert global_outcome == expected_outcome
+        assert list(vs.outcome.values()) == expected_outcome
 
         # Tests if dataset is correctly stored in the ValidationSession
         # instance
@@ -1178,7 +1178,7 @@ class Test_Validate_Models:
         }
 
         # act
-        global_outcome, vs, validation_thresholds_dict = validate_models(
+        vs = validate_models(
             dataset_in,
             dataset_out,
             simulated_out=[sim_good, sim_bad, sim_bad2],
@@ -1189,7 +1189,7 @@ class Test_Validate_Models:
         # Test will fail on r2 because the bad simulation are random noise
         # anyway (they have low autocorrelation values)
         expected_outcome = ["FAIL", "FAIL", "FAIL"]
-        assert global_outcome == expected_outcome
+        assert list(vs.outcome.values()) == expected_outcome
 
         # Tests if dataset is correctly stored in the ValidationSession
         # instance
@@ -1264,7 +1264,7 @@ class Test_Validate_Models:
 
         # act: sampling_period missing
         with pytest.raises(TypeError):
-            global_outcome, vs, validation_thresholds_dict = validate_models(
+            _ = validate_models(
                 dataset_in,
                 dataset_out,
                 simulated_out=[sim_good, sim_bad, sim_bad2],
