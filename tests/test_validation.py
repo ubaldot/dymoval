@@ -1306,6 +1306,7 @@ class Test_Compute_Statistics:
             compute_statistic(data=test_data, statistic="quadratic"),
             expected_quad,
         )
+
         assert np.isclose(
             compute_statistic(data=test_data, statistic="std"), expected_std
         )

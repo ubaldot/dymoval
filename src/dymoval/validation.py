@@ -338,16 +338,25 @@ def compute_statistic(
     elif data.size != weights.size:
         raise IndexError("'data' and 'weights' must have the same length")
 
-    if statistic == "quadratic":
+    # TODO: add this
+    # if (data.T @ data) == 0:
+    #     result = 0
+    elif statistic == "quadratic":
+        # TODO divide by np.sqrt(w.T @ W)*np.sqrt(data.T @ data), mind that
+        # x'Wx < lambda_max(W) |x|^2 and given that W is diagonal and with
+        # all positive entries it hold |W| = lamnda_max(W). To secure the
+        # metric to be always < 1 you have to divide by |x|**2|W|
         quadratic_form = data.T @ np.diag(weights) @ data
         normalization_factor = weights.T @ weights
         result = quadratic_form / normalization_factor
 
     elif statistic == "max":
+        # To secure <1 you have to divide by |x|_inf|W|_inf
         result = np.max(np.abs(weights.T * data)) / (
             np.linalg.norm(weights, ord=np.inf)
         )
     elif statistic == "mean":
+        # This should always be less than 1
         result = weights.T @ data / np.sum(weights)
     elif statistic == "std":
         # Compute the weighted average
