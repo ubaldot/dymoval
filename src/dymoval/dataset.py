@@ -21,6 +21,7 @@ import pandas as pd
 import matplotlib.gridspec as gridspec
 from matplotlib import pyplot as plt
 from scipy import io, fft
+from scipy.signal import detrend
 from .config import (
     COLORMAP,
     SIGNAL_KEYS,
@@ -278,7 +279,6 @@ class Dataset:
         self.name: str = "foo"
         self.dataset: pd.DataFrame = pd.DataFrame()
         self.coverage: pd.DataFrame = pd.DataFrame()
-        self.information_level: float = 0.0
         self._nan_intervals: dict[str, list[np.ndarray]] = {}
         self.excluded_signals: list[str] = []
         self.sampling_period: float = 1.0
@@ -2311,6 +2311,54 @@ class Dataset:
         df_temp.loc[:, cols] = (
             df_temp.loc[:, cols] - df_temp.loc[:, cols].mean()
         )
+
+        # round result
+        ds_temp.dataset = df_temp
+
+        return ds_temp
+
+    def detrend(
+        self,
+        *signals: str,
+    ) -> Self:
+        """
+        Linearly detrend the specified signals.
+
+        Parameters
+        ----------
+        *signals:
+            Linearly detrend the specified signals.
+            If not specified, then the mean value is removed to all
+            the input signals in the dataset.
+        """
+        # Arguments validation
+        u_dict, y_dict = self._classify_signals(*signals)
+
+        u_names = list(u_dict.keys())
+        y_names = list(y_dict.keys())
+
+        u_units = list(u_dict.values())
+        y_units = list(y_dict.values())
+
+        # Safe copy
+        ds_temp = deepcopy(self)
+        df_temp = ds_temp.dataset
+
+        # Detrend from input signals
+        cols = list(
+            zip(["INPUT"] * len(u_names), u_names, u_units),
+        )
+        for col in cols:
+            # Detrend the column data
+            df_temp[col] = detrend(df_temp[col].values)
+
+        # Detrend from output signals
+        cols = list(
+            zip(["OUTPUT"] * len(y_names), y_names, y_units),
+        )
+        for col in cols:
+            # Detrend the column data
+            df_temp[col] = detrend(df_temp[col].values)
 
         # round result
         ds_temp.dataset = df_temp

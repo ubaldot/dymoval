@@ -516,10 +516,12 @@ class ValidationSession:
         This attribute is automatically set
         and it should be considered as a *read-only* attribute."""
 
+        # If we don't know the input bandwidth and user don't give any info, we take the heuristic 20 lags
+        safe_input_nlags = 100 if input_nlags is None else input_nlags
         self._input_nlags = self._get_nlags(
             acorr_local_weights=input_local_weights,
             xcorr_local_weights=None,
-            nlags_from_user=input_nlags,
+            nlags_from_user=safe_input_nlags,
             sys_time_constant=None,
         )
 
@@ -651,11 +653,11 @@ class ValidationSession:
             f"Validation thresholds: \n"
             f"{Ruu_whiteness_1st}"
             f"{Ruu_whiteness_2nd}"
-            f"{self._validation_results.index[2]}: {self._validation_thresholds['r2']} \n"
-            f"{self._validation_results.index[3]}: {self._validation_thresholds['Ree_whiteness_1st']} \n"
-            f"{self._validation_results.index[4]}: {self._validation_thresholds['Ree_whiteness_2nd']} \n"
-            f"{self._validation_results.index[5]}: {self._validation_thresholds['Rue_whiteness_1st']} \n"
-            f"{self._validation_results.index[6]}: {self._validation_thresholds['Rue_whiteness_2nd']} \n\n"
+            f"{self._validation_results.index[2]}: {self._validation_thresholds['r2']:.4f} \n"
+            f"{self._validation_results.index[3]}: {self._validation_thresholds['Ree_whiteness_1st']:.4f} \n"
+            f"{self._validation_results.index[4]}: {self._validation_thresholds['Ree_whiteness_2nd']:.4f} \n"
+            f"{self._validation_results.index[5]}: {self._validation_thresholds['Rue_whiteness_1st']:.4f} \n"
+            f"{self._validation_results.index[6]}: {self._validation_thresholds['Rue_whiteness_2nd']:.4f} \n\n"
             f"Validation results:\n-------------------\n"
             f"{validation_results}\n\n"
             f"{outcomes_head}\n"
