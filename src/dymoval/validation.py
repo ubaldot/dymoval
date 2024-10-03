@@ -458,7 +458,7 @@ class ValidationSession:
         validation_dataset: Dataset,
         nlags: int | None = None,
         input_nlags: int | None = None,
-        system_time_constant: float | None = None,
+        sys_time_constant: float | None = None,
         # input auto-correlation
         input_local_statistic_name_1st: Statistic_type = "mean",
         input_global_statistic_name_1st: Statistic_type = "max",
@@ -516,14 +516,12 @@ class ValidationSession:
         This attribute is automatically set
         and it should be considered as a *read-only* attribute."""
 
-        # =========== Input management =======================
-        if input_local_weights is not None:
-            self._input_nlags = input_local_weights.size
-        elif input_nlags is not None:
-            self._input_nlags = input_nlags
-        else:
-            n = self._Dataset.dataset.shape[0]
-            self._input_nlags = signal.correlation_lags(n, n).size
+        self._input_nlags = self._get_nlags(
+            acorr_local_weights=input_local_weights,
+            xcorr_local_weights=None,
+            nlags_from_user=input_nlags,
+            sys_time_constant=None,
+        )
 
         self._input_local_statistic_name_1st = input_local_statistic_name_1st
         self._input_global_statistic_name_1st = input_global_statistic_name_1st
@@ -553,25 +551,13 @@ class ValidationSession:
         self._input_acorr_whiteness_1st = Ruu_whiteness_1st
         self._input_acorr_whiteness_2nd = Ruu_whiteness_2nd
 
-        # nlags: pick the minumum of the lengths between acorr_local_weights and
-        # xcorr_local_weights.
-        # If not specifies, take the argument nlags
-        # If nothing specified, then just pick the full length lags
-        if acorr_local_weights is None and xcorr_local_weights is not None:
-            self._nlags = xcorr_local_weights.size
-        elif acorr_local_weights is not None and xcorr_local_weights is None:
-            self._nlags = acorr_local_weights.size
-        elif (
-            acorr_local_weights is not None and xcorr_local_weights is not None
-        ):
-            self._nlags = min(
-                acorr_local_weights.size, xcorr_local_weights.size
-            )
-        elif nlags is not None:
-            self._nlags = nlags
-        else:
-            n = self._Dataset.dataset.shape[0]
-            self._nlags = signal.correlation_lags(n, n).size
+        self._nlags = self._get_nlags(
+            acorr_local_weights=acorr_local_weights,
+            xcorr_local_weights=xcorr_local_weights,
+            nlags_from_user=nlags,
+            sys_time_constant=sys_time_constant,
+        )
+
         self._acorr_local_statistic_name_1st = acorr_local_statistic_name_1st
         self._acorr_global_statistic_name_1st = acorr_global_statistic_name_1st
         self._acorr_local_statistic_name_2nd = acorr_local_statistic_name_2nd
@@ -601,34 +587,16 @@ class ValidationSession:
         )
 
         # =========== Model validation =============================
-        # We take the default quadratic threshold as n*eps² which is the same as
-        # |x|/np.sqrt(n) < eps
-        eps = 0.2
-        u_quadratic_threshold = self._input_nlags * eps**2
-        res_quadratic_threshold = self._nlags * eps**2
+        self._validation_thresholds = (
+            self._get_validation_thresholds_default(
+                input_nlags=self._input_nlags,
+                nlags=self._nlags,
+                ignore_input=ignore_input,
+            )
+            if validation_thresholds is None
+            else validation_thresholds
+        )
 
-        validation_thresholds_default = {
-            "Ruu_whiteness_1st": 0.6,
-            "Ruu_whiteness_2nd": u_quadratic_threshold,
-            "r2": 65,
-            "Ree_whiteness_1st": 0.4,
-            "Ree_whiteness_2nd": res_quadratic_threshold,
-            "Rue_whiteness_1st": 0.4,
-            "Rue_whiteness_2nd": res_quadratic_threshold,
-        }
-
-        # Set validation thresholds
-        if validation_thresholds is not None and isinstance(
-            validation_thresholds, dict
-        ):
-            validation_thresholds_default = validation_thresholds
-        elif validation_thresholds is not None:
-            raise TypeError("'validation thresholds' must be a dict")
-        elif ignore_input is True:
-            del validation_thresholds_default["Ruu_whiteness_1st"]
-            del validation_thresholds_default["Ruu_whiteness_2nd"]
-
-        self._validation_thresholds = validation_thresholds_default
         self._ignore_input = ignore_input
 
         # Initialize PASS/FAIL
@@ -723,35 +691,6 @@ class ValidationSession:
     def outcome(self) -> Dict[str, str]:
         return self._outcome
 
-    # @property
-    # def _input_global_weights(self) -> np.ndarray | None:
-    #     return self._input_global_weights
-
-    # @property
-    # def input_nlags(self) -> int:
-    #     return self._input_nlags
-
-    # @property
-    # def nlags(self) -> int:
-    #     return self._nlags
-
-    # @property
-    # def _acorr_local_weights(self) -> np.ndarray | None:
-    #     return self._acorr_local_weights
-
-    # @property
-    # def _acorr_global_weights(self) -> np.ndarray | None:
-    #     return self._acorr_global_weights
-
-    # @property
-    # def _xcorr_local_weights(self) -> np.ndarray | None:
-    #     return self._xcorr_local_weights
-
-    # @property
-    # def _xcorr_global_weights(self) -> np.ndarray | None:
-    #     return self._xcorr_global_weights
-
-    # TODO
     def _get_nlags(
         self,
         acorr_local_weights: np.ndarray | None = None,
@@ -759,8 +698,55 @@ class ValidationSession:
         nlags_from_user: int | None = None,
         sys_time_constant: float | None = None,
     ) -> int:
-        pass
-        return 0
+        # If user explicitly set nlags, pick that one, if the user passed
+        # local weights pick the minumum, otherwise if user passed system
+        # dominant time constant pick k*T/Ts, otherwise if nothing is
+        # specified, just pick N//5, where N is the number of observations.
+        nlags = 0
+        if nlags_from_user is not None:
+            nlags = nlags_from_user
+        elif acorr_local_weights is None and xcorr_local_weights is not None:
+            nlags = xcorr_local_weights.size
+        elif acorr_local_weights is not None and xcorr_local_weights is None:
+            nlags = acorr_local_weights.size
+        elif (
+            acorr_local_weights is not None and xcorr_local_weights is not None
+        ):
+            nlags = min(acorr_local_weights.size, xcorr_local_weights.size)
+        elif sys_time_constant is not None:
+            k = 30  # We pick k * T/Ts lags
+            sampling_period = (
+                self._Dataset.dataset.index[1] - self._Dataset.dataset.index[0]
+            )
+            nlags = int(k * sys_time_constant / sampling_period)
+        else:  # all None
+            # VEry heuristical approach
+            nlags = self._Dataset.dataset.shape[0] // 5
+        return nlags
+
+    def _get_validation_thresholds_default(
+        self, input_nlags: int, nlags: int, ignore_input: bool
+    ) -> Dict[str, float]:
+        # We take the default quadratic threshold as n*eps² which is the same as
+        # |x|/np.sqrt(n) < eps
+        eps = 0.2
+        u_quadratic_threshold = self._input_nlags * eps**2
+        res_quadratic_threshold = self._nlags * eps**2
+
+        validation_thresholds_default = {
+            "Ruu_whiteness_1st": 0.6,
+            "Ruu_whiteness_2nd": u_quadratic_threshold,
+            "r2": 65,
+            "Ree_whiteness_1st": 0.4,
+            "Ree_whiteness_2nd": res_quadratic_threshold,
+            "Rue_whiteness_1st": 0.4,
+            "Rue_whiteness_2nd": res_quadratic_threshold,
+        }
+
+        if ignore_input is True:
+            del validation_thresholds_default["Ruu_whiteness_1st"]
+            del validation_thresholds_default["Ruu_whiteness_2nd"]
+        return validation_thresholds_default
 
     def validation_values(self, sim_name: str) -> Any:
         keys = [
@@ -819,7 +805,7 @@ class ValidationSession:
             "Rue",
             u_values,
             eps,
-            nlags=self._nlags,
+            nlags=max(self._nlags, self._input_nlags),
             local_statistic=self._xcorr_local_statistic_name_1st,
             local_weights=self._xcorr_local_weights,
             global_statistic=self._xcorr_global_statistic_name_1st,
@@ -831,7 +817,7 @@ class ValidationSession:
             "Rue",
             u_values,
             eps,
-            nlags=self._nlags,
+            nlags=max(self._nlags, self._input_nlags),
             local_statistic=self._xcorr_local_statistic_name_2nd,
             local_weights=self._xcorr_local_weights,
             global_statistic=self._xcorr_global_statistic_name_2nd,
@@ -1697,33 +1683,9 @@ def validate_models(
         full_time_interval=True,
     )
 
-    # Fix an empirical number of lags if user don't make any selection
-    vs_kwargs = kwargs.copy()
-    # vs_kwargs["nlags"] does not exist but time_constant does
-    is_kwargs_nlags = kwargs and "nlags" in vs_kwargs
-    is_kwargs_input_nlags = kwargs and "input_nlags" in vs_kwargs
-
-    # If user haven't explicitly passes nlags values, compute them based on
-    # system dynamics. You take 30 lags times the ratio T/Ts
-    if not is_kwargs_nlags and sys_time_constant:
-        nlags = int(30 * sys_time_constant / sampling_period)
-        vs_kwargs["nlags"] = nlags
-
-    # If not even system dynamics are passed, take as 1/5 of the total number
-    # of observations. You don't have information, not much to do.
-    elif not is_kwargs_nlags and not sys_time_constant:
-        nlags = max(signal_list[0]["samples"].size // 5, 3)
-        vs_kwargs["nlags"] = nlags
-
-    # Same for input lags
-    if not is_kwargs_input_nlags and sys_time_constant:
-        nlags = int(30 * sys_time_constant / sampling_period)
-        vs_kwargs["input_nlags"] = nlags
-    elif not is_kwargs_input_nlags and not sys_time_constant:
-        nlags = max(signal_list[0]["samples"].size // 5, 3)
-        vs_kwargs["input_nlags"] = nlags
-
     # Create a ValidationSession object
+    vs_kwargs = kwargs.copy()
+    vs_kwargs["sys_time_constant"] = sys_time_constant
     vs = ValidationSession("quick & dirty", ds, **vs_kwargs)
 
     for ii, sim in enumerate(simulated_out):

@@ -16,6 +16,7 @@ class Test_ClassValidationNominal:
         ds = dmv.Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
         name_vs = "my_validation"
         vs = dmv.ValidationSession(name_vs, ds)
+        sys_time_constant = 0.035
 
         # Check that the passed dataset is correctly stored.
         # Main DataFrame
@@ -26,18 +27,26 @@ class Test_ClassValidationNominal:
 
         # Version with less lags
         expected_nlags = 11
-        vs = dmv.ValidationSession(name_vs, ds, nlags=expected_nlags)
+        vs = dmv.ValidationSession(
+            name_vs, ds, nlags=expected_nlags, acorr_local_weights=np.ones(4)
+        )
         assert vs._nlags == expected_nlags
 
-        # Version with less lags
+        # nlags based on system time constant
         expected_nlags = 11
         vs = dmv.ValidationSession(
             name_vs,
             ds,
-            nlags=8,
             acorr_local_weights=np.ones(11),
             xcorr_local_weights=np.ones(22),
+            sys_time_constant=sys_time_constant,
         )
+        assert vs._nlags == expected_nlags
+
+        # Take the minimum lags
+        Ts = vs._Dataset.dataset.index[1] - vs._Dataset.dataset.index[0]
+        expected_nlags = int(30 * sys_time_constant / Ts)
+        vs = dmv.ValidationSession(name_vs, ds, sys_time_constant=0.035)
         assert vs._nlags == expected_nlags
 
     def test_random_walk(self, good_dataframe: pd.DataFrame) -> None:
