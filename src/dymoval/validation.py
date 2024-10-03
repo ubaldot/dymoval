@@ -458,6 +458,7 @@ class ValidationSession:
         validation_dataset: Dataset,
         nlags: int | None = None,
         input_nlags: int | None = None,
+        system_time_constant: float | None = None,
         # input auto-correlation
         input_local_statistic_name_1st: Statistic_type = "mean",
         input_global_statistic_name_1st: Statistic_type = "max",
@@ -514,34 +515,6 @@ class ValidationSession:
         """The cross-correlation tensors.
         This attribute is automatically set
         and it should be considered as a *read-only* attribute."""
-
-        # =========== Model validation =============================
-        validation_thresholds_default = {
-            "Ruu_whiteness_1st": 0.6,
-            "Ruu_whiteness_2nd": 0.6,
-            "r2": 65,
-            "Ree_whiteness_1st": 0.4,
-            "Ree_whiteness_2nd": 0.4,
-            "Rue_whiteness_1st": 0.4,
-            "Rue_whiteness_2nd": 0.4,
-        }
-
-        # Set validation thresholds
-        if validation_thresholds is not None and isinstance(
-            validation_thresholds, dict
-        ):
-            validation_thresholds_default = validation_thresholds
-        elif validation_thresholds is not None:
-            raise TypeError("'validation thresholds' must be a dict")
-        elif ignore_input is True:
-            del validation_thresholds_default["Ruu_whiteness_1st"]
-            del validation_thresholds_default["Ruu_whiteness_2nd"]
-
-        self._validation_thresholds = validation_thresholds_default
-        self._ignore_input = ignore_input
-
-        # Initialize PASS/FAIL
-        self._outcome: Dict[str, str] = {}
 
         # =========== Input management =======================
         if input_local_weights is not None:
@@ -627,6 +600,39 @@ class ValidationSession:
             index=idx, columns=[]
         )
 
+        # =========== Model validation =============================
+        # We take the default quadratic threshold as n*eps² which is the same as
+        # |x|/np.sqrt(n) < eps
+        eps = 0.2
+        u_quadratic_threshold = self._input_nlags * eps**2
+        res_quadratic_threshold = self._nlags * eps**2
+
+        validation_thresholds_default = {
+            "Ruu_whiteness_1st": 0.6,
+            "Ruu_whiteness_2nd": u_quadratic_threshold,
+            "r2": 65,
+            "Ree_whiteness_1st": 0.4,
+            "Ree_whiteness_2nd": res_quadratic_threshold,
+            "Rue_whiteness_1st": 0.4,
+            "Rue_whiteness_2nd": res_quadratic_threshold,
+        }
+
+        # Set validation thresholds
+        if validation_thresholds is not None and isinstance(
+            validation_thresholds, dict
+        ):
+            validation_thresholds_default = validation_thresholds
+        elif validation_thresholds is not None:
+            raise TypeError("'validation thresholds' must be a dict")
+        elif ignore_input is True:
+            del validation_thresholds_default["Ruu_whiteness_1st"]
+            del validation_thresholds_default["Ruu_whiteness_2nd"]
+
+        self._validation_thresholds = validation_thresholds_default
+        self._ignore_input = ignore_input
+
+        # Initialize PASS/FAIL
+        self._outcome: Dict[str, str] = {}
         """The validation results.
         This attribute is automatically set
         and it should be considered as a *read-only* attribute."""
@@ -744,6 +750,17 @@ class ValidationSession:
     # @property
     # def _xcorr_global_weights(self) -> np.ndarray | None:
     #     return self._xcorr_global_weights
+
+    # TODO
+    def _get_nlags(
+        self,
+        acorr_local_weights: np.ndarray | None = None,
+        xcorr_local_weights: np.ndarray | None = None,
+        nlags_from_user: int | None = None,
+        sys_time_constant: float | None = None,
+    ) -> int:
+        pass
+        return 0
 
     def validation_values(self, sim_name: str) -> Any:
         keys = [
@@ -1692,20 +1709,6 @@ def validate_models(
         nlags = int(30 * sys_time_constant / sampling_period)
         vs_kwargs["nlags"] = nlags
 
-        # Exclude lags around lag = 0. There residuals are obviously
-        # correlated because the measurements are taking too close one each
-        # other.
-        excluded_lags = int(sys_time_constant / sampling_period)
-        mid_point = nlags // 2
-        # Initialize weights
-        acorr_local_weights = np.ones(nlags)
-        start_index = max(0, mid_point - excluded_lags)
-        end_index = min(nlags, mid_point + excluded_lags)
-        # Set the specified range to 0
-        acorr_local_weights[start_index:end_index] = 0
-        vs_kwargs["acorr_local_weights"] = acorr_local_weights
-        vs_kwargs["xcorr_local_weights"] = acorr_local_weights
-
     # If not even system dynamics are passed, take as 1/5 of the total number
     # of observations. You don't have information, not much to do.
     elif not is_kwargs_nlags and not sys_time_constant:
@@ -1716,8 +1719,6 @@ def validate_models(
     if not is_kwargs_input_nlags and sys_time_constant:
         nlags = int(30 * sys_time_constant / sampling_period)
         vs_kwargs["input_nlags"] = nlags
-        # TODO: not sure the following is correct
-        vs_kwargs["input_local_weights"] = vs_kwargs["xcorr_local_weights"]
     elif not is_kwargs_input_nlags and not sys_time_constant:
         nlags = max(signal_list[0]["samples"].size // 5, 3)
         vs_kwargs["input_nlags"] = nlags
