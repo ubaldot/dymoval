@@ -331,7 +331,7 @@ def compute_statistic(
 
     if weights is None:
         weights = np.ones(data.size)
-    elif np.min(weights) <= 0:
+    elif np.min(weights) < 0:
         raise ValueError("All weights must be positive")
     elif weights.ndim != 1:
         raise ValueError("'weights' must be a 1D array")
@@ -1565,6 +1565,7 @@ def validate_models(
     measured_out: np.ndarray | List[Signal] | List[np.ndarray],
     simulated_out: np.ndarray | List[np.ndarray],
     sampling_period: float | None = None,
+    sys_time_constant: float | None = None,
     **kwargs: Any,
 ) -> ValidationSession:
     """akakakak
@@ -1679,11 +1680,49 @@ def validate_models(
         full_time_interval=True,
     )
 
-    # Reduce number of lags, don't pick less than 3 lags
-    nlags = max(signal_list[0]["samples"].size // 5, 3)
+    # Fix an empirical number of lags if user don't make any selection
     vs_kwargs = kwargs.copy()
-    vs_kwargs["nlags"] = nlags
-    vs_kwargs["input_nlags"] = nlags
+    # vs_kwargs["nlags"] does not exist but time_constant does
+    is_kwargs_nlags = kwargs and "nlags" in vs_kwargs
+    is_kwargs_input_nlags = kwargs and "input_nlags" in vs_kwargs
+
+    # If user haven't explicitly passes nlags values, compute them based on
+    # system dynamics. You take 30 lags times the ratio T/Ts
+    if not is_kwargs_nlags and sys_time_constant:
+        nlags = int(30 * sys_time_constant / sampling_period)
+        vs_kwargs["nlags"] = nlags
+
+        # Exclude lags around lag = 0. There residuals are obviously
+        # correlated because the measurements are taking too close one each
+        # other.
+        excluded_lags = int(sys_time_constant / sampling_period)
+        mid_point = nlags // 2
+        # Initialize weights
+        acorr_local_weights = np.ones(nlags)
+        start_index = max(0, mid_point - excluded_lags)
+        end_index = min(nlags, mid_point + excluded_lags)
+        # Set the specified range to 0
+        acorr_local_weights[start_index:end_index] = 0
+        vs_kwargs["acorr_local_weights"] = acorr_local_weights
+        vs_kwargs["xcorr_local_weights"] = acorr_local_weights
+
+    # If not even system dynamics are passed, take as 1/5 of the total number
+    # of observations. You don't have information, not much to do.
+    elif not is_kwargs_nlags and not sys_time_constant:
+        nlags = max(signal_list[0]["samples"].size // 5, 3)
+        vs_kwargs["nlags"] = nlags
+
+    # Same for input lags
+    if not is_kwargs_input_nlags and sys_time_constant:
+        nlags = int(30 * sys_time_constant / sampling_period)
+        vs_kwargs["input_nlags"] = nlags
+        # TODO: not sure the following is correct
+        vs_kwargs["input_local_weights"] = vs_kwargs["xcorr_local_weights"]
+    elif not is_kwargs_input_nlags and not sys_time_constant:
+        nlags = max(signal_list[0]["samples"].size // 5, 3)
+        vs_kwargs["input_nlags"] = nlags
+
+    # Create a ValidationSession object
     vs = ValidationSession("quick & dirty", ds, **vs_kwargs)
 
     for ii, sim in enumerate(simulated_out):
