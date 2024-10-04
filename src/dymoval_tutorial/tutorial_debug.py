@@ -9,7 +9,8 @@ from dymoval_tutorial.DCMotorModel import DCMotor_dt
 import control as ct
 
 logs = h5py.File(
-    "/Users/ubaldot/Documents/dymoval/src/dymoval_tutorial/DCMotorLogs.h5",
+    # "/Users/ubaldot/Documents/dymoval/src/dymoval_tutorial/DCMotorLogs.h5",
+    "/home/yt75534/dymoval/src/dymoval_tutorial/DCMotorLogs.h5",
     "r",
 )
 logs["signals"].keys()

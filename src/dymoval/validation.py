@@ -27,7 +27,7 @@ from .utils import (
     is_interactive_shell,
     factorize,
     difference_lists_of_str,
-    str2list,
+    obj2list,
 )
 
 from .dataset import Dataset, Signal, validate_signals
@@ -716,7 +716,7 @@ class ValidationSession:
         ):
             nlags = min(acorr_local_weights.size, xcorr_local_weights.size)
         elif sys_time_constant is not None:
-            k = 30  # We pick k * T/Ts lags
+            k = 20  # We pick k * T/Ts lags
             sampling_period = (
                 self._Dataset.dataset.index[1] - self._Dataset.dataset.index[0]
             )
@@ -731,7 +731,7 @@ class ValidationSession:
     ) -> Dict[str, float]:
         # We take the default quadratic threshold as n*eps² which is the same as
         # |x|/np.sqrt(n) < eps
-        eps = 0.2
+        eps = 0.5
         u_quadratic_threshold = self._input_nlags * eps**2
         res_quadratic_threshold = self._nlags * eps**2
 
@@ -739,9 +739,9 @@ class ValidationSession:
             "Ruu_whiteness_1st": 0.6,
             "Ruu_whiteness_2nd": u_quadratic_threshold,
             "r2": 65,
-            "Ree_whiteness_1st": 0.4,
+            "Ree_whiteness_1st": 0.5,
             "Ree_whiteness_2nd": res_quadratic_threshold,
-            "Rue_whiteness_1st": 0.4,
+            "Rue_whiteness_1st": 0.5,
             "Rue_whiteness_2nd": res_quadratic_threshold,
         }
 
@@ -964,7 +964,7 @@ class ValidationSession:
         if not list_sims:
             list_sims = self.simulations_names
         else:
-            list_sims = str2list(list_sims)
+            list_sims = obj2list(list_sims)
             sim_not_found = difference_lists_of_str(
                 list_sims, self.simulations_names
             )
@@ -1326,7 +1326,7 @@ class ValidationSession:
         if not list_sims:
             list_sims = self.simulations_names
         else:
-            list_sims = str2list(list_sims)
+            list_sims = obj2list(list_sims)
             sim_not_found = difference_lists_of_str(
                 list_sims, self.simulations_names
             )
@@ -1500,7 +1500,7 @@ class ValidationSession:
         vs_temp = deepcopy(self)
         # df_sim = vs_temp.simulations_values
 
-        y_names = str2list(y_names)
+        y_names = obj2list(y_names)
         vs_temp._simulation_validation(sim_name, y_names, y_data)
 
         y_units = list(

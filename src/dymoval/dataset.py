@@ -35,7 +35,7 @@ from .utils import (
     is_interactive_shell,
     factorize,
     difference_lists_of_str,
-    str2list,
+    obj2list,
 )
 from typing import TypedDict, Any, Literal, Tuple
 from copy import deepcopy
@@ -462,8 +462,8 @@ class Dataset:
             )
 
         # If the user passes a str cast into a list[str]
-        u_names = str2list(u_names)
-        y_names = str2list(y_names)
+        u_names = obj2list(u_names)
+        y_names = obj2list(y_names)
         # Check that you have at least one input and one output
         if not u_names or not y_names:
             raise IndexError(
@@ -620,8 +620,8 @@ class Dataset:
 
         # If the user pass a single signal as a str,
         # then we need to convert into a list
-        u_names = str2list(u_names)
-        y_names = str2list(y_names)
+        u_names = obj2list(u_names)
+        y_names = obj2list(y_names)
 
         # Try to align the sampling periods, whenever possible
         # Note! resampled_signals:list[Signals], whereas
@@ -1094,7 +1094,7 @@ class Dataset:
         data = np.stack([s["samples"] for s in signals_ok]).T
         df_temp = pd.DataFrame(data=data, index=ds.dataset.index)
         df_temp.columns = pd.MultiIndex.from_tuples(
-            zip(str2list(kind) * len(signals_name), signals_name, signals_unit),
+            zip(obj2list(kind) * len(signals_name), signals_name, signals_unit),
             name=["kind", "names", "units"],
         )
 

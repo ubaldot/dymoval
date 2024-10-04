@@ -7,7 +7,7 @@ Created on Thu Jul 14 11:43:21 2022
 """
 
 import pytest
-from dymoval.utils import str2list, difference_lists_of_str, open_tutorial
+from dymoval.utils import obj2list, difference_lists_of_str, open_tutorial
 
 # from fixture_data import *  # noqa
 import os
@@ -75,7 +75,7 @@ class Test_difference_lists_of_str:
         assert sorted(elements_not_found) == sorted(expected)
 
 
-class Test_str2list:
+class Test_obj2list:
     @pytest.mark.parametrize(
         "x, expected",
         [
@@ -86,8 +86,8 @@ class Test_str2list:
             ),  # list input
         ],
     )
-    def test_str2list(self, x: str | list[str], expected: list[str]) -> None:
-        actual = str2list(x)
+    def test_obj2list(self, x: str | list[str], expected: list[str]) -> None:
+        actual = obj2list(x)
         assert sorted(actual) == sorted(expected)
 
 

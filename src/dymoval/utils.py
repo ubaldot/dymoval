@@ -15,7 +15,7 @@ __all__ = [
     "is_interactive_shell",
     "factorize",
     "difference_lists_of_str",
-    "str2list",
+    "obj2list",
     "open_tutorial",
 ]
 
@@ -59,8 +59,8 @@ def difference_lists_of_str(
     B:
         list of strings B.
     """
-    A = str2list(A)
-    B = str2list(B)
+    A = obj2list(A)
+    B = obj2list(B)
 
     return list(set(A) - set(B))
 
@@ -68,9 +68,9 @@ def difference_lists_of_str(
 T = TypeVar("T")
 
 
-# TODO: rename str2list
-def str2list(x: T | List[T]) -> List[T]:
-    # def str2list(x: Any | List[Any]) -> List[Any]:
+# TODO: rename obj2list
+def obj2list(x: T | List[T]) -> List[T]:
+    # def obj2list(x: Any | List[Any]) -> List[Any]:
     """
     Convert *obj* of type T into *list[obj]* of type T.
 

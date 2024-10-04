@@ -17,7 +17,7 @@ import pytest
 
 from dymoval.dataset import Signal
 from dymoval.config import ATOL, Signal_type
-from dymoval.utils import str2list
+from dymoval.utils import obj2list
 from typing import Any
 import random
 import matplotlib
@@ -46,8 +46,8 @@ class Test_Dataset_nominal:
 
         # Expected value. Create a two-levels column from normal DataFrame
         df_expected = deepcopy(df)
-        u_names = str2list(u_names)
-        y_names = str2list(y_names)
+        u_names = obj2list(u_names)
+        y_names = obj2list(y_names)
         u_extended_labels = list(zip(["INPUT"] * len(u_names), u_names))
         y_extended_labels = list(zip(["OUTPUT"] * len(y_names), y_names))
         df_expected.columns = pd.MultiIndex.from_tuples(
