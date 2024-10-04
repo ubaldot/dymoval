@@ -74,3 +74,32 @@ vs = vs.trim(1, 35)
 # %%
 weights = 10 * np.ones(1000)
 print(dmv.validation.compute_statistic(data, "quadratic", weights))
+
+
+# %%
+def autocorrelation(signal):  # type:ignore
+    n = len(signal)
+    mean = np.mean(signal)
+    var = np.var(signal)
+
+    # Compute the autocorrelation
+    autocorr = np.correlate(signal - mean, signal - mean, mode="full")
+    autocorr = autocorr[n - 1 :]  # Keep only the second half
+    autocorr /= var * np.arange(n, 0, -1)  # Normalize
+    return autocorr
+
+
+# Compute the autocorrelation
+motor_speed_np = vs.simulations_values()["Sim_0"]["MotorSpeed"].to_numpy()
+autocorr_result = autocorrelation(motor_speed_np.flatten())
+
+# Plot the autocorrelation
+plt.figure(figsize=(10, 5))
+plt.plot(autocorr_result)
+plt.title("Autocorrelation")
+plt.xlabel("Lag")
+plt.ylabel("Autocorrelation")
+plt.xlim(0, 100)  # Limit x-axis to the first 100 lags
+plt.axhline(0, color="grey", lw=0.5, ls="--")  # Add a horizontal line at y=0
+plt.grid()
+plt.show()
