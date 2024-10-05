@@ -42,6 +42,31 @@ __all__ = [
 ]
 
 
+def _get_nlags(
+    signal_length: int,
+    local_weights: np.ndarray | None = None,
+    nlags_from_user: int | None = None,
+    sys_time_constant: float | None = None,
+    sampling_period: float | None = None,
+) -> int:
+    # If user explicitly set nlags, pick that one, if the user passed
+    # local weights pick the minumum, otherwise if user passed system
+    # dominant time constant pick k*T/Ts, otherwise if nothing is
+    # specified, just pick N//5, where N is the number of observations.
+    if nlags_from_user is not None:
+        nlags = nlags_from_user
+    elif local_weights is not None:
+        nlags = local_weights.size
+    elif sys_time_constant is not None:
+        assert sampling_period is not None
+        k = 20  # We pick k * T/Ts lags
+        nlags = int(k * sys_time_constant / sampling_period)
+    else:  # all None
+        # Very heuristical approach
+        nlags = signal_length // 5
+    return nlags
+
+
 @dataclass
 class XCorrelation:
     # You have to manually write the type in TypedDicts docstrings
@@ -82,149 +107,42 @@ class XCorrelation:
         local_weights: np.ndarray | None = None,  # shall be a 1D vector
         global_statistic: Statistic_type = "max",
         global_weights: np.ndarray | None = None,
+        sys_time_constant: float | None = None,
+        sampling_period: float | None = None,
     ) -> None:
-
-        def _init_tensor(
-            X: np.ndarray,
-            Y: np.ndarray,
-            nlags: int | None = None,
-        ) -> Any:
-            if X.ndim == 1:
-                X = X.reshape(len(X), 1)
-            if Y.ndim == 1:
-                Y = Y.reshape(len(Y), 1)
-            p = X.shape[1]
-            q = Y.shape[1]
-
-            # Input validation
-            if global_weights is not None:
-                val = (
-                    "number_of_outputs * number_of_outputs"
-                    if (np.allclose(X, Y) or Y is None)
-                    else "number_of_inputs * number_of_outputs"
-                )
-                if global_weights.size != p * q:
-                    raise ValueError(
-                        f"Length of 'global_weights' must be equal to '{val}'"
-                    )
-
-            all_lags = signal.correlation_lags(len(X), len(Y))
-            Rxy = np.zeros([len(all_lags), p, q])
-            for ii in range(p):
-                for jj in range(q):
-                    # Classic correlation definition from Probability.
-                    # Rxy = E[(X-mu_x)^T(Y-mu_y))]/(sigma_x*sigma_y),
-                    # check normalized cross-correlation for stochastic processes on Wikipedia.
-                    # Nevertheless, the cross-correlation is in-fact the same as E[].
-                    # More specifically, the cross-correlation generate a sequence
-                    # [E[XY(\tau=0))] E[XY(\tau=1))], ...,E[XY(\tau=N))]] and this is
-                    # the reason why in the computation below we use signal.correlation.
-                    #
-                    # Another way of seeing it, is that to secure that the cross-correlation
-                    # is always between -1 and 1, we "normalize" the observations X and Y
-                    # Google for "Standard score"
-                    #
-                    # At the end, for each pair (ii,jj) you have Rxy = r_{x_ii,y_jj}(\tau), therefore
-                    # for each (ii,jj) we compute a correlation.
-                    Rxy[:, ii, jj] = signal.correlate(
-                        (X[:, ii] - np.mean(X[:, ii])) / np.std(X[:, ii]),
-                        (Y[:, jj] - np.mean(Y[:, jj])) / np.std(Y[:, jj]),
-                    ) / min(len(X), len(Y))
-
-            # Trim the cross-correlation results if the user wants less lags
-            if local_weights is not None:
-                num_lags = (
-                    local_weights.size
-                    if local_weights.size < all_lags.size
-                    else all_lags.size
-                )
-            elif nlags is not None:
-                num_lags = nlags if nlags < all_lags.size else all_lags.size
-            else:
-                num_lags = all_lags.size
-
-            # Actual trim
-            half_lags = num_lags // 2
-            is_odd = 1 if num_lags % 2 == 1 else 0
-            lags: np.ndarray = np.arange(-half_lags, half_lags + is_odd)
-            mid_point = Rxy.shape[0] // 2
-            Rxy = Rxy[
-                mid_point - half_lags : mid_point + half_lags + is_odd,
-                :,
-                :,
-            ]
-
-            return Rxy, lags
-
-        def _whiteness_level(
-            local_statistic: Statistic_type = "quadratic",
-            local_weights: np.ndarray | None = None,  # shall be a 1D vector
-            global_statistic: Statistic_type = "max",
-            global_weights: np.ndarray | None = None,
-        ) -> Any:
-
-            # MAIN whiteness level =================================
-            R = self.values
-            num_lags = R.shape[0]  # Number of lags
-            nrows = R.shape[1]  # Number of rows
-            ncols = R.shape[2]  # Number of columns
-            lags0_idx = np.nonzero(self.lags == 0)[0][0]
-
-            # Fix locals weights
-            W_local = (
-                np.ones(num_lags) if local_weights is None else local_weights
-            )
-
-            # fix global weights
-            W_global = (
-                np.ones(nrows * ncols)
-                if global_weights is None
-                else global_weights
-            )
-
-            # Build the R_matrix by computing the statistic of each scalar
-            # cross-correlation (local)
-            R_matrix = np.zeros((nrows, ncols))
-            for ii in range(nrows):
-                for jj in range(ncols):
-                    if ii == jj and self.kind == "auto-correlation":
-                        # Remove auto-correlation values at lag = 0
-                        W = np.delete(W_local, lags0_idx)
-                        rij_tau = np.delete(R[:, ii, jj], lags0_idx)
-                    else:
-                        W = W_local
-                        rij_tau = R[:, ii, jj]
-
-                    R_matrix[ii, jj] = compute_statistic(
-                        statistic=local_statistic,
-                        weights=W,
-                        data=rij_tau,
-                    )
-
-            # Compute the overall statistic of the resulting matrix
-            whiteness_level = compute_statistic(
-                statistic=global_statistic,
-                weights=W_global,
-                data=R_matrix,
-            )
-            return whiteness_level, R_matrix
 
         # =========================================
         # Attributes
         # =========================================
         self.name: str = name
+
         if Y is None or np.array_equal(X, Y):
-            self.values, self.lags = _init_tensor(X, X, nlags)
+            self._nlags = _get_nlags(
+                signal_length=X.shape[0],
+                local_weights=local_weights,
+                nlags_from_user=nlags,
+                sys_time_constant=sys_time_constant,
+                sampling_period=sampling_period,
+            )
+            self.values, self.lags = self._init_tensor(X, X, self._nlags)
             self.kind = "auto-correlation"
         else:
-            self.values, self.lags = _init_tensor(X, Y, nlags)
+            self._nlags = _get_nlags(
+                signal_length=min(X.shape[0], Y.shape[0]) - 1,
+                local_weights=local_weights,
+                nlags_from_user=nlags,
+                sys_time_constant=sys_time_constant,
+                sampling_period=sampling_period,
+            )
+            self.values, self.lags = self._init_tensor(X, Y, self._nlags)
             self.kind = "cross-correlation"
 
+        # Info on how the whiteness is going to be computed.
         self._local_statistics = local_statistic
         self._local_weights = local_weights
         self._global_statistics = global_statistic
         self._global_weights = global_weights
-        self.whiteness, self.R_matrix = _whiteness_level(
+        self.whiteness, self.R_matrix = self._whiteness_level(
             local_statistic=local_statistic,
             local_weights=local_weights,
             global_statistic=global_statistic,
@@ -233,6 +151,107 @@ class XCorrelation:
 
         """Lags of the cross-correlation.
         It is a vector of length *N*, where *N* is the number of lags."""
+
+    def _init_tensor(
+        self,
+        X: np.ndarray,
+        Y: np.ndarray,
+        nlags: int | None = None,
+    ) -> Any:
+        if X.ndim == 1:
+            X = X.reshape(len(X), 1)
+        if Y.ndim == 1:
+            Y = Y.reshape(len(Y), 1)
+        p = X.shape[1]
+        q = Y.shape[1]
+
+        all_lags = signal.correlation_lags(len(X), len(Y))
+        Rxy = np.zeros([len(all_lags), p, q])
+        for ii in range(p):
+            for jj in range(q):
+                # Classic correlation definition from Probability.
+                # Rxy = E[(X-mu_x)^T(Y-mu_y))]/(sigma_x*sigma_y),
+                # check normalized cross-correlation for stochastic processes on Wikipedia.
+                # Nevertheless, the cross-correlation is in-fact the same as E[].
+                # More specifically, the cross-correlation generate a sequence
+                # [E[XY(\tau=0))] E[XY(\tau=1))], ...,E[XY(\tau=N))]] and this is
+                # the reason why in the computation below we use signal.correlation.
+                #
+                # Another way of seeing it, is that to secure that the cross-correlation
+                # is always between -1 and 1, we "normalize" the observations X and Y
+                # Google for "Standard score"
+                #
+                # At the end, for each pair (ii,jj) you have Rxy = r_{x_ii,y_jj}(\tau), therefore
+                # for each (ii,jj) we compute a correlation.
+                Rxy[:, ii, jj] = signal.correlate(
+                    (X[:, ii] - np.mean(X[:, ii])) / np.std(X[:, ii]),
+                    (Y[:, jj] - np.mean(Y[:, jj])) / np.std(Y[:, jj]),
+                ) / min(len(X), len(Y))
+
+        # Trim the cross-correlation results if the user wants less lags
+        num_lags = min(nlags, all_lags.size)
+
+        # Actual trim
+        half_lags = num_lags // 2
+        is_odd = 1 if num_lags % 2 == 1 else 0
+        lags: np.ndarray = np.arange(-half_lags, half_lags + is_odd)
+        mid_point = Rxy.shape[0] // 2
+        Rxy = Rxy[
+            mid_point - half_lags : mid_point + half_lags + is_odd,
+            :,
+            :,
+        ]
+
+        return Rxy, lags
+
+    def _whiteness_level(
+        self,
+        local_statistic: Statistic_type = "quadratic",
+        local_weights: np.ndarray | None = None,  # shall be a 1D vector
+        global_statistic: Statistic_type = "max",
+        global_weights: np.ndarray | None = None,
+    ) -> Any:
+
+        # MAIN whiteness level =================================
+        R = self.values
+        nrows = R.shape[1]  # Number of rows
+        ncols = R.shape[2]  # Number of columns
+        lags0_idx = np.nonzero(self.lags == 0)[0][0]
+
+        # Fix locals weights
+        W_local = np.ones(self._nlags)
+
+        # fix global weights
+        W_global = (
+            np.ones(nrows * ncols) if global_weights is None else global_weights
+        )
+
+        # Build the R_matrix by computing the statistic of each scalar
+        # cross-correlation (local)
+        R_matrix = np.zeros((nrows, ncols))
+        for ii in range(nrows):
+            for jj in range(ncols):
+                if ii == jj and self.kind == "auto-correlation":
+                    # Remove auto-correlation values at lag = 0
+                    W = np.delete(W_local, lags0_idx)
+                    rij_tau = np.delete(R[:, ii, jj], lags0_idx)
+                else:
+                    W = W_local
+                    rij_tau = R[:, ii, jj]
+
+                R_matrix[ii, jj] = compute_statistic(
+                    statistic=local_statistic,
+                    weights=W,
+                    data=rij_tau,
+                )
+
+        # Compute the overall statistic of the resulting matrix
+        whiteness_level = compute_statistic(
+            statistic=global_statistic,
+            weights=W_global,
+            data=R_matrix,
+        )
+        return whiteness_level, R_matrix
 
     def __repr__(self) -> str:
         # Save existing settings
@@ -401,6 +420,7 @@ def rsquared(x: np.ndarray, y: np.ndarray) -> float:
     return r2  # type: ignore
 
 
+# TODO: Not happy with this
 def whiteness_level(
     data: np.ndarray,
     nlags: int | None = None,
@@ -497,6 +517,7 @@ class ValidationSession:
 
         # Simulation based
         self.name: str = name  #: The validation session name.
+        self._sys_time_constant = sys_time_constant
 
         self._simulations_values: pd.DataFrame = pd.DataFrame(
             index=validation_dataset.dataset.index, columns=[[], [], []]
@@ -516,14 +537,25 @@ class ValidationSession:
         This attribute is automatically set
         and it should be considered as a *read-only* attribute."""
 
-        # If we don't know the input bandwidth and user don't give any info, we take the heuristic 20 lags
-        safe_input_nlags = 100 if input_nlags is None else input_nlags
-        self._input_nlags = self._get_nlags(
-            acorr_local_weights=input_local_weights,
-            xcorr_local_weights=None,
-            nlags_from_user=safe_input_nlags,
-            sys_time_constant=None,
+        acorr_nlags = _get_nlags(
+            signal_length=len(self._Dataset.dataset.index),
+            local_weights=acorr_local_weights,
+            nlags_from_user=nlags,
+            sys_time_constant=sys_time_constant,
+            sampling_period=self._Dataset.dataset.index[1]
+            - self._Dataset.dataset.index[0],
         )
+
+        xcorr_nlags = _get_nlags(
+            signal_length=len(self._Dataset.dataset.index),
+            local_weights=xcorr_local_weights,
+            nlags_from_user=nlags,
+            sys_time_constant=sys_time_constant,
+            sampling_period=self._Dataset.dataset.index[1]
+            - self._Dataset.dataset.index[0],
+        )
+
+        self._nlags = min(acorr_nlags, xcorr_nlags)
 
         self._input_local_statistic_name_1st = input_local_statistic_name_1st
         self._input_global_statistic_name_1st = input_global_statistic_name_1st
@@ -532,32 +564,31 @@ class ValidationSession:
         self._input_local_weights = input_local_weights
         self._input_global_weights = input_global_weights
 
-        Ruu_whiteness_1st, _, Ruu = whiteness_level(
+        Ruu = XCorrelation(
+            "Ruu",
             self._Dataset.dataset["INPUT"].to_numpy(),
-            nlags=self._input_nlags,
+            self._Dataset.dataset["INPUT"].to_numpy(),
+            nlags=input_nlags,
             local_statistic=self._input_local_statistic_name_1st,
             local_weights=self._input_local_weights,
             global_statistic=self._input_global_statistic_name_1st,
             global_weights=self._input_global_weights,
+            sys_time_constant=sys_time_constant,
+            sampling_period=self._Dataset.dataset.index[1]
+            - self._Dataset.dataset.index[0],
         )
-        Ruu_whiteness_2nd = whiteness_level(
-            self._Dataset.dataset["INPUT"].to_numpy(),
-            nlags=self._input_nlags,
+
+        self._input_acorr_tensor = Ruu
+        self._input_nlags = Ruu._nlags
+        self._input_acorr_whiteness_1st = Ruu.whiteness
+
+        # 2nd statistics computation of the same tensor
+        # TODO All other attributes are the same (and are wrong)
+        self._input_acorr_whiteness_2nd, _ = Ruu._whiteness_level(
             local_statistic=self._input_local_statistic_name_2nd,
             local_weights=self._input_local_weights,
             global_statistic=self._input_global_statistic_name_2nd,
             global_weights=self._input_global_weights,
-        )[0]
-
-        self._input_acorr_tensor = Ruu
-        self._input_acorr_whiteness_1st = Ruu_whiteness_1st
-        self._input_acorr_whiteness_2nd = Ruu_whiteness_2nd
-
-        self._nlags = self._get_nlags(
-            acorr_local_weights=acorr_local_weights,
-            xcorr_local_weights=xcorr_local_weights,
-            nlags_from_user=nlags,
-            sys_time_constant=sys_time_constant,
         )
 
         self._acorr_local_statistic_name_1st = acorr_local_statistic_name_1st
@@ -591,8 +622,6 @@ class ValidationSession:
         # =========== Model validation =============================
         self._validation_thresholds = (
             self._get_validation_thresholds_default(
-                input_nlags=self._input_nlags,
-                nlags=self._nlags,
                 ignore_input=ignore_input,
             )
             if validation_thresholds is None
@@ -693,47 +722,14 @@ class ValidationSession:
     def outcome(self) -> Dict[str, str]:
         return self._outcome
 
-    def _get_nlags(
-        self,
-        acorr_local_weights: np.ndarray | None = None,
-        xcorr_local_weights: np.ndarray | None = None,
-        nlags_from_user: int | None = None,
-        sys_time_constant: float | None = None,
-    ) -> int:
-        # If user explicitly set nlags, pick that one, if the user passed
-        # local weights pick the minumum, otherwise if user passed system
-        # dominant time constant pick k*T/Ts, otherwise if nothing is
-        # specified, just pick N//5, where N is the number of observations.
-        nlags = 0
-        if nlags_from_user is not None:
-            nlags = nlags_from_user
-        elif acorr_local_weights is None and xcorr_local_weights is not None:
-            nlags = xcorr_local_weights.size
-        elif acorr_local_weights is not None and xcorr_local_weights is None:
-            nlags = acorr_local_weights.size
-        elif (
-            acorr_local_weights is not None and xcorr_local_weights is not None
-        ):
-            nlags = min(acorr_local_weights.size, xcorr_local_weights.size)
-        elif sys_time_constant is not None:
-            k = 20  # We pick k * T/Ts lags
-            sampling_period = (
-                self._Dataset.dataset.index[1] - self._Dataset.dataset.index[0]
-            )
-            nlags = int(k * sys_time_constant / sampling_period)
-        else:  # all None
-            # VEry heuristical approach
-            nlags = self._Dataset.dataset.shape[0] // 5
-        return nlags
-
     def _get_validation_thresholds_default(
-        self, input_nlags: int, nlags: int, ignore_input: bool
+        self, ignore_input: bool
     ) -> Dict[str, float]:
         # We take the default quadratic threshold as n*eps² which is the same as
         # |x|/np.sqrt(n) < eps
         eps = 0.5
-        u_quadratic_threshold = self._input_nlags * eps**2
-        res_quadratic_threshold = self._nlags * eps**2
+        u_quadratic_threshold = eps**2
+        res_quadratic_threshold = eps**2
 
         validation_thresholds_default = {
             "Ruu_whiteness_1st": 0.6,
@@ -785,24 +781,31 @@ class ValidationSession:
 
         # rsquared and various statistics
         r2 = rsquared(y_values, y_sim_values)
-        # Here I can do it at once
-        Ree_whiteness_1st, _, Ree = whiteness_level(
+
+        # Residuals auto-correlation
+        Ree = XCorrelation(
+            "Ree",
+            eps,
             eps,
             nlags=self._nlags,
             local_statistic=self._acorr_local_statistic_name_1st,
             local_weights=self._acorr_local_weights,
             global_statistic=self._acorr_global_statistic_name_1st,
             global_weights=self._acorr_global_weights,
+            sys_time_constant=self._sys_time_constant,
+            sampling_period=self._Dataset.dataset.index[1]
+            - self._Dataset.dataset.index[0],
         )
-        Ree_whiteness_2nd = whiteness_level(
-            eps,
-            nlags=self._nlags,
+
+        Ree_whiteness_1st = Ree.whiteness
+        Ree_whiteness_2nd, _ = Ree._whiteness_level(
             local_statistic=self._acorr_local_statistic_name_2nd,
             local_weights=self._acorr_local_weights,
             global_statistic=self._acorr_global_statistic_name_2nd,
             global_weights=self._acorr_global_weights,
-        )[0]
-        # Here I cannot.
+        )
+
+        # Input-residals cross-correlation
         Rue = XCorrelation(
             "Rue",
             u_values,
@@ -812,20 +815,19 @@ class ValidationSession:
             local_weights=self._xcorr_local_weights,
             global_statistic=self._xcorr_global_statistic_name_1st,
             global_weights=self._xcorr_global_weights,
+            sys_time_constant=self._sys_time_constant,
+            sampling_period=self._Dataset.dataset.index[1]
+            - self._Dataset.dataset.index[0],
         )
-
         Rue_whiteness_1st = Rue.whiteness
-        Rue_whiteness_2nd = XCorrelation(
-            "Rue",
-            u_values,
-            eps,
-            nlags=max(self._nlags, self._input_nlags),
+        Rue_whiteness_2nd, _ = Rue._whiteness_level(
             local_statistic=self._xcorr_local_statistic_name_2nd,
             local_weights=self._xcorr_local_weights,
             global_statistic=self._xcorr_global_statistic_name_2nd,
             global_weights=self._xcorr_global_weights,
-        ).whiteness
+        )
 
+        # Store results
         self._auto_correlation_tensors[sim_name] = Ree
         self._cross_correlation_tensors[sim_name] = Rue
         self._validation_results[sim_name] = [
