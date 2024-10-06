@@ -8,9 +8,14 @@ import matplotlib
 from dymoval_tutorial.DCMotorModel import DCMotor_dt
 import control as ct
 
+path_h5 = "/home/yt75534/dymoval/src/dymoval_tutorial/DCMotorLogs.h5"
+path_h5 = (
+    "/Users/ubaldot/Documents/dymoval/src/dymoval_tutorial/DCMotorLogs.h5"
+)
+
 logs = h5py.File(
     # "/Users/ubaldot/Documents/dymoval/src/dymoval_tutorial/DCMotorLogs.h5",
-    "/home/yt75534/dymoval/src/dymoval_tutorial/DCMotorLogs.h5",
+    path_h5,
     "r",
 )
 logs["signals"].keys()
@@ -45,6 +50,23 @@ ds = dmv.Dataset(
     tout=75.0,
 )
 
+B3 = 5
+sampling_period = signal_list[0]["sampling_period"]
+Fs = 1 / sampling_period
+stepp = Fs / B3
+
+X = dmv.XCorrelation(
+    "foo",
+    signal_list[0]["samples"][:-2],
+    signal_list[0]["samples"][:-2],
+    X_bandwidths=np.array([B3]),
+    Y_bandwidths=np.array([B3]),
+    sampling_period=sampling_period,
+)
+
+whiteness, R = X.estimate_whiteness()
+
+# %%
 cutoff = 5  # [Hz]
 ds_filt = ds.low_pass_filter(
     (ds.signal_list()[0][1], cutoff), (ds.signal_list()[2][1], cutoff)
