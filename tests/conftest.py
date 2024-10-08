@@ -411,21 +411,15 @@ def generate_correlation_tensor():
     y2 = np.array([0.7060, 0.0318, 0.2769, 0.0462, 0.0971])
     Y = np.array([y1, y2]).T
 
+    X_bandwidths = [5, 10]
+    Y_bandwidths = [3, 6]
+    sampling_period = 0.01
+
     # Expected values pre-computed with Matlab
     # Same for all tests
-    Rx1y1_expected = np.array(
-        [
-            0.5233,
-            0.0763,
-            -0.1363,
-            -0.2526,
-            -0.8181,
-            0.0515,
-            0.1090,
-            0.2606,
-            0.1864,
-        ]
-    )
+    # Sampling at 100 Hz on a signal with bandwidth at most 10 Hz, you have a
+    # big step when downsampling the correlation tensor
+    Rx1y1_expected = np.array([0.07624233, -0.81807756, 0.26055195])
 
     Rx1y2_expected = np.array(
         [
@@ -471,11 +465,14 @@ def generate_correlation_tensor():
 
     return (
         Rx1y1_expected,
-        Rx2y1_expected,
         Rx1y2_expected,
+        Rx2y1_expected,
         Rx2y2_expected,
         X,
         Y,
+        X_bandwidths,
+        Y_bandwidths,
+        sampling_period,
     )
 
 

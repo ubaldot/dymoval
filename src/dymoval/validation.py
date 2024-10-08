@@ -10,7 +10,6 @@ except ImportError:
     from typing_extensions import Self  # noqa
 
 import matplotlib
-
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
@@ -31,7 +30,7 @@ from .utils import (
 )
 
 from .dataset import Dataset, Signal, validate_signals
-from typing import List, Dict, Literal, Any, Tuple
+from typing import List, Dict, Literal, Any, Tuple, NamedTuple
 from dataclasses import dataclass
 
 __all__ = [
@@ -57,6 +56,13 @@ __all__ = [
 #     else:  # all None
 #         nlags = 20
 #     return nlags
+
+
+# Util for defining XCorrelation elements.
+# XCorrelation dataclass is a matrix of Rxy elements.
+class _rxy(NamedTuple):
+    values: np.ndarray
+    lags: np.ndarray
 
 
 @dataclass
@@ -100,8 +106,8 @@ class XCorrelation:
         name: str,
         X: np.ndarray,
         Y: np.ndarray,
-        X_bandwidths: np.ndarray,
-        Y_bandwidths: np.ndarray,
+        X_bandwidths: np.ndarray | float,
+        Y_bandwidths: np.ndarray | float,
         sampling_period: float,
     ) -> None:
 
@@ -110,29 +116,36 @@ class XCorrelation:
         # =========================================
         self.name = name
 
-        R, lags = self._init_tensor(
+        # R is a matrix where each element is rij(\tau).
+        # The range of \tau may change as it depends on the sampling_period
+        # and the bandwidth of a given signal.
+        self.R = self._init_R(
             X=X,
             Y=Y,
             X_bandwidths=X_bandwidths,
             Y_bandwidths=Y_bandwidths,
             sampling_period=sampling_period,
         )
-        self.values: np.ndarray = R
-        self.lags: np.ndarray = lags
 
         if np.array_equal(X, Y):
             self.kind = "auto-correlation"
         else:
             self.kind = "cross-correlation"
 
-    def _init_tensor(
+    def _init_R(
         self,
         X: np.ndarray,
         Y: np.ndarray,
-        X_bandwidths: np.ndarray,
-        Y_bandwidths: np.ndarray,
+        X_bandwidths: np.ndarray | float,
+        Y_bandwidths: np.ndarray | float,
         sampling_period: float,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> np.ndarray:
+
+        # The initialization consists in computing the following
+        #  1. full x-correation
+        #  2. downsample
+        #  3. trim based on the lags needed (you don't need N observations lags)
+
         if X.ndim == 1:
             X = X.reshape(len(X), 1)
         if Y.ndim == 1:
@@ -140,8 +153,24 @@ class XCorrelation:
         p = X.shape[1]
         q = Y.shape[1]
 
-        all_lags = signal.correlation_lags(len(X), len(Y))
-        Rxy_values = np.zeros([len(all_lags), p, q])
+        # Some input check
+        if isinstance(X_bandwidths, float):
+            X_bandwidths = np.array([X_bandwidths])
+        if isinstance(Y_bandwidths, float):
+            Y_bandwidths = np.array([Y_bandwidths])
+
+        # Let's preserve some immutability
+        #
+        R_full = np.empty((p, q), dtype=_rxy)
+        R_downsampled = np.empty((p, q), dtype=_rxy)
+        R_trimmed = np.empty((p, q), dtype=_rxy)
+
+        # Adjust the number of lags and trim the cross-correlation
+        # sensor.
+        lags_full = signal.correlation_lags(len(X), len(Y))
+        nlags_full = lags_full.size
+        half_lags_full = nlags_full // 2
+        lag0_idx_full = np.nonzero(lags_full == 0)[0][0]
         for ii in range(p):
             for jj in range(q):
                 # Classic correlation definition from Probability.
@@ -158,93 +187,100 @@ class XCorrelation:
                 #
                 # At the end, for each pair (ii,jj) you have Rxy_values = r_{x_ii,y_jj}(\tau), therefore
                 # for each (ii,jj) we compute a correlation.
-                Rxy_values[:, ii, jj] = signal.correlate(
+                values_full = signal.correlate(
                     (X[:, ii] - np.mean(X[:, ii])) / np.std(X[:, ii]),
                     (Y[:, jj] - np.mean(Y[:, jj])) / np.std(Y[:, jj]),
                 ) / min(len(X), len(Y))
 
-                # Adjust the number of lags and trim the cross-correlation
-                # sensor.
-                #
-                num_lags = all_lags.size
-                half_lags = num_lags // 2
-                mid_point = Rxy_values.shape[0] // 2
+                R_full[ii, jj] = _rxy(values_full, lags_full)
 
+                # ------ Downsampling -------------------
                 # Close measurements are naturally correlated, and
                 # therefore the auto-correlation function (ACF) would have
                 # high values around lag = 0. The idea is to downsample the
                 # cross-correlation tensor so that we check for similarities
                 # for longer delays
+                #
                 # 1 lag = step * sampling_period
+                #
                 # Rxy_values -> Rxy_values_downsampled -> Rxy_values_trimmed
                 # based on nlags
+                #
+                # We extraxt X_B3 and Y_B3 to easy debug
+                X_B3 = X_bandwidths[ii]
+                Y_B3 = Y_bandwidths[jj]
+                # We take the maximum bandwidth to have the less step
                 # The 2 is because of Nyquist criteria
-                step = int(
-                    1
-                    // (
-                        2
-                        * sampling_period
-                        * min(X_bandwidths[ii], Y_bandwidths[jj])
-                    )
-                )
+                step = int(1 // (2 * sampling_period * max(X_B3, Y_B3)))
+                # Saturate the steps based on number of observations
+                # We won't take less than 3 lags
+                nlags_min = 3
+                step = max(1, min(step, nlags_full // nlags_min))
+
                 # Create the half vectors for down-sampling
                 first_half = [
-                    mid_point - i * step
-                    for i in range(1, (half_lags // step) + 1)
+                    lag0_idx_full - i * step
+                    for i in range(1, (half_lags_full // step) + 1)
                 ]
                 second_half = [
-                    mid_point + i * step
-                    for i in range(0, (half_lags // step) + 1)
+                    lag0_idx_full + i * step
+                    for i in range(0, (half_lags_full // step) + 1)
                 ]
                 # Combine and sort the indices
-                indices = sorted(first_half + second_half)
+                indices_downsampled = sorted(first_half + second_half)
 
-                downsampled_values = Rxy_values[
-                    indices,
-                    ii,
-                    jj,
+                values_downsampled = R_full[ii, jj].values[
+                    indices_downsampled
                 ]
-                Rxy_values_downsampled = np.zeros(
-                    [len(downsampled_values), p, q]
-                )
-                Rxy_values_downsampled[:, ii, jj] = downsampled_values
 
-                # Adjust the length of lags for down-sampling
-                lags: np.ndarray = np.arange(
-                    -half_lags // step + 1, half_lags // step + 1
+                # Adjust the length of lags for down-sampling, they must have
+                # the form -3, -2, -1, 0, 1, 2, 3
+                lags_downsampled: np.ndarray = np.arange(
+                    -half_lags_full // step + 1, half_lags_full // step + 1
                 )
-                if len(lags) != len(downsampled_values):
-                    lags = np.arange(
-                        -half_lags // step, half_lags // step + 1
+                # TODO: Very ugly hack
+                if len(lags_downsampled) != len(indices_downsampled):
+                    lags_downsampled = np.arange(
+                        -half_lags_full // step, half_lags_full // step + 1
                     )
 
-                Rxy_lags = np.zeros([len(downsampled_values), p, q])
-                Rxy_lags[:, ii, jj] = lags
+                R_downsampled[ii, jj] = _rxy(
+                    values_downsampled, lags_downsampled
+                )
 
-                # TODO: select number of lags
+                # ----------- Trimming ---------------
+                # TODO: select number of lags based on user input
                 # Create the half vectors for lags selection
-                nlags = 40
-                mid_point = Rxy_values_downsampled.shape[0] // 2
-                first_half = [mid_point - i for i in range(1, nlags + 1)]
-                second_half = [mid_point + i for i in range(0, nlags + 1)]
-                # Combine and sort the indices
-                indices = sorted(first_half + second_half)
-                Rxy_lags_trimmed = np.zeros([len(indices), p, q])
-                Rxy_values_trimmed = np.zeros([len(indices), p, q])
-
-                Rxy_values_trimmed[:, ii, jj] = Rxy_values_downsampled[
-                    indices, ii, jj
+                n = 20
+                nlags_trimmed = min(n, len(lags_downsampled))
+                lag0_idx_downsampled = np.nonzero(lags_downsampled == 0)[0][0]
+                first_half_trimmed = [
+                    lag0_idx_downsampled - i
+                    for i in range(1, nlags_trimmed // 2 + 1)
                 ]
-                Rxy_lags_trimmed[:, ii, jj] = Rxy_lags[indices, ii, jj]
+                second_half_trimmed = [
+                    lag0_idx_downsampled + i
+                    for i in range(0, nlags_trimmed // 2 + 1)
+                ]
+                # Combine and sort the indices
+                indices_trimmed = sorted(
+                    first_half_trimmed + second_half_trimmed
+                )
 
-        return Rxy_values_trimmed, Rxy_lags_trimmed
+                # Trim based on the number of lags
+                values_trimmed = R_downsampled[ii, jj].values[indices_trimmed]
+                lags_trimmed = R_downsampled[ii, jj].lags[indices_trimmed]
+
+                R_trimmed[ii, jj] = _rxy(values_trimmed, lags_trimmed)
+
+        return R_trimmed
 
     def __repr__(self) -> str:
         # Include basic information about the object
         repr_str = (
             f"XCorrelation tensor name: {self.name}\n"
             f"type: {self.kind}\n"
-            f"Tensor shape: {self.values.shape}\n"  # Shows the dimensions of the tensor
+            f"R shape: {self.R.shape}\n"  # Shows the dimensions of the tensor
         )
 
         return repr_str
@@ -303,8 +339,8 @@ class XCorrelation:
         return whiteness_estimate, R_matrix
 
     def plot(self) -> matplotlib.figure.Figure:
-        p = self.values.shape[1]
-        q = self.values.shape[2]
+        p = self.R.shape[0]
+        q = self.R.shape[1]
         fig, ax = plt.subplots(p, q, sharex=True, squeeze=False)
         plt.setp(ax, ylim=(-1.2, 1.2))
 
@@ -322,8 +358,8 @@ class XCorrelation:
                     else title_xcorr
                 )
                 ax[ii, jj].stem(
-                    self.lags[:, ii, jj],
-                    self.values[:, ii, jj],
+                    self.R[ii, jj].lags,
+                    self.R[ii, jj].values,
                     label=self.name,
                 )
                 ax[ii, jj].grid(True)

@@ -8,10 +8,13 @@ import matplotlib
 from dymoval_tutorial.DCMotorModel import DCMotor_dt
 import control as ct
 
+matplotlib.use("qtagg")
+matplotlib.pyplot.ioff()
+
 path_h5 = "/home/yt75534/dymoval/src/dymoval_tutorial/DCMotorLogs.h5"
-path_h5 = (
-    "/Users/ubaldot/Documents/dymoval/src/dymoval_tutorial/DCMotorLogs.h5"
-)
+# path_h5 = (
+#     "/Users/ubaldot/Documents/dymoval/src/dymoval_tutorial/DCMotorLogs.h5"
+# )
 
 logs = h5py.File(
     # "/Users/ubaldot/Documents/dymoval/src/dymoval_tutorial/DCMotorLogs.h5",

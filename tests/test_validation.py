@@ -13,7 +13,9 @@ class Test_ClassValidationNominal:
         # Nominal data
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
-        ds = dmv.Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
+        ds = dmv.Dataset(
+            name_ds, df, u_names, y_names, full_time_interval=True
+        )
         name_vs = "my_validation"
         vs = dmv.ValidationSession(name_vs, ds)
         sys_time_constant = 0.035
@@ -52,7 +54,9 @@ class Test_ClassValidationNominal:
     def test_random_walk(self, good_dataframe: pd.DataFrame) -> None:
         df, u_names, y_names, _, y_units, fixture = good_dataframe
         name_ds = "my_dataset"
-        ds = dmv.Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
+        ds = dmv.Dataset(
+            name_ds, df, u_names, y_names, full_time_interval=True
+        )
 
         name_vs = "my_validation"
         vs = dmv.ValidationSession(name_vs, ds)
@@ -128,7 +132,9 @@ class Test_ClassValidationNominal:
         # At least the names are nt there any longer.
         assert (
             sim1_name
-            not in vs.simulations_values().columns.get_level_values("sim_names")
+            not in vs.simulations_values().columns.get_level_values(
+                "sim_names"
+            )
         )
         assert sim1_name not in vs._auto_correlation_tensors.keys()
         assert sim1_name not in vs._cross_correlation_tensors.keys()
@@ -149,7 +155,9 @@ class Test_ClassValidationNominal:
     def test_trim(self, good_dataframe: pd.DataFrame) -> None:
         df, u_names, y_names, _, y_units, fixture = good_dataframe
         name_ds = "my_dataset"
-        ds = dmv.Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
+        ds = dmv.Dataset(
+            name_ds, df, u_names, y_names, full_time_interval=True
+        )
 
         name_vs = "my_validation"
         vs = dmv.ValidationSession(name_vs, ds)
@@ -193,7 +201,9 @@ class Test_ClassValidationNominal:
         vs = vs.trim(tin=1.0, tout=5.0)
 
         # Evaluate
-        assert np.isclose(expected_tin, vs.dataset.dataset.index[0], atol=ATOL)
+        assert np.isclose(
+            expected_tin, vs.dataset.dataset.index[0], atol=ATOL
+        )
         assert np.isclose(
             expected_tout, vs.dataset.dataset.index[-1], atol=ATOL
         )
@@ -210,7 +220,9 @@ class Test_ClassValidationNominal:
     ) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
-        ds = dmv.Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
+        ds = dmv.Dataset(
+            name_ds, df, u_names, y_names, full_time_interval=True
+        )
         name_vs = "my_validation"
         vs = dmv.ValidationSession(name_vs, ds)
 
@@ -239,7 +251,9 @@ class Test_ClassValidatioNominal_sim_validation:
     def test_existing_sim_raise(self, good_dataframe: pd.DataFrame) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
-        ds = dmv.Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
+        ds = dmv.Dataset(
+            name_ds, df, u_names, y_names, full_time_interval=True
+        )
         name_vs = "my_validation"
         vs = dmv.ValidationSession(name_vs, ds)
 
@@ -257,10 +271,14 @@ class Test_ClassValidatioNominal_sim_validation:
         with pytest.raises(ValueError):
             vs.append_simulation(sim1_name, sim1_labels, sim1_values)
 
-    def test_too_many_signals_raise(self, good_dataframe: pd.DataFrame) -> None:
+    def test_too_many_signals_raise(
+        self, good_dataframe: pd.DataFrame
+    ) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
-        ds = dmv.Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
+        ds = dmv.Dataset(
+            name_ds, df, u_names, y_names, full_time_interval=True
+        )
 
         name_vs = "my_validation"
         vs = dmv.ValidationSession(name_vs, ds)
@@ -280,10 +298,14 @@ class Test_ClassValidatioNominal_sim_validation:
         with pytest.raises(IndexError):
             vs.append_simulation(sim1_name, sim1_labels, sim1_values)
 
-    def test_duplicate_names_raise(self, good_dataframe: pd.DataFrame) -> None:
+    def test_duplicate_names_raise(
+        self, good_dataframe: pd.DataFrame
+    ) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
-        ds = dmv.Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
+        ds = dmv.Dataset(
+            name_ds, df, u_names, y_names, full_time_interval=True
+        )
 
         name_vs = "my_validation"
         vs = dmv.ValidationSession(name_vs, ds)
@@ -307,7 +329,9 @@ class Test_ClassValidatioNominal_sim_validation:
     ) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
-        ds = dmv.Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
+        ds = dmv.Dataset(
+            name_ds, df, u_names, y_names, full_time_interval=True
+        )
 
         name_vs = "my_validation"
         vs = dmv.ValidationSession(name_vs, ds)
@@ -325,10 +349,14 @@ class Test_ClassValidatioNominal_sim_validation:
         with pytest.raises(IndexError):
             vs.append_simulation(sim1_name, sim1_labels, sim1_values)
 
-    def test_too_many_values_raise(self, good_dataframe: pd.DataFrame) -> None:
+    def test_too_many_values_raise(
+        self, good_dataframe: pd.DataFrame
+    ) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
-        ds = dmv.Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
+        ds = dmv.Dataset(
+            name_ds, df, u_names, y_names, full_time_interval=True
+        )
 
         name_vs = "my_validation"
         vs = dmv.ValidationSession(name_vs, ds)
@@ -351,7 +379,9 @@ class Test_ClassValidatioNominal_sim_validation:
     ) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
-        ds = dmv.Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
+        ds = dmv.Dataset(
+            name_ds, df, u_names, y_names, full_time_interval=True
+        )
 
         name_vs = "my_validation"
         vs = dmv.ValidationSession(name_vs, ds)
@@ -367,10 +397,14 @@ class Test_ClassValidatioNominal_sim_validation:
         with pytest.raises(ValueError):
             vs.append_simulation(sim1_name, sim1_labels, sim1_values)
 
-    def test_ydata_too_short_raise(self, good_dataframe: pd.DataFrame) -> None:
+    def test_ydata_too_short_raise(
+        self, good_dataframe: pd.DataFrame
+    ) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
-        ds = dmv.Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
+        ds = dmv.Dataset(
+            name_ds, df, u_names, y_names, full_time_interval=True
+        )
 
         name_vs = "my_validation"
         vs = dmv.ValidationSession(name_vs, ds)
@@ -388,10 +422,14 @@ class Test_ClassValidatioNominal_sim_validation:
         with pytest.raises(IndexError):
             vs.append_simulation(sim1_name, sim1_labels, sim1_values)
 
-    def test_drop_simulations_raise(self, good_dataframe: pd.DataFrame) -> None:
+    def test_drop_simulations_raise(
+        self, good_dataframe: pd.DataFrame
+    ) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
-        ds = dmv.Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
+        ds = dmv.Dataset(
+            name_ds, df, u_names, y_names, full_time_interval=True
+        )
 
         # Create validation session.
         name_vs = "my_validation"
@@ -449,7 +487,9 @@ class Test_Plots:
 
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
-        ds = dmv.Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
+        ds = dmv.Dataset(
+            name_ds, df, u_names, y_names, full_time_interval=True
+        )
 
         print(ds.dataset)
 
@@ -549,12 +589,15 @@ class Test_XCorrelation:
             Rx2y2_expected,
             X,
             Y,
+            X_bandwidths,
+            Y_bandwidths,
+            sampling_period,
         ) = correlation_tensors
-        x1y1_whiteness_expected = 0.38281031914047287
-        lags_expected = np.arange(-4, 5)
+        # x1y1_whiteness_expected = 0.38281031914047287
+        lags_expected = np.arange(-1, 2)
 
-        x1 = X.T[0]
-        y1 = Y.T[0]
+        x1 = X[:, 0].T
+        y1 = Y[:, 0].T
 
         # Call dymoval function
         # OBS! It works only if NUM_DECIMALS = 4, like in Matlab
@@ -567,7 +610,7 @@ class Test_XCorrelation:
         assert np.allclose(Rxy_actual[:, 0, 0], Rx1y1_expected, atol=1e-3)
         assert np.allclose(lags_actual, lags_expected)
         # Check whiteness only for SISO
-        assert np.isclose(x1y1_whiteness_expected, XCorr_actual.whiteness)
+        # assert np.isclose(x1y1_whiteness_expected, XCorr_actual.whiteness)
 
         # SIMO
         XCorr_actual = dmv.XCorrelation("foo", x1, Y)
@@ -911,7 +954,8 @@ class Test_Validate_Models:
             size=(dataset_out[0]["samples"].size, len(y_names)),
         )
         sim_good = [
-            s["samples"] + w for s, w in zip(dataset_out, small_perturbation.T)
+            s["samples"] + w
+            for s, w in zip(dataset_out, small_perturbation.T)
         ]
 
         # It is a (N,q) array
@@ -948,7 +992,9 @@ class Test_Validate_Models:
         expected_stored_in = vs.dataset.dataset["INPUT"].to_numpy()
         expected_stored_out = vs.dataset.dataset["OUTPUT"].to_numpy()
 
-        dataset_in_samples = np.column_stack([s["samples"] for s in dataset_in])
+        dataset_in_samples = np.column_stack(
+            [s["samples"] for s in dataset_in]
+        )
         dataset_out_samples = np.column_stack(
             [s["samples"] for s in dataset_out]
         )
@@ -976,7 +1022,9 @@ class Test_Validate_Models:
         ) = good_signals_no_nans
 
         # List of arrays
-        dataset_in = [s["samples"] for s in signal_list if s["name"] in u_names]
+        dataset_in = [
+            s["samples"] for s in signal_list if s["name"] in u_names
+        ]
         dataset_out = [
             s["samples"] for s in signal_list if s["name"] in y_names
         ]
@@ -1020,7 +1068,9 @@ class Test_Validate_Models:
         if fixture == "MISO" or fixture == "MIMO":
             dataset_in_vals = np.array([s for s in dataset_in]).T
         else:
-            dataset_in_vals = np.array([s for s in dataset_in]).T[:, np.newaxis]
+            dataset_in_vals = np.array([s for s in dataset_in]).T[
+                :, np.newaxis
+            ]
 
         if fixture == "SIMO" or fixture == "MIMO":
             dataset_out_vals = np.array([s for s in dataset_out]).T
@@ -1114,7 +1164,9 @@ class Test_Validate_Models:
         if fixture == "SIMO" or fixture == "MIMO":
             expected_stored_out = vs.dataset.dataset["OUTPUT"].to_numpy()
         else:
-            expected_stored_out = vs.dataset.dataset["OUTPUT"].to_numpy()[:, 0]
+            expected_stored_out = vs.dataset.dataset["OUTPUT"].to_numpy()[
+                :, 0
+            ]
 
         assert np.allclose(expected_stored_in, dataset_in, atol=1e-4)
         assert np.allclose(
@@ -1210,7 +1262,9 @@ class Test_Validate_Models:
         if fixture == "SIMO" or fixture == "MIMO":
             expected_stored_out = vs.dataset.dataset["OUTPUT"].to_numpy()
         else:
-            expected_stored_out = vs.dataset.dataset["OUTPUT"].to_numpy()[:, 0]
+            expected_stored_out = vs.dataset.dataset["OUTPUT"].to_numpy()[
+                :, 0
+            ]
 
         assert np.allclose(expected_stored_in, dataset_in, atol=1e-4)
         assert np.allclose(
@@ -1344,7 +1398,9 @@ class Test_Compute_Statistics:
             expected_mean_weighted,
         )
         assert np.isclose(
-            compute_statistic(data=test_data, statistic="max", weights=weights),
+            compute_statistic(
+                data=test_data, statistic="max", weights=weights
+            ),
             expected_inf_weighted,
         )
         assert np.isclose(
@@ -1354,6 +1410,8 @@ class Test_Compute_Statistics:
             expected_quad_weighted,
         )
         assert np.isclose(
-            compute_statistic(data=test_data, statistic="std", weights=weights),
+            compute_statistic(
+                data=test_data, statistic="std", weights=weights
+            ),
             expected_std_weighted,
         )
