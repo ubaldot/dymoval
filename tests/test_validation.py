@@ -583,232 +583,155 @@ class Test_XCorrelation:
         # Just test that it won't run any error
         # Next, remove randoms with known values.
         (
+            Rx0y0_expected,
+            Rx1y0_expected,
+            Rx0y1_expected,
+            _,
             Rx1y1_expected,
-            Rx2y1_expected,
-            Rx1y2_expected,
-            Rx2y2_expected,
+            _,
             X,
             Y,
             X_bandwidths,
             Y_bandwidths,
             sampling_period,
         ) = correlation_tensors
-        # x1y1_whiteness_expected = 0.38281031914047287
-        lags_expected = np.arange(-1, 2)
+        # x0y0_whiteness_expected = 0.38281031914047287
+        lags_expected_long = np.arange(-4, 5)
 
-        x1 = X[:, 0].T
-        y1 = Y[:, 0].T
-
-        # Call dymoval function
-        # OBS! It works only if NUM_DECIMALS = 4, like in Matlab
+        x0 = X[:, 0].T
+        y0 = Y[:, 0].T
 
         # SISO
-        XCorr_actual = dmv.XCorrelation("foo", x1, y1)
-        Rxy_actual = XCorr_actual.values
-        lags_actual = XCorr_actual.lags
+        XCorr_actual = dmv.XCorrelation("foo", x0, y0)
+        R_actual = XCorr_actual.R
 
-        assert np.allclose(Rxy_actual[:, 0, 0], Rx1y1_expected, atol=1e-3)
-        assert np.allclose(lags_actual, lags_expected)
-        # Check whiteness only for SISO
-        # assert np.isclose(x1y1_whiteness_expected, XCorr_actual.whiteness)
+        assert np.allclose(R_actual[0, 0].values, Rx0y0_expected, atol=1e-3)
+        assert np.allclose(R_actual[0, 0].lags, lags_expected_long)
 
         # SIMO
-        XCorr_actual = dmv.XCorrelation("foo", x1, Y)
-        Rxy_actual = XCorr_actual.values
-        lags_actual = XCorr_actual.lags
+        XCorr_actual = dmv.XCorrelation("foo", x0, Y)
+        R_actual = XCorr_actual.R
 
-        assert np.allclose(Rxy_actual[:, 0, 0], Rx1y1_expected, atol=1e-3)
-        assert np.allclose(Rxy_actual[:, 0, 1], Rx1y2_expected, atol=1e-3)
-        assert np.allclose(lags_actual, lags_expected)
+        assert np.allclose(R_actual[0, 0].values, Rx0y0_expected, atol=1e-3)
+        assert np.allclose(R_actual[0, 1].values, Rx0y1_expected, atol=1e-3)
+
+        assert np.allclose(R_actual[0, 0].lags, lags_expected_long)
+        assert np.allclose(R_actual[0, 1].lags, lags_expected_long)
 
         # MISO
-        XCorr_actual = dmv.XCorrelation("foo", X, y1)
-        Rxy_actual = XCorr_actual.values
-        lags_actual = XCorr_actual.lags
+        XCorr_actual = dmv.XCorrelation("foo", X, y0)
+        R_actual = XCorr_actual.R
 
-        assert np.allclose(Rxy_actual[:, 0, 0], Rx1y1_expected, atol=1e-3)
-        assert np.allclose(Rxy_actual[:, 1, 0], Rx2y1_expected, atol=1e-3)
-        assert np.allclose(lags_actual, lags_expected)
+        assert np.allclose(R_actual[0, 0].values, Rx0y0_expected, atol=1e-3)
+        assert np.allclose(R_actual[1, 0].values, Rx1y0_expected, atol=1e-3)
+
+        assert np.allclose(R_actual[0, 0].lags, lags_expected_long)
+        assert np.allclose(R_actual[1, 0].lags, lags_expected_long)
 
         # MIMO
         XCorr_actual = dmv.XCorrelation("foo", X, Y)
-        Rxy_actual = XCorr_actual.values
-        lags_actual = XCorr_actual.lags
+        R_actual = XCorr_actual.R
 
-        assert np.allclose(Rxy_actual[:, 0, 0], Rx1y1_expected, atol=1e-3)
-        assert np.allclose(Rxy_actual[:, 0, 1], Rx1y2_expected, atol=1e-3)
-        assert np.allclose(Rxy_actual[:, 1, 0], Rx2y1_expected, atol=1e-3)
-        assert np.allclose(Rxy_actual[:, 1, 1], Rx2y2_expected, atol=1e-3)
-        assert np.allclose(lags_actual, lags_expected)
+        assert np.allclose(R_actual[0, 0].values, Rx0y0_expected, atol=1e-3)
+        assert np.allclose(R_actual[0, 1].values, Rx0y1_expected, atol=1e-3)
+        assert np.allclose(R_actual[1, 0].values, Rx1y0_expected, atol=1e-3)
+        assert np.allclose(R_actual[1, 1].values, Rx1y1_expected, atol=1e-3)
+
+        assert np.allclose(R_actual[0, 0].lags, lags_expected_long)
+        assert np.allclose(R_actual[0, 1].lags, lags_expected_long)
+        assert np.allclose(R_actual[1, 0].lags, lags_expected_long)
+        assert np.allclose(R_actual[1, 1].lags, lags_expected_long)
         assert XCorr_actual.kind == "cross-correlation"
 
-    def test_initializer_acorr(self, correlation_tensors) -> None:
-        X = correlation_tensors[4]
-        lags_expected = np.arange(-4, 5)
+        # Name switch test
+        XCorr_actual = dmv.XCorrelation("foo", X, X)
+        assert XCorr_actual.kind == "auto-correlation"
 
-        x1 = X.T[0]
-        Rx1x1_expected = np.array(
-            [
-                -0.31803681,
-                -0.28972141,
-                -0.16957768,
-                0.27733591,
-                1.0,
-                0.27733591,
-                -0.16957768,
-                -0.28972141,
-                -0.31803681,
-            ]
-        )
-        x1x1_whiteness_expected = 0.2055967474048869
-
-        # Act
-        XCorr_actual = dmv.XCorrelation("foo", x1, x1)
-        Rxx_actual = XCorr_actual.values
-        lags_actual = XCorr_actual.lags
-
-        # Assert
-        assert np.allclose(Rxx_actual[:, 0, 0], Rx1x1_expected, atol=1e-3)
-        assert np.allclose(lags_actual, lags_expected)
-        # Check whiteness only for SISO
-        assert np.isclose(x1x1_whiteness_expected, XCorr_actual.whiteness)
-
-    def test_nlags(self, correlation_tensors) -> None:
-
+    def test_initializer_with_params(self, correlation_tensors) -> None:
+        # Just test that it won't run any error
+        # Next, remove randoms with known values.
         (
+            Rx0y0_expected,
+            Rx1y0_expected,
+            Rx0y1_expected,
+            Rx0y1_expected_partial,
             Rx1y1_expected,
-            Rx2y1_expected,
-            Rx1y2_expected,
-            Rx2y2_expected,
+            Rx1y1_expected_partial,
             X,
             Y,
+            X_bandwidths,
+            Y_bandwidths,
+            sampling_period,
         ) = correlation_tensors
+        # x0y0_whiteness_expected = 0.38281031914047287
+        lags_expected_short = np.arange(-1, 2)
+        lags_expected_long = np.arange(-4, 5)
 
-        # Only MIMO test
-        nlags = 5
-        half_lags = nlags // 2
-        is_odd = 1 if nlags % 2 == 1 else 0
-        lags_expected_1 = np.arange(-half_lags, half_lags + is_odd)
-
-        mid_point = Rx1y1_expected.shape[0] // 2
-        Rx1y1_expected_1 = Rx1y1_expected[
-            mid_point - half_lags : mid_point + half_lags + is_odd
-        ]
-        Rx1y2_expected_1 = Rx1y2_expected[
-            mid_point - half_lags : mid_point + half_lags + is_odd
-        ]
-        Rx2y1_expected_1 = Rx2y1_expected[
-            mid_point - half_lags : mid_point + half_lags + is_odd
-        ]
-        Rx2y2_expected_1 = Rx2y2_expected[
-            mid_point - half_lags : mid_point + half_lags + is_odd
-        ]
-
-        # Act
-        XCorr_actual = dmv.XCorrelation("foo", X, Y, nlags=nlags)
-        Rxy_actual = XCorr_actual.values
-        lags_actual = XCorr_actual.lags
-
-        assert np.allclose(Rxy_actual[:, 0, 0], Rx1y1_expected_1, atol=1e-3)
-        assert np.allclose(Rxy_actual[:, 0, 1], Rx1y2_expected_1, atol=1e-3)
-        assert np.allclose(Rxy_actual[:, 1, 0], Rx2y1_expected_1, atol=1e-3)
-        assert np.allclose(Rxy_actual[:, 1, 1], Rx2y2_expected_1, atol=1e-3)
-        assert np.allclose(lags_actual, lags_expected_1)
-        assert Rxy_actual.shape[0] == len(lags_expected_1)
-
-    def test_local_weights_to_lags(self, correlation_tensors) -> None:
-
-        (
-            Rx1y1_expected,
-            Rx2y1_expected,
-            Rx1y2_expected,
-            Rx2y2_expected,
-            X,
-            Y,
-        ) = correlation_tensors
-
-        # ==========================
-        # Setup
-        local_weights = np.ones(4)
-        half_nlags = local_weights.size // 2
-        is_odd = 1 if local_weights.size % 2 == 1 else 0
-
-        lags_expected_2 = np.arange(-half_nlags, half_nlags + is_odd)
-        mid_point = Rx1y1_expected.shape[0] // 2
-        Rx1y1_expected_2 = Rx1y1_expected[
-            mid_point - half_nlags : mid_point + half_nlags + is_odd
-        ]
-        Rx1y2_expected_2 = Rx1y2_expected[
-            mid_point - half_nlags : mid_point + half_nlags + is_odd
-        ]
-        Rx2y1_expected_2 = Rx2y1_expected[
-            mid_point - half_nlags : mid_point + half_nlags + is_odd
-        ]
-        Rx2y2_expected_2 = Rx2y2_expected[
-            mid_point - half_nlags : mid_point + half_nlags + is_odd
-        ]
-
-        # Act
+        # We only consider the MIMO case
         XCorr_actual = dmv.XCorrelation(
-            "foo", X, Y, local_weights=local_weights
+            "foo", X, Y, X_bandwidths, Y_bandwidths, sampling_period
         )
-        Rxy_actual = XCorr_actual.values
-        lags_actual = XCorr_actual.lags
+        R_actual = XCorr_actual.R
 
-        # Assert
-        assert np.allclose(Rxy_actual[:, 0, 0], Rx1y1_expected_2, atol=1e-3)
-        assert np.allclose(Rxy_actual[:, 0, 1], Rx1y2_expected_2, atol=1e-3)
-        assert np.allclose(Rxy_actual[:, 1, 0], Rx2y1_expected_2, atol=1e-3)
-        assert np.allclose(Rxy_actual[:, 1, 1], Rx2y2_expected_2, atol=1e-3)
-        assert np.allclose(lags_actual, lags_expected_2)
+        assert np.allclose(R_actual[0, 0].values, Rx0y0_expected, atol=1e-3)
+        assert np.allclose(
+            R_actual[0, 1].values, Rx0y1_expected_partial, atol=1e-3
+        )
+        assert np.allclose(R_actual[1, 0].values, Rx1y0_expected, atol=1e-3)
+        assert np.allclose(
+            R_actual[1, 1].values, Rx1y1_expected_partial, atol=1e-3
+        )
 
-    def test_local_and_global_weights_to_lags(
-        self, correlation_tensors
-    ) -> None:
+        assert np.allclose(R_actual[0, 0].lags, lags_expected_long)
+        assert np.allclose(R_actual[0, 1].lags, lags_expected_short)
+        assert np.allclose(R_actual[1, 0].lags, lags_expected_long)
+        assert np.allclose(R_actual[1, 1].lags, lags_expected_short)
+        assert XCorr_actual.kind == "cross-correlation"
 
+        # Not all arguments are passed
+        # We only consider the MIMO case
+        XCorr_actual = dmv.XCorrelation(
+            "foo", X, Y, X_bandwidths, sampling_period
+        )
+        R_actual = XCorr_actual.R
+
+        assert np.allclose(R_actual[0, 0].values, Rx0y0_expected, atol=1e-3)
+        assert np.allclose(R_actual[0, 1].values, Rx0y1_expected, atol=1e-3)
+        assert np.allclose(R_actual[1, 0].values, Rx1y0_expected, atol=1e-3)
+        assert np.allclose(R_actual[1, 1].values, Rx1y1_expected, atol=1e-3)
+
+        assert np.allclose(R_actual[0, 0].lags, lags_expected_long)
+        assert np.allclose(R_actual[0, 1].lags, lags_expected_long)
+        assert np.allclose(R_actual[1, 0].lags, lags_expected_long)
+        assert np.allclose(R_actual[1, 1].lags, lags_expected_long)
+        assert XCorr_actual.kind == "cross-correlation"
+
+    @pytest.mark.plots
+    def test_plot(self, correlation_tensors) -> None:
+        # Next, remove randoms with known values.
         (
-            Rx1y1_expected,
-            Rx2y1_expected,
-            Rx1y2_expected,
-            Rx2y2_expected,
+            _,
+            _,
+            _,
+            _,
+            _,
+            _,
             X,
             Y,
+            _,
+            _,
+            _,
         ) = correlation_tensors
-        # ==================================================
-        # Setup
-        nlags = 2
-        local_weights = np.ones(7)
-        half_nlags = local_weights.size // 2
-        is_odd = 1 if local_weights.size % 2 == 1 else 0
 
-        lags_expected = np.arange(-half_nlags, half_nlags + is_odd)
-        mid_point = Rx1y1_expected.shape[0] // 2
-        Rx1y1_expected = Rx1y1_expected[
-            mid_point - half_nlags : mid_point + half_nlags + is_odd
-        ]
-        Rx1y2_expected = Rx1y2_expected[
-            mid_point - half_nlags : mid_point + half_nlags + is_odd
-        ]
-        Rx2y1_expected = Rx2y1_expected[
-            mid_point - half_nlags : mid_point + half_nlags + is_odd
-        ]
-        Rx2y2_expected = Rx2y2_expected[
-            mid_point - half_nlags : mid_point + half_nlags + is_odd
-        ]
+        x0 = X[:, 0].T
+        y0 = Y[:, 0].T
 
-        # Act
-        XCorr_actual = dmv.XCorrelation(
-            "foo", X, Y, local_weights=local_weights, nlags=nlags
-        )
-        Rxy_actual = XCorr_actual.values
-        lags_actual = XCorr_actual.lags
-
-        # Assert
-        assert np.allclose(Rxy_actual[:, 0, 0], Rx1y1_expected, atol=1e-3)
-        assert np.allclose(Rxy_actual[:, 0, 1], Rx1y2_expected, atol=1e-3)
-        assert np.allclose(Rxy_actual[:, 1, 0], Rx2y1_expected, atol=1e-3)
-        assert np.allclose(Rxy_actual[:, 1, 1], Rx2y2_expected, atol=1e-3)
-        assert np.allclose(lags_actual, lags_expected)
+        _ = dmv.XCorrelation("foo", x0, y0).plot()
+        _ = dmv.XCorrelation("foo", X, y0).plot()
+        _ = dmv.XCorrelation("foo", x0, Y).plot()
+        _ = dmv.XCorrelation("foo", X, Y).plot()
+        _ = dmv.XCorrelation("foo", X, X).plot()
+        plt.close("all")
 
 
 class Test_rsquared:

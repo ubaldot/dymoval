@@ -83,6 +83,9 @@ class XCorrelation:
 
     If X = Y then it return the normalized auto-correlation of X.
 
+    You must either pass all X_Bandwidth, Y_Bamdwidth and sampling_period or
+    none of them.
+
     Parameters
     ----------
     name :
@@ -106,9 +109,9 @@ class XCorrelation:
         name: str,
         X: np.ndarray,
         Y: np.ndarray,
-        X_bandwidths: np.ndarray | float,
-        Y_bandwidths: np.ndarray | float,
-        sampling_period: float,
+        X_bandwidths: np.ndarray | float | None = None,
+        Y_bandwidths: np.ndarray | float | None = None,
+        sampling_period: float | None = None,
     ) -> None:
 
         # =========================================
@@ -136,15 +139,23 @@ class XCorrelation:
         self,
         X: np.ndarray,
         Y: np.ndarray,
-        X_bandwidths: np.ndarray | float,
-        Y_bandwidths: np.ndarray | float,
-        sampling_period: float,
+        X_bandwidths: np.ndarray | float | None = None,
+        Y_bandwidths: np.ndarray | float | None = None,
+        sampling_period: float | None = None,
     ) -> np.ndarray:
 
         # The initialization consists in computing the following
         #  1. full x-correation
         #  2. downsample
         #  3. trim based on the lags needed (you don't need N observations lags)
+
+        # Downsampling happens only if user pass all the bandwidths and the
+        # sampling_period. Trim happens anyway.
+        passed_all_arguments = (
+            X_bandwidths is not None
+            and Y_bandwidths is not None
+            and sampling_period is not None
+        )
 
         if X.ndim == 1:
             X = X.reshape(len(X), 1)
@@ -207,11 +218,25 @@ class XCorrelation:
                 # based on nlags
                 #
                 # We extraxt X_B3 and Y_B3 to easy debug
-                X_B3 = X_bandwidths[ii]
-                Y_B3 = Y_bandwidths[jj]
-                # We take the maximum bandwidth to have the less step
-                # The 2 is because of Nyquist criteria
-                step = int(1 // (2 * sampling_period * max(X_B3, Y_B3)))
+                if passed_all_arguments:
+                    assert X_bandwidths is not None
+                    assert Y_bandwidths is not None
+                    assert sampling_period is not None
+                    # We take the maximum bandwidth to have the less step
+                    # The 2 is because of Nyquist criteria, i.e.1 <= step <=
+                    # Fs/(2*B3) but cannot be too long, e.g. you cannot have a
+                    # step of 15 if the total number of lags are 10. Min 3
+                    # lags.
+                    step = int(
+                        1
+                        // (
+                            2.0
+                            * sampling_period
+                            * max(X_bandwidths[ii], Y_bandwidths[jj])
+                        )
+                    )
+                else:
+                    step = 1
                 # Saturate the steps based on number of observations
                 # We won't take less than 3 lags
                 nlags_min = 3
@@ -251,6 +276,7 @@ class XCorrelation:
                 # ----------- Trimming ---------------
                 # TODO: select number of lags based on user input
                 # Create the half vectors for lags selection
+                # Fixed value of 20 lags.
                 n = 20
                 nlags_trimmed = min(n, len(lags_downsampled))
                 lag0_idx_downsampled = np.nonzero(lags_downsampled == 0)[0][0]

@@ -403,71 +403,89 @@ def constant_ones_dataframe(request):  # type: ignore
 
 
 def generate_correlation_tensor():
-    x1 = np.array([0.1419, 0.4218, 0.9157, 0.7922, 0.9595])
-    x2 = np.array([0.6557, 0.0357, 0.8491, 0.9340, 0.6787])
-    X = np.array([x1, x2]).T
+    x0 = np.array([0.1419, 0.4218, 0.9157, 0.7922, 0.9595])
+    x1 = np.array([0.6557, 0.0357, 0.8491, 0.9340, 0.6787])
+    X = np.array([x0, x1]).T
 
-    y1 = np.array([0.7577, 0.7431, 0.3922, 0.6555, 0.1712])
-    y2 = np.array([0.7060, 0.0318, 0.2769, 0.0462, 0.0971])
-    Y = np.array([y1, y2]).T
+    y0 = np.array([0.7577, 0.7431, 0.3922, 0.6555, 0.1712])
+    y1 = np.array([0.7060, 0.0318, 0.2769, 0.0462, 0.0971])
+    Y = np.array([y0, y1]).T
 
     X_bandwidths = [5, 10]
-    Y_bandwidths = [3, 6]
+    Y_bandwidths = [300, 6]
     sampling_period = 0.01
 
     # Expected values pre-computed with Matlab
     # Same for all tests
     # Sampling at 100 Hz on a signal with bandwidth at most 10 Hz, you have a
     # big step when downsampling the correlation tensor
-    Rx1y1_expected = np.array([0.07624233, -0.81807756, 0.26055195])
-
-    Rx1y2_expected = np.array(
+    Rx0y0_expected = np.array(
         [
-            0.1702,
-            0.3105,
-            -0.0438,
-            0.0526,
-            -0.6310,
-            -0.5316,
-            0.2833,
-            0.0167,
-            0.3730,
+            0.52328964,
+            0.07624233,
+            -0.13628327,
+            -0.25258694,
+            -0.81807756,
+            0.05148857,
+            0.10895678,
+            0.26055195,
+            0.18641852,
         ]
     )
 
-    Rx2y1_expected = np.array(
+    Rx1y0_expected = np.array(
         [
-            -0.0260,
-            0.6252,
-            -0.4220,
-            0.0183,
-            -0.3630,
-            -0.3462,
-            0.2779,
-            0.2072,
-            0.0286,
+            -0.02600611,
+            0.62518479,
+            -0.42208101,
+            0.01827536,
+            -0.36291478,
+            -0.34616707,
+            0.27791823,
+            0.20718844,
+            0.02860214,
         ]
     )
 
-    Rx2y2_expected = np.array(
+    Rx0y1_expected = np.array(
         [
-            -0.0085,
-            0.1892,
-            0.2061,
-            -0.2843,
-            0.1957,
-            -0.8060,
-            0.1135,
-            0.3371,
-            0.0573,
+            0.1702623,
+            0.31046205,
+            -0.0438847,
+            0.05271451,
+            -0.63104697,
+            -0.53157813,
+            0.28330452,
+            0.01671614,
+            0.37305028,
         ]
     )
+
+    Rx0y1_expected_partial = np.array([0.31046205, -0.63104697, 0.01671614])
+
+    Rx1y1_expected = np.array(
+        [
+            -0.00846159,
+            0.18921953,
+            0.20599152,
+            -0.28433695,
+            0.19567986,
+            -0.80598905,
+            0.11347958,
+            0.33718008,
+            0.057237,
+        ]
+    )
+
+    Rx1y1_expected_partial = np.array([0.18921953, 0.19567986, 0.33718008])
 
     return (
+        Rx0y0_expected,
+        Rx1y0_expected,
+        Rx0y1_expected,
+        Rx0y1_expected_partial,
         Rx1y1_expected,
-        Rx1y2_expected,
-        Rx2y1_expected,
-        Rx2y2_expected,
+        Rx1y1_expected_partial,
         X,
         Y,
         X_bandwidths,
