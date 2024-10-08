@@ -669,7 +669,7 @@ class Test_XCorrelation:
 
         # We only consider the MIMO case
         XCorr_actual = dmv.XCorrelation(
-            "foo", X, Y, X_bandwidths, Y_bandwidths, sampling_period
+            "foo", X, Y, None, X_bandwidths, Y_bandwidths, sampling_period
         )
         R_actual = XCorr_actual.R
 
@@ -691,7 +691,7 @@ class Test_XCorrelation:
         # Not all arguments are passed
         # We only consider the MIMO case
         XCorr_actual = dmv.XCorrelation(
-            "foo", X, Y, X_bandwidths, sampling_period
+            "foo", X, Y, None, X_bandwidths, sampling_period
         )
         R_actual = XCorr_actual.R
 
@@ -705,6 +705,31 @@ class Test_XCorrelation:
         assert np.allclose(R_actual[1, 0].lags, lags_expected_long)
         assert np.allclose(R_actual[1, 1].lags, lags_expected_long)
         assert XCorr_actual.kind == "cross-correlation"
+
+        # Test nlags arg
+        nlags = np.array([[5, 3], [6, 4]])
+        lags_expected_x0y0 = np.arange(-2, 3)
+        lags_expected_x1y0 = np.arange(-3, 4)
+        lags_expected_x0y1 = np.arange(-1, 2)
+        lags_expected_x1y1 = lags_expected_x0y1
+
+        XCorr_actual = dmv.XCorrelation(
+            name="foo",
+            X=X,
+            Y=Y,
+            nlags=nlags,
+            X_bandwidths=X_bandwidths,
+            Y_bandwidths=Y_bandwidths,
+            sampling_period=sampling_period,
+        )
+        R_actual = XCorr_actual.R
+
+        assert np.allclose(R_actual[0, 0].lags, lags_expected_x0y0)
+        assert np.allclose(R_actual[0, 1].lags, lags_expected_x0y1)
+        assert np.allclose(R_actual[1, 0].lags, lags_expected_x1y0)
+        assert np.allclose(R_actual[1, 1].lags, lags_expected_x1y1)
+
+        # TODO: check also if the values are correctly picked.
 
     @pytest.mark.plots
     def test_plot(self, correlation_tensors) -> None:

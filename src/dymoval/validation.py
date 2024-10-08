@@ -109,6 +109,7 @@ class XCorrelation:
         name: str,
         X: np.ndarray,
         Y: np.ndarray,
+        nlags: np.ndarray | None = None,
         X_bandwidths: np.ndarray | float | None = None,
         Y_bandwidths: np.ndarray | float | None = None,
         sampling_period: float | None = None,
@@ -125,6 +126,7 @@ class XCorrelation:
         self.R = self._init_R(
             X=X,
             Y=Y,
+            nlags=nlags,
             X_bandwidths=X_bandwidths,
             Y_bandwidths=Y_bandwidths,
             sampling_period=sampling_period,
@@ -139,6 +141,7 @@ class XCorrelation:
         self,
         X: np.ndarray,
         Y: np.ndarray,
+        nlags: np.ndarray | None = None,
         X_bandwidths: np.ndarray | float | None = None,
         Y_bandwidths: np.ndarray | float | None = None,
         sampling_period: float | None = None,
@@ -169,6 +172,9 @@ class XCorrelation:
             X_bandwidths = np.array([X_bandwidths])
         if isinstance(Y_bandwidths, float):
             Y_bandwidths = np.array([Y_bandwidths])
+
+        # nlags
+        nlags_from_user = 20 * np.ones((p, q)) if nlags is None else nlags
 
         # Let's preserve some immutability
         #
@@ -236,6 +242,8 @@ class XCorrelation:
                         )
                     )
                 else:
+                    # We don't downsample (but we do with step 1). Could be
+                    # refactored
                     step = 1
                 # Saturate the steps based on number of observations
                 # We won't take less than 3 lags
@@ -277,7 +285,7 @@ class XCorrelation:
                 # TODO: select number of lags based on user input
                 # Create the half vectors for lags selection
                 # Fixed value of 20 lags.
-                n = 20
+                n = nlags_from_user[ii, jj]
                 nlags_trimmed = min(n, len(lags_downsampled))
                 lag0_idx_downsampled = np.nonzero(lags_downsampled == 0)[0][0]
                 first_half_trimmed = [
@@ -372,7 +380,7 @@ class XCorrelation:
     def plot(self) -> matplotlib.figure.Figure:
         p = self.R.shape[0]
         q = self.R.shape[1]
-        fig, ax = plt.subplots(p, q, sharex=True, squeeze=False)
+        fig, ax = plt.subplots(p, q, squeeze=False)
         plt.setp(ax, ylim=(-1.2, 1.2))
 
         for ii in range(p):
@@ -561,30 +569,33 @@ class ValidationSession:
         self,
         name: str,
         validation_dataset: Dataset,
-        nlags: int | None = None,
-        input_nlags: int | None = None,
-        sys_time_constant: float | None = None,
+        u_acorr_nlags: np.ndarray | None = None,
+        res_acorr_nlags: np.ndarray | None = None,
+        ures_xcorr_nlags: np.ndarray | None = None,
+        U_bandwidths: np.ndarray | float | None = None,
+        Y_bandwidths: np.ndarray | float | None = None,
+        sampling_period: float | None = None,
         # input auto-correlation
-        input_local_statistic_name_1st: Statistic_type = "mean",
-        input_global_statistic_name_1st: Statistic_type = "max",
-        input_local_statistic_name_2nd: Statistic_type = "quadratic",
-        input_global_statistic_name_2nd: Statistic_type = "max",
-        input_local_weights: np.ndarray | None = None,
-        input_global_weights: np.ndarray | None = None,
+        u_local_statistic_type_1st: Statistic_type = "mean",
+        u_global_statistic_type_1st: Statistic_type = "max",
+        u_local_statistic_type_2nd: Statistic_type = "quadratic",
+        u_global_statistic_type_2nd: Statistic_type = "max",
+        u_local_weights: np.ndarray | None = None,
+        u_global_weights: np.ndarray | None = None,
         # residuals auto-correlation
-        acorr_local_statistic_name_1st: Statistic_type = "mean",
-        acorr_global_statistic_name_1st: Statistic_type = "max",
-        acorr_local_statistic_name_2nd: Statistic_type = "quadratic",
-        acorr_global_statistic_name_2nd: Statistic_type = "max",
-        acorr_local_weights: np.ndarray | None = None,
-        acorr_global_weights: np.ndarray | None = None,
+        res_acorr_local_statistic_type_1st: Statistic_type = "mean",
+        res_acorr_global_statistic_type_1st: Statistic_type = "max",
+        res_acorr_local_statistic_type_2nd: Statistic_type = "quadratic",
+        res_acorr_global_statistic_type_2nd: Statistic_type = "max",
+        res_acorr_local_weights: np.ndarray | None = None,
+        res_acorr_global_weights: np.ndarray | None = None,
         # input-residuals cross-Correlation
-        xcorr_local_statistic_name_1st: Statistic_type = "mean",
-        xcorr_global_statistic_name_1st: Statistic_type = "max",
-        xcorr_local_statistic_name_2nd: Statistic_type = "quadratic",
-        xcorr_global_statistic_name_2nd: Statistic_type = "max",
-        xcorr_local_weights: np.ndarray | None = None,
-        xcorr_global_weights: np.ndarray | None = None,
+        ures_xcorr_local_statistic_type_1st: Statistic_type = "mean",
+        ures_xcorr_global_statistic_type_1st: Statistic_type = "max",
+        ures_xcorr_local_statistic_type_2nd: Statistic_type = "quadratic",
+        ures_xcorr_global_statistic_type_2nd: Statistic_type = "max",
+        ures_xcorr_local_weights: np.ndarray | None = None,
+        ures_xcorr_global_weights: np.ndarray | None = None,
         # Model validation
         validation_thresholds: Dict[str, float] | None = None,
         ignore_input: bool = False,
@@ -602,7 +613,6 @@ class ValidationSession:
 
         # Simulation based
         self.name: str = name  #: The validation session name.
-        self._sys_time_constant = sys_time_constant
 
         self._simulations_values: pd.DataFrame = pd.DataFrame(
             index=validation_dataset.dataset.index, columns=[[], [], []]
@@ -612,105 +622,105 @@ class ValidationSession:
         :py:meth:`~dymoval.validation.ValidationSession.append_simulation`
         and it should be considered as a *read-only* attribute."""
 
-        self._auto_correlation_tensors: dict[str, XCorrelation] = {}
+        # Input: Ruu
+        self._u_auto_correlation_tensors: XCorrelation
         """The auto-correlation tensors.
         This attribute is automatically set
         and it should be considered as a *read-only* attribute."""
 
-        self._cross_correlation_tensors: dict[str, XCorrelation] = {}
+        # Format: 'name_sim': Ree
+        self._res_auto_correlation_tensors: dict[str, XCorrelation] = {}
+        """The auto-correlation tensors.
+        This attribute is automatically set
+        and it should be considered as a *read-only* attribute."""
+
+        # Format: 'name_sim': Rue
+        self._ures_cross_correlation_tensors: dict[str, XCorrelation] = {}
         """The cross-correlation tensors.
         This attribute is automatically set
         and it should be considered as a *read-only* attribute."""
 
-        acorr_nlags = _get_nlags(
-            signal_length=len(self._Dataset.dataset.index),
-            local_weights=acorr_local_weights,
-            nlags_from_user=nlags,
-            sys_time_constant=sys_time_constant,
-            sampling_period=self._Dataset.dataset.index[1]
-            - self._Dataset.dataset.index[0],
-        )
-
-        xcorr_nlags = _get_nlags(
-            signal_length=len(self._Dataset.dataset.index),
-            local_weights=xcorr_local_weights,
-            nlags_from_user=nlags,
-            sys_time_constant=sys_time_constant,
-            sampling_period=self._Dataset.dataset.index[1]
-            - self._Dataset.dataset.index[0],
-        )
-
-        self._nlags = min(acorr_nlags, xcorr_nlags)
-
-        self._input_local_statistic_name_1st = input_local_statistic_name_1st
-        self._input_global_statistic_name_1st = (
-            input_global_statistic_name_1st
-        )
-        self._input_local_statistic_name_2nd = input_local_statistic_name_2nd
-        self._input_global_statistic_name_2nd = (
-            input_global_statistic_name_2nd
-        )
-        self._input_local_weights = input_local_weights
-        self._input_global_weights = input_global_weights
+        # ------------------ Input --------------------
+        self._u_local_statistic_type_1st = u_local_statistic_type_1st
+        self._u_global_statistic_type_1st = u_global_statistic_type_1st
+        self._u_local_statistic_type_2nd = u_local_statistic_type_2nd
+        self._u_global_statistic_type_2nd = u_global_statistic_type_2nd
+        self._u_local_weights = u_local_weights
+        self._u_global_weights = u_global_weights
 
         Ruu = XCorrelation(
             "Ruu",
-            self._Dataset.dataset["INPUT"].to_numpy(),
-            self._Dataset.dataset["INPUT"].to_numpy(),
-            nlags=input_nlags,
-            local_statistic=self._input_local_statistic_name_1st,
-            local_weights=self._input_local_weights,
-            global_statistic=self._input_global_statistic_name_1st,
-            global_weights=self._input_global_weights,
-            sys_time_constant=sys_time_constant,
+            X=self._Dataset.dataset["INPUT"].to_numpy(),
+            Y=self._Dataset.dataset["INPUT"].to_numpy(),
+            nlags=u_acorr_nlags,
+            X_bandwidths=U_bandwidths,
+            Y_bandwidths=U_bandwidths,
             sampling_period=self._Dataset.dataset.index[1]
             - self._Dataset.dataset.index[0],
         )
 
-        self._input_acorr_tensor = Ruu
-        self._input_nlags = Ruu._nlags
-        self._input_acorr_whiteness_1st = Ruu.whiteness
+        self._u_acorr_tensor = Ruu
 
-        # 2nd statistics computation of the same tensor
-        # TODO All other attributes are the same (and are wrong)
-        self._input_acorr_whiteness_2nd, _ = Ruu._whiteness_level(
-            local_statistic=self._input_local_statistic_name_2nd,
-            local_weights=self._input_local_weights,
-            global_statistic=self._input_global_statistic_name_2nd,
-            global_weights=self._input_global_weights,
+        self._u_acorr_whiteness_1st, self._u_acorr_whiteness_matrix_1st = (
+            Ruu.estimate_whiteness(
+                local_statistic=self._u_local_statistic_type_1st,
+                local_weights=self._u_local_weights,
+                global_statistic=self._u_global_statistic_type_1st,
+                global_weights=self._u_global_weights,
+            )
         )
 
-        self._acorr_local_statistic_name_1st = acorr_local_statistic_name_1st
-        self._acorr_global_statistic_name_1st = (
-            acorr_global_statistic_name_1st
+        self._u_acorr_whiteness_2nd, self._u_acorr_whiteness_matrix2ndd = (
+            Ruu.estimate_whiteness(
+                local_statistic=self._u_local_statistic_type_2nd,
+                local_weights=self._u_local_weights,
+                global_statistic=self._u_global_statistic_type_2nd,
+                global_weights=self._u_global_weights,
+            )
         )
-        self._acorr_local_statistic_name_2nd = acorr_local_statistic_name_2nd
-        self._acorr_global_statistic_name_2nd = (
-            acorr_global_statistic_name_2nd
-        )
-        self._acorr_local_weights = acorr_local_weights
-        self._acorr_global_weights = acorr_global_weights
 
-        self._xcorr_local_statistic_name_1st = xcorr_local_statistic_name_1st
-        self._xcorr_global_statistic_name_1st = (
-            xcorr_global_statistic_name_1st
+        # TODO START FROM HERE 2024-10-08
+
+        # ------------ Residuals -----------------------------
+        self._res_acorr_local_statistic_type_1st = (
+            res_acorr_local_statistic_type_1st
         )
-        self._xcorr_local_statistic_name_2nd = xcorr_local_statistic_name_2nd
-        self._xcorr_global_statistic_name_2nd = (
-            xcorr_global_statistic_name_2nd
+        self._res_acorr_global_statistic_type_1st = (
+            res_acorr_global_statistic_type_1st
         )
-        self._xcorr_local_weights = xcorr_local_weights
-        self._xcorr_global_weights = xcorr_global_weights
+        self._res_acorr_local_statistic_type_2nd = (
+            res_acorr_local_statistic_type_2nd
+        )
+        self._res_acorr_global_statistic_type_2nd = (
+            res_acorr_global_statistic_type_2nd
+        )
+        self._res_acorr_local_weights = res_acorr_local_weights
+        self._res_acorr_global_weights = res_acorr_global_weights
+
+        self._ures_xcorr_local_statistic_type_1st = (
+            ures_xcorr_local_statistic_type_1st
+        )
+        self._ures_xcorr_global_statistic_type_1st = (
+            ures_xcorr_global_statistic_type_1st
+        )
+        self._ures_xcorr_local_statistic_type_2nd = (
+            ures_xcorr_local_statistic_type_2nd
+        )
+        self._ures_xcorr_global_statistic_type_2nd = (
+            ures_xcorr_global_statistic_type_2nd
+        )
+        self._ures_xcorr_local_weights = ures_xcorr_local_weights
+        self._ures_xcorr_global_weights = ures_xcorr_global_weights
 
         # Initialize validation results DataFrame.
         idx = [
-            f"Input whiteness ({self._input_local_statistic_name_1st}-{self._input_global_statistic_name_1st})",
-            f"Input whiteness ({self._input_local_statistic_name_2nd}-{self._input_global_statistic_name_2nd})",
+            f"Input whiteness ({self._u_local_statistic_type_1st}-{self._u_global_statistic_type_1st})",
+            f"Input whiteness ({self._u_local_statistic_type_2nd}-{self._u_global_statistic_type_2nd})",
             "R-Squared (%)",
-            f"Residuals whiteness ({self._acorr_local_statistic_name_1st}-{self._acorr_global_statistic_name_1st})",
-            f"Residuals whiteness ({self._acorr_local_statistic_name_2nd}-{self._acorr_global_statistic_name_2nd})",
-            f"Input-Res whiteness ({self._xcorr_local_statistic_name_1st}-{self._xcorr_global_statistic_name_1st})",
-            f"Input-Res whiteness ({self._xcorr_local_statistic_name_2nd}-{self._xcorr_global_statistic_name_2nd})",
+            f"Residuals whiteness ({self._res_acorr_local_statistic_type_1st}-{self._res_acorr_global_statistic_type_1st})",
+            f"Residuals whiteness ({self._res_acorr_local_statistic_type_2nd}-{self._res_acorr_global_statistic_type_2nd})",
+            f"Input-Res whiteness ({self._ures_xcorr_local_statistic_type_1st}-{self._ures_xcorr_global_statistic_type_1st})",
+            f"Input-Res whiteness ({self._ures_xcorr_local_statistic_type_2nd}-{self._ures_xcorr_global_statistic_type_2nd})",
         ]
         self._validation_results: pd.DataFrame = pd.DataFrame(
             index=idx, columns=[]
@@ -759,22 +769,22 @@ class ValidationSession:
             f"Validation session name: {self.name}\n\n"
             f"Validation setup:\n----------------\n"
             f"Input\n"
-            f"1st statistic: {self._input_local_statistic_name_1st}-{self._input_global_statistic_name_1st}\n"
-            f"2nd statistic: {self._input_local_statistic_name_2nd}-{self._input_global_statistic_name_2nd}\n"
-            f"local weights: {self._input_local_weights}\n"
-            f"global weights: {self._input_global_weights}\n"
+            f"1st statistic: {self._u_local_statistic_type_1st}-{self._u_global_statistic_type_1st}\n"
+            f"2nd statistic: {self._u_local_statistic_type_2nd}-{self._u_global_statistic_type_2nd}\n"
+            f"local weights: {self._u_local_weights}\n"
+            f"global weights: {self._u_global_weights}\n"
             f"num lags: {self._input_nlags}\n\n"
             f"Residuals auto-correlation:\n"
-            f"1st statistic: {self._acorr_local_statistic_name_1st}-{self._acorr_global_statistic_name_1st}\n"
-            f"2nd statistic: {self._acorr_local_statistic_name_2nd}-{self._acorr_global_statistic_name_2nd}\n"
-            f"local weights: {self._acorr_local_weights}\n"
-            f"global weights: {self._acorr_global_weights}\n"
+            f"1st statistic: {self._res_acorr_local_statistic_type_1st}-{self._res_acorr_global_statistic_type_1st}\n"
+            f"2nd statistic: {self._res_acorr_local_statistic_type_2nd}-{self._res_acorr_global_statistic_type_2nd}\n"
+            f"local weights: {self._res_acorr_local_weights}\n"
+            f"global weights: {self._res_acorr_global_weights}\n"
             f"num lags: {self._nlags}\n\n"
             f"Input-residuals cross-correlation:\n"
-            f"1st statistic: {self._xcorr_local_statistic_name_1st}-{self._xcorr_global_statistic_name_1st}\n"
-            f"2nd statistic: {self._xcorr_local_statistic_name_2nd}-{self._xcorr_global_statistic_name_2nd}\n"
-            f"local weights: {self._xcorr_local_weights}\n"
-            f"global weights: {self._xcorr_global_weights}\n"
+            f"1st statistic: {self._ures_xcorr_local_statistic_type_1st}-{self._ures_xcorr_global_statistic_type_1st}\n"
+            f"2nd statistic: {self._ures_xcorr_local_statistic_type_2nd}-{self._ures_xcorr_global_statistic_type_2nd}\n"
+            f"local weights: {self._ures_xcorr_local_weights}\n"
+            f"global weights: {self._ures_xcorr_global_weights}\n"
             f"num lags: {self._nlags}\n\n"
             f"Validation thresholds: \n"
             f"{Ruu_whiteness_1st}"
@@ -885,10 +895,10 @@ class ValidationSession:
             eps,
             eps,
             nlags=self._nlags,
-            local_statistic=self._acorr_local_statistic_name_1st,
-            local_weights=self._acorr_local_weights,
-            global_statistic=self._acorr_global_statistic_name_1st,
-            global_weights=self._acorr_global_weights,
+            local_statistic=self._res_acorr_local_statistic_type_1st,
+            local_weights=self._res_acorr_local_weights,
+            global_statistic=self._res_acorr_global_statistic_type_1st,
+            global_weights=self._res_acorr_global_weights,
             sys_time_constant=self._sys_time_constant,
             sampling_period=self._Dataset.dataset.index[1]
             - self._Dataset.dataset.index[0],
@@ -896,10 +906,10 @@ class ValidationSession:
 
         Ree_whiteness_1st = Ree.whiteness
         Ree_whiteness_2nd, _ = Ree._whiteness_level(
-            local_statistic=self._acorr_local_statistic_name_2nd,
-            local_weights=self._acorr_local_weights,
-            global_statistic=self._acorr_global_statistic_name_2nd,
-            global_weights=self._acorr_global_weights,
+            local_statistic=self._res_acorr_local_statistic_type_2nd,
+            local_weights=self._res_acorr_local_weights,
+            global_statistic=self._res_acorr_global_statistic_type_2nd,
+            global_weights=self._res_acorr_global_weights,
         )
 
         # Input-residals cross-correlation
@@ -908,20 +918,20 @@ class ValidationSession:
             u_values,
             eps,
             nlags=max(self._nlags, self._input_nlags),
-            local_statistic=self._xcorr_local_statistic_name_1st,
-            local_weights=self._xcorr_local_weights,
-            global_statistic=self._xcorr_global_statistic_name_1st,
-            global_weights=self._xcorr_global_weights,
+            local_statistic=self._ures_xcorr_local_statistic_type_1st,
+            local_weights=self._ures_xcorr_local_weights,
+            global_statistic=self._ures_xcorr_global_statistic_type_1st,
+            global_weights=self._ures_xcorr_global_weights,
             sys_time_constant=self._sys_time_constant,
             sampling_period=self._Dataset.dataset.index[1]
             - self._Dataset.dataset.index[0],
         )
         Rue_whiteness_1st = Rue.whiteness
         Rue_whiteness_2nd, _ = Rue._whiteness_level(
-            local_statistic=self._xcorr_local_statistic_name_2nd,
-            local_weights=self._xcorr_local_weights,
-            global_statistic=self._xcorr_global_statistic_name_2nd,
-            global_weights=self._xcorr_global_weights,
+            local_statistic=self._ures_xcorr_local_statistic_type_2nd,
+            local_weights=self._ures_xcorr_local_weights,
+            global_statistic=self._ures_xcorr_global_statistic_type_2nd,
+            global_weights=self._ures_xcorr_global_weights,
         )
 
         # Store results
