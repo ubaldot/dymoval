@@ -296,13 +296,18 @@ class XCorrelation:
     ) -> Any:
 
         # MAIN whiteness level =================================
-        R = self.values
-        lags = self.lags
-        p = R.shape[1]  # Number of rows
-        q = R.shape[2]  # Number of columns
+        R = self.R
+        p = R.shape[0]  # Number of rows
+        q = R.shape[1]  # Number of columns
 
         # Fix locals weights
-        W_local = np.ones((len(lags[:, 0, 0]), p, q))
+        if local_weights is None:
+            W_local = np.empty((p, q), dtype=np.ndarray)
+            for ii in range(p):
+                for jj in range(q):
+                    W_local[ii, jj] = np.ones(len(R[ii, jj].lags))
+        else:
+            W_local = local_weights
 
         # fix global weights
         # TODO: local weights length
@@ -312,19 +317,19 @@ class XCorrelation:
 
         # Build the R_matrix by computing the statistic of each scalar
         # cross-correlation (local)
-        R_matrix = np.zeros((p, q))
+        whiteness_matrix = np.zeros((p, q))
         for ii in range(p):
             for jj in range(q):
                 if ii == jj and self.kind == "auto-correlation":
                     # Remove auto-correlation values at lag = 0
-                    lags0_idx = np.nonzero(lags[:, ii, jj] == 0)[0][0]
-                    W = np.delete(W_local[:, ii, jj], lags0_idx)
-                    rij_tau = np.delete(R[:, ii, jj], lags0_idx)
+                    lag0_idx = np.nonzero(R[ii, jj].lags == 0)[0][0]
+                    W = np.delete(W_local[ii, jj], lag0_idx)
+                    rij_tau = np.delete(R[ii, jj].values, lag0_idx)
                 else:
-                    W = W_local[:, ii, jj]
-                    rij_tau = R[:, ii, jj]
+                    W = W_local[ii, jj]
+                    rij_tau = R[ii, jj].values
 
-                R_matrix[ii, jj] = compute_statistic(
+                whiteness_matrix[ii, jj] = compute_statistic(
                     statistic=local_statistic,
                     weights=W,
                     data=rij_tau,
@@ -334,9 +339,9 @@ class XCorrelation:
         whiteness_estimate = compute_statistic(
             statistic=global_statistic,
             weights=W_global,
-            data=R_matrix,
+            data=whiteness_matrix,
         )
-        return whiteness_estimate, R_matrix
+        return whiteness_estimate, whiteness_matrix
 
     def plot(self) -> matplotlib.figure.Figure:
         p = self.R.shape[0]
