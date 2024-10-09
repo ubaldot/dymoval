@@ -1,7 +1,5 @@
 """Module containing everything related to validation."""
 
-# TODO: This is for testing Git status
-
 # The following is needed when there are methods that return instance of the
 # class itself.
 # TODO If you remove python 3.10 remove typing_extensions as Self in typing is
