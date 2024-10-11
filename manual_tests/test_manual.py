@@ -215,8 +215,6 @@ R_trim = dmv.XCorrelation(
 vs = dmv.ValidationSession(
     "my_validation",
     ds,
-    acorr_local_weights=np.ones(90),
-    input_local_weights=np.ones(21),
 )
 
 # %%
