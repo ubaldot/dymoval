@@ -200,8 +200,6 @@ R_trim = dmv.XCorrelation(
     "foo",
     signal_list[0]["samples"],
     signal_list[1]["samples"],
-    nlags=50,
-    local_weights=np.ones(7),
 )
 
 # Rue = dmv.XCorrelation(

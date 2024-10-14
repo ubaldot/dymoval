@@ -1,5 +1,7 @@
 """Module containing everything related to validation."""
 
+# TODO DODODODODOD
+
 # The following is needed when there are methods that return instance of the
 # class itself.
 # TODO If you remove python 3.10 remove typing_extensions as Self in typing is
@@ -186,7 +188,9 @@ class XCorrelation:
         # sensor.
         lags_full = signal.correlation_lags(len(X), len(Y))
         nlags_full = lags_full.size
-        half_lags_full = nlags_full // 2
+        # half_lags_full = nlags_full // 2
+        negative_lags_indices_full = np.where(lags_full < 0)[0]
+        positive_lags_indices_full = np.where(lags_full >= 0)[0]
         lag0_idx_full = np.nonzero(lags_full == 0)[0][0]
         for ii in range(p):
             for jj in range(q):
@@ -251,31 +255,49 @@ class XCorrelation:
                 step = max(1, min(step, nlags_full // nlags_min))
 
                 # Create the half vectors for down-sampling
-                first_half = [
-                    lag0_idx_full - i * step
-                    for i in range(1, (half_lags_full // step) + 1)
-                ]
-                second_half = [
-                    lag0_idx_full + i * step
-                    for i in range(0, (half_lags_full // step) + 1)
-                ]
+                # first_half = [
+                #     lag0_idx_full - i * step
+                #     for i in range(0, (half_lags_full // step) + 1)
+                # ]
+                positive_lags_indices_downsampled = (
+                    positive_lags_indices_full[::step]
+                )
+                negative_lags_indices_downsampled = (
+                    negative_lags_indices_full[::-step]
+                )
+                # is_even = 1 if len(R_full[ii, jj].values) % 2 == 0 else 0
+                # second_half = [
+                #     lag0_idx_full + i * step
+                #     for i in range(0, (half_lags_full // step) + 1)
+                # ]
                 # Combine and sort the indices
-                indices_downsampled = sorted(first_half + second_half)
+                # indices_downsampled = sorted(first_half + second_half)
+                indices_downsampled = np.sort(
+                    np.concatenate(
+                        (
+                            negative_lags_indices_downsampled,
+                            positive_lags_indices_downsampled,
+                        )
+                    )
+                )
 
                 values_downsampled = R_full[ii, jj].values[
                     indices_downsampled
                 ]
 
+                # TODO: FROM HERE
+                lags_downsampled = lags_full[indices_downsampled] // step
+
                 # Adjust the length of lags for down-sampling, they must have
                 # the form -3, -2, -1, 0, 1, 2, 3
-                lags_downsampled: np.ndarray = np.arange(
-                    -half_lags_full // step + 1, half_lags_full // step + 1
-                )
-                # TODO: Very ugly hack
-                if len(lags_downsampled) != len(indices_downsampled):
-                    lags_downsampled = np.arange(
-                        -half_lags_full // step, half_lags_full // step + 1
-                    )
+                # lags_downsampled: np.ndarray = np.arange(
+                #     -half_lags_full // step + 1, half_lags_full // step + 1
+                # )
+                # # TODO: Very ugly hack
+                # if len(lags_downsampled) != len(indices_downsampled):
+                #     lags_downsampled = np.arange(
+                #         -half_lags_full // step, half_lags_full // step + 1
+                #     )
 
                 R_downsampled[ii, jj] = _rxy(
                     values_downsampled, lags_downsampled
@@ -286,26 +308,65 @@ class XCorrelation:
                 # Create the half vectors for lags selection
                 # Fixed value of 20 lags.
                 n = nlags_from_user[ii, jj]
-                nlags_trimmed = min(n, len(lags_downsampled))
-                lag0_idx_downsampled = np.nonzero(lags_downsampled == 0)[0][0]
-                first_half_trimmed = [
-                    lag0_idx_downsampled - i
-                    for i in range(1, nlags_trimmed // 2 + 1)
-                ]
-                second_half_trimmed = [
-                    lag0_idx_downsampled + i
-                    for i in range(0, nlags_trimmed // 2 + 1)
-                ]
-                # Combine and sort the indices
-                indices_trimmed = sorted(
-                    first_half_trimmed + second_half_trimmed
+                # You can have asymmetry between positive and negative lags
+                negative_lags_indices_downsampled = np.where(
+                    lags_downsampled < 0
+                )[0]
+                positive_lags_indices_downsampled = np.where(
+                    lags_downsampled >= 0
+                )[0]
+                nlags_trimmed = int(
+                    min(
+                        n,
+                        min(
+                            len(negative_lags_indices_downsampled),
+                            len(positive_lags_indices_downsampled),
+                        ),
+                    )
                 )
+                lag0_idx_downsampled = np.nonzero(lags_downsampled == 0)[0][0]
+
+                positive_lags_indices_trimmed = (
+                    positive_lags_indices_downsampled[:nlags_trimmed]
+                )
+                negative_lags_indices_trimmed = (
+                    negative_lags_indices_downsampled[::-1][:nlags_trimmed]
+                )
+                # is_even = 1 if len(R_full[ii, jj].values) % 2 == 0 else 0
+                # second_half = [
+                #     lag0_idx_full + i * step
+                #     for i in range(0, (half_lags_full // step) + 1)
+                # ]
+                # Combine and sort the indices
+                # indices_trimmed = sorted(first_half + second_half)
+                indices_trimmed = np.sort(
+                    np.concatenate(
+                        (
+                            negative_lags_indices_trimmed,
+                            positive_lags_indices_trimmed,
+                        )
+                    )
+                )
+
+                # first_half_trimmed = [
+                #     lag0_idx_downsampled - i
+                #     for i in range(1, nlags_trimmed // 2 + 1)
+                # ]
+                # second_half_trimmed = [
+                #     lag0_idx_downsampled + i
+                #     for i in range(0, nlags_trimmed // 2 + 1)
+                # ]
+                # # Combine and sort the indices
+                # indices_trimmed = sorted(
+                #     first_half_trimmed + second_half_trimmed
+                # )
 
                 # Trim based on the number of lags
                 values_trimmed = R_downsampled[ii, jj].values[indices_trimmed]
                 lags_trimmed = R_downsampled[ii, jj].lags[indices_trimmed]
 
                 R_trimmed[ii, jj] = _rxy(values_trimmed, lags_trimmed)
+                # R_trimmed[ii, jj] = _rxy(values_downsampled, lags_downsampled)
 
         return R_trimmed
 
@@ -574,7 +635,6 @@ class ValidationSession:
         ueps_xcorr_nlags: np.ndarray | None = None,
         U_bandwidths: np.ndarray | float | None = None,
         Y_bandwidths: np.ndarray | float | None = None,
-        sampling_period: float | None = None,
         # input auto-correlation
         u_local_statistic_type_1st: Statistic_type = "mean",
         u_global_statistic_type_1st: Statistic_type = "max",

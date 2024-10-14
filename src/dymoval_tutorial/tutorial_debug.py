@@ -60,8 +60,8 @@ stepp = Fs / B3
 
 X = dmv.XCorrelation(
     "foo",
-    signal_list[0]["samples"][:-2],
-    signal_list[0]["samples"][:-2],
+    signal_list[0]["samples"][:-1],
+    signal_list[0]["samples"][:-3],
     X_bandwidths=np.array([B3]),
     Y_bandwidths=np.array([B3]),
     sampling_period=sampling_period,
