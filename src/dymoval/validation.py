@@ -690,20 +690,20 @@ class ValidationSession:
 
         # Format: 'name_sim': Ree
         self._eps_auto_correlation_tensors: dict[str, XCorrelation] = {}
-        self._eps_acorr_whiteness_1st: dict[str, float]
-        self._eps_acorr_whiteness_matrix_1st: dict[str, np.ndarray]
-        self._eps_acorr_whiteness_2nd: dict[str, float]
-        self._eps_acorr_whiteness_matrix_2nd: dict[str, np.ndarray]
+        self._eps_acorr_whiteness_1st: dict[str, float] = {}
+        self._eps_acorr_whiteness_matrix_1st: dict[str, np.ndarray] = {}
+        self._eps_acorr_whiteness_2nd: dict[str, float] = {}
+        self._eps_acorr_whiteness_matrix_2nd: dict[str, np.ndarray] = {}
         """The auto-correlation tensors.
         This attribute is automatically set
         and it should be considered as a *read-only* attribute."""
 
         # Format: 'name_sim': Rue
         self._ueps_cross_correlation_tensors: dict[str, XCorrelation] = {}
-        self._ueps_xcorr_whiteness_1st: dict[str, float]
-        self._ueps_xcorr_whiteness_matrix_1st: dict[str, np.ndarray]
-        self._ueps_xcorr_whiteness_2nd: dict[str, float]
-        self._ueps_xcorr_whiteness_matrix_2nd: dict[str, np.ndarray]
+        self._ueps_xcorr_whiteness_1st: dict[str, float] = {}
+        self._ueps_xcorr_whiteness_matrix_1st: dict[str, np.ndarray] = {}
+        self._ueps_xcorr_whiteness_2nd: dict[str, float] = {}
+        self._ueps_xcorr_whiteness_matrix_2nd: dict[str, np.ndarray] = {}
         """The cross-correlation tensors.
         This attribute is automatically set
         and it should be considered as a *read-only* attribute."""
@@ -1033,7 +1033,20 @@ class ValidationSession:
             global_weights=self._ueps_xcorr_global_weights,
         )
 
-        # Compute outcome
+        # Append numerical values:
+        self._validation_results[sim_name] = np.array(
+            [
+                self._u_acorr_whiteness_1st,
+                self._u_acorr_whiteness_2nd,
+                r2,
+                self._eps_acorr_whiteness_1st[sim_name],
+                self._eps_acorr_whiteness_2nd[sim_name],
+                self._ueps_xcorr_whiteness_1st[sim_name],
+                self._ueps_xcorr_whiteness_2nd[sim_name],
+            ]
+        )
+
+        # Compute PASS/FAIL outcome
         local_outcome = []
         validation_dict = self.validation_values(sim_name)
         for k in self._validation_thresholds.keys():
@@ -1534,17 +1547,17 @@ class ValidationSession:
                     f"Simulation {sim_not_found} not found. "
                     "Check the available simulations names with 'simulations_namess()'"
                 )
-        Ruu = self._input_acorr_tensor
-        Ree = self._auto_correlation_tensors
-        Rue = self._cross_correlation_tensors
+        Ruu = self._u_acorr_tensor
+        Ree = self._eps_acorr_tensor
+        Rue = self._ueps_xcorr_tensor
 
         # Get p
         k0 = list(Rue.keys())[0]
-        p = Rue[k0].values[0, :, :].shape[0]
+        p = Rue[k0].R.shape[0]
 
         # Get q
         k0 = list(Ree.keys())[0]
-        q = Ree[k0].values[0, :, :].shape[0]
+        q = Ree[k0].R.shape[0]
 
         # ===============================================================
         # Plot input auto-correlation
@@ -1558,9 +1571,9 @@ class ValidationSession:
                         title = rf"$\hat r_{{u_{ii}u_{jj}}}$"
                     else:
                         title = rf"r_u{ii}u_{jj}"
-                    ax[ii, jj].plot(
-                        Ruu.lags,
-                        Ruu.values[:, ii, jj],
+                    ax[ii, jj].stem(
+                        Ruu.R[ii, jj].lags,
+                        Ruu.R[ii, jj].values,
                         label=title,
                     )
                     ax[ii, jj].grid(True)
@@ -1589,9 +1602,9 @@ class ValidationSession:
                         title = rf"$\hat r_{{\epsilon_{ii}\epsilon_{jj}}}$"
                     else:
                         title = rf"r_eps{ii}eps_{jj}"
-                    ax1[ii, jj].plot(
-                        Ree[sim_name].lags,
-                        Ree[sim_name].values[:, ii, jj],
+                    ax1[ii, jj].stem(
+                        Ree[sim_name].R[ii, jj].lags,
+                        Ree[sim_name].R[ii, jj].values,
                         label=sim_name,
                     )
                     ax1[ii, jj].grid(True)
@@ -1620,9 +1633,9 @@ class ValidationSession:
                         title = rf"$\hat r_{{u_{ii}\epsilon_{jj}}}$"
                     else:
                         title = rf"r_u{ii}eps{jj}"
-                    ax2[ii, jj].plot(
-                        Rue[sim_name].lags,
-                        Rue[sim_name].values[:, ii, jj],
+                    ax2[ii, jj].stem(
+                        Rue[sim_name].R[ii, jj].lags,
+                        Rue[sim_name].R[ii, jj].values,
                         label=sim_name,
                     )
                     ax2[ii, jj].grid(True)

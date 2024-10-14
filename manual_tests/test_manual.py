@@ -232,9 +232,9 @@ sim2_values = vs.dataset.dataset["OUTPUT"].values + np.random.rand(
 )
 
 # Return whiteness level and XCorrelation tensor
-sim1_whiteness, _, X = dmv.whiteness_level(
-    sim1_values, local_weights=np.ones(40)
-)
+# sim1_whiteness, _, X = dmv.whiteness_level(
+#     sim1_values, local_weights=np.ones(40)
+# )
 
 # We use the ValidationSession's method append_simulation to append the simulation
 # results.
