@@ -184,16 +184,17 @@ class XCorrelation:
         R_downsampled = np.empty((p, q), dtype=_rxy)
         R_trimmed = np.empty((p, q), dtype=_rxy)
 
-        # Adjust the number of lags and trim the cross-correlation
-        # sensor.
-        lags_full = signal.correlation_lags(len(X), len(Y))
-        nlags_full = lags_full.size
-        # half_lags_full = nlags_full // 2
-        negative_lags_indices_full = np.where(lags_full < 0)[0]
-        positive_lags_indices_full = np.where(lags_full >= 0)[0]
-        lag0_idx_full = np.nonzero(lags_full == 0)[0][0]
         for ii in range(p):
             for jj in range(q):
+                # Adjust the number of lags
+                lags_full = signal.correlation_lags(
+                    len(X[:, ii]), len(Y[:, jj])
+                )
+                nlags_full = lags_full.size
+                # half_lags_full = nlags_full // 2
+                negative_lags_indices_full = np.where(lags_full < 0)[0]
+                positive_lags_indices_full = np.where(lags_full >= 0)[0]
+
                 # Classic correlation definition from Probability.
                 # Rxy_values = E[(X-mu_x)^T(Y-mu_y))]/(sigma_x*sigma_y),
                 # check normalized cross-correlation for stochastic processes on Wikipedia.
@@ -254,24 +255,12 @@ class XCorrelation:
                 nlags_min = 3
                 step = max(1, min(step, nlags_full // nlags_min))
 
-                # Create the half vectors for down-sampling
-                # first_half = [
-                #     lag0_idx_full - i * step
-                #     for i in range(0, (half_lags_full // step) + 1)
-                # ]
                 positive_lags_indices_downsampled = (
                     positive_lags_indices_full[::step]
                 )
                 negative_lags_indices_downsampled = (
                     negative_lags_indices_full[::-step]
                 )
-                # is_even = 1 if len(R_full[ii, jj].values) % 2 == 0 else 0
-                # second_half = [
-                #     lag0_idx_full + i * step
-                #     for i in range(0, (half_lags_full // step) + 1)
-                # ]
-                # Combine and sort the indices
-                # indices_downsampled = sorted(first_half + second_half)
                 indices_downsampled = np.sort(
                     np.concatenate(
                         (
@@ -285,26 +274,13 @@ class XCorrelation:
                     indices_downsampled
                 ]
 
-                # TODO: FROM HERE
                 lags_downsampled = lags_full[indices_downsampled] // step
-
-                # Adjust the length of lags for down-sampling, they must have
-                # the form -3, -2, -1, 0, 1, 2, 3
-                # lags_downsampled: np.ndarray = np.arange(
-                #     -half_lags_full // step + 1, half_lags_full // step + 1
-                # )
-                # # TODO: Very ugly hack
-                # if len(lags_downsampled) != len(indices_downsampled):
-                #     lags_downsampled = np.arange(
-                #         -half_lags_full // step, half_lags_full // step + 1
-                #     )
 
                 R_downsampled[ii, jj] = _rxy(
                     values_downsampled, lags_downsampled
                 )
 
                 # ----------- Trimming ---------------
-                # TODO: select number of lags based on user input
                 # Create the half vectors for lags selection
                 # Fixed value of 20 lags.
                 n = nlags_from_user[ii, jj]
@@ -324,7 +300,6 @@ class XCorrelation:
                         ),
                     )
                 )
-                lag0_idx_downsampled = np.nonzero(lags_downsampled == 0)[0][0]
 
                 positive_lags_indices_trimmed = (
                     positive_lags_indices_downsampled[:nlags_trimmed]
@@ -1593,9 +1568,12 @@ class ValidationSession:
         # ===============================================================
         # Plot residuals auto-correlation
         # ===============================================================
+        cmap = plt.get_cmap(COLORMAP)
         fig1, ax1 = plt.subplots(q, q, sharex=True, squeeze=False)
         plt.setp(ax1, ylim=(-1.2, 1.2))
-        for sim_name in list_sims:
+        for kk, sim_name in enumerate(list_sims):
+            # Convert the RGBA color to hex format
+            color_hex = matplotlib.colors.to_hex(cmap(kk))
             for ii in range(q):
                 for jj in range(q):
                     if is_latex_installed:
@@ -1606,6 +1584,7 @@ class ValidationSession:
                         Ree[sim_name].R[ii, jj].lags,
                         Ree[sim_name].R[ii, jj].values,
                         label=sim_name,
+                        linefmt=f"{color_hex}",
                     )
                     ax1[ii, jj].grid(True)
                     ax1[ii, jj].set_xlabel("Lags")
@@ -1626,7 +1605,9 @@ class ValidationSession:
         # ===============================================================
         fig2, ax2 = plt.subplots(p, q, sharex=True, squeeze=False)
         plt.setp(ax2, ylim=(-1.2, 1.2))
-        for sim_name in list_sims:
+        for kk, sim_name in enumerate(list_sims):
+            # Convert the RGBA color to hex format
+            color_hex = matplotlib.colors.to_hex(cmap(kk))
             for ii in range(p):
                 for jj in range(q):
                     if is_latex_installed:
@@ -1637,6 +1618,7 @@ class ValidationSession:
                         Rue[sim_name].R[ii, jj].lags,
                         Rue[sim_name].R[ii, jj].values,
                         label=sim_name,
+                        linefmt=f"{color_hex}",
                     )
                     ax2[ii, jj].grid(True)
                     ax2[ii, jj].set_xlabel("Lags")
