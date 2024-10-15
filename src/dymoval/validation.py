@@ -76,16 +76,22 @@ class XCorrelation:
 
     Attributes
     ----------
-    values: np.ndarray
-        Values of the correlation tensor.
-        It is a *Nxpxq* tensor, where *p* is the dimension of the first signals,
-        *q* is the dimension of the second signal and *N* is the number of lags.
+    name:
+        The XCorrelation name.
+    R:
+        MIMO Correlation matrix. The i,j-th element of R
+        represents the cross correlation function between the i-th signal of
+        X and the j-th signal of Y. Each i,j element is a NamedTuple with attributes
+        values (np.ndarray) and lags (np.ndarray).
+    kind:
+        Correlation kind.
+
 
     Return the normalized cross-correlation of two MIMO signals.
 
     If X = Y then it return the normalized auto-correlation of X.
 
-    You must either pass all X_Bandwidth, Y_Bamdwidth and sampling_period or
+    You must pass X_Bandwidth, Y_Bandwidth and sampling_period or
     none of them.
 
     Parameters
@@ -98,12 +104,16 @@ class XCorrelation:
     Y :
         MIMO signal realizations expressed as `Nxq` 2D array
         of `N` observations of `q` signals.
-    X_bandwidths :
-        XXX in Hz
-    Y_bandwidths :
-        YYY in Hz
+    nlags:
+        p*q np.ndarray where the i,j-th element represents the number of lags
+        of the cross-correlation function associated to the i-th signal of X
+        and the j-th signal of Y.
+    X_bandwidths: np.ndarray
+        1D array representing the bandwidths of each signal in X.
+    Y_bandwidths:
+        1D array representing the bandwidths of each signal in Y.
     sampling_period:
-        ZZZ in seconds
+        Sampling period of the signals X and Y.
     """
 
     def __init__(
@@ -247,11 +257,11 @@ class XCorrelation:
                         )
                     )
                 else:
-                    # We don't downsample (but we do with step 1). Could be
+                    # We downsample with step 1 (= no downsampling). TODO Could be
                     # refactored
                     step = 1
-                # Saturate the steps based on number of observations
                 # We won't take less than 3 lags
+                # Saturate the steps based on number of observations
                 nlags_min = 3
                 step = max(1, min(step, nlags_full // nlags_min))
 
@@ -280,10 +290,10 @@ class XCorrelation:
                     values_downsampled, lags_downsampled
                 )
 
-                # ----------- Trimming ---------------
+                # ----------- Trim ---------------
                 # Create the half vectors for lags selection
                 # Fixed value of 20 lags.
-                n = nlags_from_user[ii, jj]
+                n = nlags_from_user[ii, jj] + 2
                 # You can have asymmetry between positive and negative lags
                 negative_lags_indices_downsampled = np.where(
                     lags_downsampled < 0
@@ -302,16 +312,11 @@ class XCorrelation:
                 )
 
                 positive_lags_indices_trimmed = (
-                    positive_lags_indices_downsampled[:nlags_trimmed]
+                    positive_lags_indices_downsampled[: nlags_trimmed + 1]
                 )
                 negative_lags_indices_trimmed = (
                     negative_lags_indices_downsampled[::-1][:nlags_trimmed]
                 )
-                # is_even = 1 if len(R_full[ii, jj].values) % 2 == 0 else 0
-                # second_half = [
-                #     lag0_idx_full + i * step
-                #     for i in range(0, (half_lags_full // step) + 1)
-                # ]
                 # Combine and sort the indices
                 # indices_trimmed = sorted(first_half + second_half)
                 indices_trimmed = np.sort(
@@ -323,25 +328,12 @@ class XCorrelation:
                     )
                 )
 
-                # first_half_trimmed = [
-                #     lag0_idx_downsampled - i
-                #     for i in range(1, nlags_trimmed // 2 + 1)
-                # ]
-                # second_half_trimmed = [
-                #     lag0_idx_downsampled + i
-                #     for i in range(0, nlags_trimmed // 2 + 1)
-                # ]
-                # # Combine and sort the indices
-                # indices_trimmed = sorted(
-                #     first_half_trimmed + second_half_trimmed
-                # )
-
                 # Trim based on the number of lags
                 values_trimmed = R_downsampled[ii, jj].values[indices_trimmed]
+                print(len(values_trimmed))
                 lags_trimmed = R_downsampled[ii, jj].lags[indices_trimmed]
 
                 R_trimmed[ii, jj] = _rxy(values_trimmed, lags_trimmed)
-                # R_trimmed[ii, jj] = _rxy(values_downsampled, lags_downsampled)
 
         return R_trimmed
 
@@ -370,21 +362,37 @@ class XCorrelation:
         p = R.shape[0]  # Number of rows
         q = R.shape[1]  # Number of columns
 
-        # Fix locals weights
+        # -------------- Validation of locals and global weights from user
         if local_weights is None:
             W_local = np.empty((p, q), dtype=np.ndarray)
             for ii in range(p):
                 for jj in range(q):
                     W_local[ii, jj] = np.ones(len(R[ii, jj].lags))
         else:
+            # Check that the number of lags and weights are the same
+            for ii in range(p):
+                for jj in range(q):
+                    if len(local_weights[ii, jj]) != len(R[ii, jj].lags):
+                        raise IndexError(
+                            f"""Number of lags and number of
+                                         weights must be the same. In index
+                                         {ii,jj} you have {len(R[ii,
+                                         jj].lags)} lags and
+                                         {len(local_weights[ii, jj]) }
+                                         weights."""
+                        )
+            # if num_weights is equal to num_lags go ahead
             W_local = local_weights
 
         # fix global weights
-        # TODO: local weights length
-        W_global = (
-            np.ones(p * q) if global_weights is None else global_weights
-        )
+        if global_weights is not None and global_weights.shape != (p, q):
+            raise IndexError(f"'global_weights' must be a {p}x{q} matrix.")
+        else:
+            W_global = (
+                np.ones(p * q) if global_weights is None else global_weights
+            )
 
+        # ------------ compute statistics -------------------------
         # Build the R_matrix by computing the statistic of each scalar
         # cross-correlation (local)
         whiteness_matrix = np.zeros((p, q))
@@ -411,6 +419,7 @@ class XCorrelation:
             weights=W_global,
             data=whiteness_matrix,
         )
+
         return whiteness_estimate, whiteness_matrix
 
     def plot(self) -> matplotlib.figure.Figure:
@@ -552,38 +561,36 @@ def rsquared(x: np.ndarray, y: np.ndarray) -> float:
 # TODO: Not happy with this
 def whiteness_level(
     data: np.ndarray,
-    nlags: int | None = None,
+    data_bandwidths: np.ndarray | float | None = None,
+    sampling_period: float | None = None,
+    nlags: np.ndarray | None = None,
     local_statistic: Statistic_type = "quadratic",
-    local_weights: np.ndarray | None = None,  # shall be a 1D vector
+    local_weights: (
+        np.ndarray | None
+    ) = None,  # shall be a p*q matrix where each element is a 1D-array (like the lags)
     global_statistic: Statistic_type = "max",
     global_weights: np.ndarray | None = None,
-) -> tuple[np.floating, np.ndarray, XCorrelation]:
+) -> tuple[np.floating, np.ndarray]:
     # Convert signals into XCorrelation tensors and compute the
     # whiteness_level
-
-    # TODO Input validation
-    # Check that the global_weights length is equal to p * q
-
-    # Compute correlation tensor from input signals
-    if nlags is not None:
-        num_lags = nlags
-    elif local_weights is not None:
-        num_lags = local_weights.shape[0]
-    else:
-        num_lags = None
 
     Rxx = XCorrelation(
         "",
         X=data,
-        Y=None,
-        nlags=num_lags,
+        Y=data,
+        nlags=nlags,
+        X_bandwidths=data_bandwidths,
+        Y_bandwidths=data_bandwidths,
+        sampling_period=sampling_period,
+    )
+
+    whiteness_estimate, whiteness_matrix = Rxx.estimate_whiteness(
         local_statistic=local_statistic,
         local_weights=local_weights,
         global_statistic=global_statistic,
         global_weights=global_weights,
     )
-
-    return Rxx.whiteness, Rxx.R_matrix, Rxx
+    return whiteness_estimate, whiteness_matrix
 
 
 @dataclass
@@ -595,7 +602,7 @@ class ValidationSession:
     A validation session *name* shall be also provided.
 
     Multiple simulation results can be appended to the same *ValidationSession* instance,
-    but for each ValidationSession instance only a :ref:`Dataset` object is condsidered.
+    but for each ValidationSession instance only a :ref:`Dataset` object is considered.
 
     If the :ref:`Dataset` object changes,
     it is recommended to create a new *ValidationSession* instance.
@@ -605,12 +612,14 @@ class ValidationSession:
         self,
         name: str,
         validation_dataset: Dataset,
-        u_acorr_nlags: np.ndarray | None = None,
-        eps_acorr_nlags: np.ndarray | None = None,
-        ueps_xcorr_nlags: np.ndarray | None = None,
         U_bandwidths: np.ndarray | float | None = None,
         Y_bandwidths: np.ndarray | float | None = None,
+        # Model validation
+        validation_thresholds: Dict[str, float] | None = None,
+        ignore_input: bool = False,
+        # The following are input to XCorrelation.estimate_whiteness() method.
         # input auto-correlation
+        u_acorr_nlags: np.ndarray | None = None,
         u_local_statistic_type_1st: Statistic_type = "mean",
         u_global_statistic_type_1st: Statistic_type = "max",
         u_local_statistic_type_2nd: Statistic_type = "quadratic",
@@ -618,6 +627,7 @@ class ValidationSession:
         u_local_weights: np.ndarray | None = None,
         u_global_weights: np.ndarray | None = None,
         # residuals auto-correlation
+        eps_acorr_nlags: np.ndarray | None = None,
         eps_acorr_local_statistic_type_1st: Statistic_type = "mean",
         eps_acorr_global_statistic_type_1st: Statistic_type = "max",
         eps_acorr_local_statistic_type_2nd: Statistic_type = "quadratic",
@@ -625,15 +635,13 @@ class ValidationSession:
         eps_acorr_local_weights: np.ndarray | None = None,
         eps_acorr_global_weights: np.ndarray | None = None,
         # input-residuals cross-Correlation
+        ueps_xcorr_nlags: np.ndarray | None = None,
         ueps_xcorr_local_statistic_type_1st: Statistic_type = "mean",
         ueps_xcorr_global_statistic_type_1st: Statistic_type = "max",
         ueps_xcorr_local_statistic_type_2nd: Statistic_type = "quadratic",
         ueps_xcorr_global_statistic_type_2nd: Statistic_type = "max",
         ueps_xcorr_local_weights: np.ndarray | None = None,
         ueps_xcorr_global_weights: np.ndarray | None = None,
-        # Model validation
-        validation_thresholds: Dict[str, float] | None = None,
-        ignore_input: bool = False,
     ) -> None:
         # Once you created a ValidationSession you should not change the validation dataset.
         # Create another ValidationSession with another validation dataset
@@ -802,7 +810,7 @@ class ValidationSession:
         # np.set_printoptions(precision=NUM_DECIMALS, suppress=True)
         # pd.options.display.float_format = lambda x: f"{x:.{NUM_DECIMALS}f}"
         outcomes_head = "\t"
-        outcomes_body = "Outcome: "
+        outcomes_body = "Outcome:"
         for k, v in self._outcome.items():
             outcomes_head += f"\t{k} "
             outcomes_body += f"\t{self._outcome[k]}"
@@ -824,19 +832,17 @@ class ValidationSession:
             f"2nd statistic: {self._u_local_statistic_type_2nd}-{self._u_global_statistic_type_2nd}\n"
             f"local weights: {self._u_local_weights}\n"
             f"global weights: {self._u_global_weights}\n"
-            f"num lags: {self._input_nlags}\n\n"
+            f"num lags: {self._u_acorr_nlags}\n\n"
             f"Residuals auto-correlation:\n"
-            f"1st statistic: {self._res_acorr_local_statistic_type_1st}-{self._res_acorr_global_statistic_type_1st}\n"
-            f"2nd statistic: {self._res_acorr_local_statistic_type_2nd}-{self._res_acorr_global_statistic_type_2nd}\n"
-            f"local weights: {self._res_acorr_local_weights}\n"
-            f"global weights: {self._res_acorr_global_weights}\n"
-            f"num lags: {self._nlags}\n\n"
+            f"1st statistic: {self._eps_acorr_local_statistic_type_1st}-{self._eps_acorr_global_statistic_type_1st}\n"
+            f"2nd statistic: {self._eps_acorr_local_statistic_type_2nd}-{self._eps_acorr_global_statistic_type_2nd}\n"
+            f"local weights: {self._eps_acorr_local_weights}\n"
+            f"global weights: {self._eps_acorr_global_weights}\n"
             f"Input-residuals cross-correlation:\n"
-            f"1st statistic: {self._ures_xcorr_local_statistic_type_1st}-{self._ures_xcorr_global_statistic_type_1st}\n"
-            f"2nd statistic: {self._ures_xcorr_local_statistic_type_2nd}-{self._ures_xcorr_global_statistic_type_2nd}\n"
-            f"local weights: {self._ures_xcorr_local_weights}\n"
-            f"global weights: {self._ures_xcorr_global_weights}\n"
-            f"num lags: {self._nlags}\n\n"
+            f"1st statistic: {self._ueps_xcorr_local_statistic_type_1st}-{self._ueps_xcorr_global_statistic_type_1st}\n"
+            f"2nd statistic: {self._ueps_xcorr_local_statistic_type_2nd}-{self._ueps_xcorr_global_statistic_type_2nd}\n"
+            f"local weights: {self._ueps_xcorr_local_weights}\n"
+            f"global weights: {self._ueps_xcorr_global_weights}\n"
             f"Validation thresholds: \n"
             f"{Ruu_whiteness_1st}"
             f"{Ruu_whiteness_2nd}"
@@ -868,6 +874,7 @@ class ValidationSession:
     def dataset(self) -> Dataset:
         return self._Dataset
 
+    @property
     def simulations_values(self) -> pd.DataFrame:
         return self._simulations_values
 
@@ -977,7 +984,7 @@ class ValidationSession:
         # Input-residals cross-correlation
         Rue = XCorrelation(
             "Rue",
-            eps,
+            u_values,
             eps,
             X_bandwidths=self._Y_bandwidths,
             Y_bandwidths=self._Y_bandwidths,
@@ -1449,10 +1456,10 @@ class ValidationSession:
         vs._Dataset.dataset = vs._Dataset.dataset
 
         # Also trim the simulations
-        vs._simulations_values = vs.simulations_values().loc[
+        vs._simulations_values = vs.simulations_values.loc[
             tin_sel:tout_sel, :  # type: ignore[misc]
         ]
-        vs.simulations_values().index = vs._Dataset.dataset.index
+        vs.simulations_values.index = vs._Dataset.dataset.index
 
         for sim_name in vs.simulations_names:
             vs._append_validation_results(sim_name)
@@ -1713,11 +1720,9 @@ class ValidationSession:
         )
 
         # Concatenate df_sim with the current sim results
-        vs_temp._simulations_values = (
-            vs_temp.simulations_values()
-            .join(df_sim, how="right")
-            .rename_axis(df_sim.columns.names, axis=1)
-        )
+        vs_temp._simulations_values = vs_temp.simulations_values.join(
+            df_sim, how="right"
+        ).rename_axis(df_sim.columns.names, axis=1)
 
         # Update residuals auto-correlation and cross-correlation attributes
         vs_temp._append_validation_results(sim_name)
@@ -1746,15 +1751,15 @@ class ValidationSession:
         for sim_name in sims:
             if sim_name not in vs_temp.simulations_names:
                 raise ValueError(f"Simulation {sim_name} not found.")
-            vs_temp._simulations_values = vs_temp.simulations_values().drop(
+            vs_temp._simulations_values = vs_temp.simulations_values.drop(
                 sim_name, axis=1, level="sim_names"
             )
-            vs_temp.simulations_values().columns = (
-                vs_temp.simulations_values().columns.remove_unused_levels()
+            vs_temp.simulations_values.columns = (
+                vs_temp.simulations_values.columns.remove_unused_levels()
             )
 
-            vs_temp._auto_correlation_tensors.pop(sim_name)
-            vs_temp._cross_correlation_tensors.pop(sim_name)
+            vs_temp._eps_acorr_tensor.pop(sim_name)
+            vs_temp._ueps_xcorr_tensor.pop(sim_name)
 
             vs_temp._validation_results = vs_temp._validation_results.drop(
                 sim_name, axis=1
@@ -1768,7 +1773,8 @@ def validate_models(
     measured_out: np.ndarray | List[Signal] | List[np.ndarray],
     simulated_out: np.ndarray | List[np.ndarray],
     sampling_period: float | None = None,
-    sys_time_constant: float | None = None,
+    U_bandwidths: np.ndarray | float | None = None,
+    Y_bandwidths: np.ndarray | float | None = None,
     **kwargs: Any,
 ) -> ValidationSession:
     """akakakak
@@ -1884,8 +1890,8 @@ def validate_models(
     )
 
     # Create a ValidationSession object
+    # TODO: Check here
     vs_kwargs = kwargs.copy()
-    vs_kwargs["sys_time_constant"] = sys_time_constant
     vs = ValidationSession("quick & dirty", ds, **vs_kwargs)
 
     for ii, sim in enumerate(simulated_out):

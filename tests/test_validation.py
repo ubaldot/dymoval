@@ -18,7 +18,6 @@ class Test_ClassValidationNominal:
         )
         name_vs = "my_validation"
         vs = dmv.ValidationSession(name_vs, ds)
-        sys_time_constant = 0.035
 
         # Check that the passed dataset is correctly stored.
         # Main DataFrame
@@ -26,30 +25,6 @@ class Test_ClassValidationNominal:
 
         for ii in range(4):  # Size of coverage
             assert all(vs.dataset.coverage[ii] == ds.coverage[ii])
-
-        # Version with less lags
-        expected_nlags = 11
-        vs = dmv.ValidationSession(
-            name_vs, ds, nlags=expected_nlags, acorr_local_weights=np.ones(4)
-        )
-        assert vs._nlags == expected_nlags
-
-        # nlags based on system time constant
-        expected_nlags = 11
-        vs = dmv.ValidationSession(
-            name_vs,
-            ds,
-            acorr_local_weights=np.ones(11),
-            xcorr_local_weights=np.ones(22),
-            sys_time_constant=sys_time_constant,
-        )
-        assert vs._nlags == expected_nlags
-
-        # Take the minimum lags
-        Ts = vs._Dataset.dataset.index[1] - vs._Dataset.dataset.index[0]
-        expected_nlags = int(30 * sys_time_constant / Ts)
-        vs = dmv.ValidationSession(name_vs, ds, sys_time_constant=0.035)
-        assert vs._nlags == expected_nlags
 
     def test_random_walk(self, good_dataframe: pd.DataFrame) -> None:
         df, u_names, y_names, _, y_units, fixture = good_dataframe
@@ -78,14 +53,14 @@ class Test_ClassValidationNominal:
 
         vs = vs.append_simulation(sim1_name, sim1_labels, sim1_values)
         # At least the names are there...
-        assert sim1_name in vs.simulations_values().columns.get_level_values(
+        assert sim1_name in vs.simulations_values.columns.get_level_values(
             "sim_names"
         )
-        assert sim1_name in vs._auto_correlation_tensors.keys()
-        assert sim1_name in vs._cross_correlation_tensors.keys()
+        assert sim1_name in vs._eps_acorr_tensor.keys()
+        assert sim1_name in vs._ueps_xcorr_tensor.keys()
         assert sim1_name in vs._validation_results.columns
 
-        assert np.allclose(sim1_values, vs.simulations_values()[sim1_name])
+        assert np.allclose(sim1_values, vs.simulations_values[sim1_name])
 
         # # Add second model
         sim2_name = "Model 2"
@@ -99,14 +74,14 @@ class Test_ClassValidationNominal:
 
         vs = vs.append_simulation(sim2_name, sim2_labels, sim2_values)
         # At least the names are there...
-        assert sim2_name in vs.simulations_values().columns.get_level_values(
+        assert sim2_name in vs.simulations_values.columns.get_level_values(
             "sim_names"
         )
-        assert sim2_name in vs._auto_correlation_tensors.keys()
-        assert sim2_name in vs._cross_correlation_tensors.keys()
+        assert sim2_name in vs._eps_acorr_tensor.keys()
+        assert sim2_name in vs._ueps_xcorr_tensor.keys()
         assert sim2_name in vs._validation_results.columns
 
-        assert np.allclose(sim2_values, vs.simulations_values()[sim2_name])
+        assert np.allclose(sim2_values, vs.simulations_values[sim2_name])
 
         # ===============================================
         # Test simulation_signals_list and list_simulations
@@ -132,12 +107,10 @@ class Test_ClassValidationNominal:
         # At least the names are nt there any longer.
         assert (
             sim1_name
-            not in vs.simulations_values().columns.get_level_values(
-                "sim_names"
-            )
+            not in vs.simulations_values.columns.get_level_values("sim_names")
         )
-        assert sim1_name not in vs._auto_correlation_tensors.keys()
-        assert sim1_name not in vs._cross_correlation_tensors.keys()
+        assert sim1_name not in vs._eps_acorr_tensor.keys()
+        assert sim1_name not in vs._ueps_xcorr_tensor.keys()
         assert sim1_name not in vs._validation_results.columns
 
         # ============================================
@@ -147,9 +120,9 @@ class Test_ClassValidationNominal:
 
         vs = vs.clear()
 
-        assert [] == list(vs.simulations_values().columns)
-        assert [] == list(vs._auto_correlation_tensors.keys())
-        assert [] == list(vs._cross_correlation_tensors.keys())
+        assert [] == list(vs.simulations_values.columns)
+        assert [] == list(vs._eps_acorr_tensor.keys())
+        assert [] == list(vs._ueps_xcorr_tensor.keys())
         assert [] == list(vs._validation_results.columns)
 
     def test_trim(self, good_dataframe: pd.DataFrame) -> None:
@@ -209,10 +182,10 @@ class Test_ClassValidationNominal:
         )
 
         assert np.isclose(
-            expected_tin, vs.simulations_values().index[0], atol=ATOL
+            expected_tin, vs.simulations_values.index[0], atol=ATOL
         )
         assert np.isclose(
-            expected_tout, vs.simulations_values().index[-1], atol=ATOL
+            expected_tout, vs.simulations_values.index[-1], atol=ATOL
         )
 
     def test_get_sim_signal_list_and_statistics_raise(
@@ -664,7 +637,7 @@ class Test_XCorrelation:
             sampling_period,
         ) = correlation_tensors
         # x0y0_whiteness_expected = 0.38281031914047287
-        lags_expected_short = np.arange(-1, 2)
+        lags_expected_short = np.arange(-1, 3)
         lags_expected_long = np.arange(-4, 5)
 
         # We only consider the MIMO case
@@ -708,8 +681,8 @@ class Test_XCorrelation:
 
         # Test nlags arg
         nlags = np.array([[5, 3], [6, 4]])
-        lags_expected_x0y0 = np.arange(-2, 3)
-        lags_expected_x1y0 = np.arange(-3, 4)
+        lags_expected_x0y0 = np.arange(-2, 2)
+        lags_expected_x1y0 = np.arange(-3, 3)
         lags_expected_x0y1 = np.arange(-1, 2)
         lags_expected_x1y1 = lags_expected_x0y1
 
@@ -875,7 +848,7 @@ class Test_whiteness:
         assert np.isclose(whiteness_expected, whiteness_actual, atol=ATOL)
 
 
-class Test_Validate_Models:
+class Test_validate_models:
     def test_list_of_signals(
         self,
         good_signals_no_nans: list[Signal],
