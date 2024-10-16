@@ -569,7 +569,7 @@ class Test_XCorrelation:
             sampling_period,
         ) = correlation_tensors
         # x0y0_whiteness_expected = 0.38281031914047287
-        lags_expected_long = np.arange(-4, 5)
+        lags_expected_long = np.arange(-8, 9)
 
         x0 = X[:, 0].T
         y0 = Y[:, 0].T
@@ -637,8 +637,9 @@ class Test_XCorrelation:
             sampling_period,
         ) = correlation_tensors
         # x0y0_whiteness_expected = 0.38281031914047287
-        lags_expected_short = np.arange(-1, 3)
-        lags_expected_long = np.arange(-4, 5)
+        lags_expected_short_x0y1 = np.arange(-1, 2)
+        lags_expected_short_x1y1 = np.arange(-2, 3)
+        lags_expected_long = np.arange(-8, 9)
 
         # We only consider the MIMO case
         XCorr_actual = dmv.XCorrelation(
@@ -656,9 +657,9 @@ class Test_XCorrelation:
         )
 
         assert np.allclose(R_actual[0, 0].lags, lags_expected_long)
-        assert np.allclose(R_actual[0, 1].lags, lags_expected_short)
+        assert np.allclose(R_actual[0, 1].lags, lags_expected_short_x0y1)
         assert np.allclose(R_actual[1, 0].lags, lags_expected_long)
-        assert np.allclose(R_actual[1, 1].lags, lags_expected_short)
+        assert np.allclose(R_actual[1, 1].lags, lags_expected_short_x1y1)
         assert XCorr_actual.kind == "cross-correlation"
 
         # Not all arguments are passed
@@ -681,10 +682,10 @@ class Test_XCorrelation:
 
         # Test nlags arg
         nlags = np.array([[5, 3], [6, 4]])
-        lags_expected_x0y0 = np.arange(-2, 2)
-        lags_expected_x1y0 = np.arange(-3, 3)
+        lags_expected_x0y0 = np.arange(-5, 6)
+        lags_expected_x1y0 = np.arange(-6, 7)
         lags_expected_x0y1 = np.arange(-1, 2)
-        lags_expected_x1y1 = lags_expected_x0y1
+        lags_expected_x1y1 = np.arange(-2, 3)
 
         XCorr_actual = dmv.XCorrelation(
             name="foo",

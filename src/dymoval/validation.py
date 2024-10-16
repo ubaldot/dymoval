@@ -201,9 +201,6 @@ class XCorrelation:
                     len(X[:, ii]), len(Y[:, jj])
                 )
                 nlags_full = lags_full.size
-                # half_lags_full = nlags_full // 2
-                negative_lags_indices_full = np.where(lags_full < 0)[0]
-                positive_lags_indices_full = np.where(lags_full >= 0)[0]
 
                 # Classic correlation definition from Probability.
                 # Rxy_values = E[(X-mu_x)^T(Y-mu_y))]/(sigma_x*sigma_y),
@@ -264,21 +261,7 @@ class XCorrelation:
                 # Saturate the steps based on number of observations
                 nlags_min = 3
                 step = max(1, min(step, nlags_full // nlags_min))
-
-                positive_lags_indices_downsampled = (
-                    positive_lags_indices_full[::step]
-                )
-                negative_lags_indices_downsampled = (
-                    negative_lags_indices_full[::-step]
-                )
-                indices_downsampled = np.sort(
-                    np.concatenate(
-                        (
-                            negative_lags_indices_downsampled,
-                            positive_lags_indices_downsampled,
-                        )
-                    )
-                )
+                indices_downsampled = np.where(lags_full % step == 0)[0]
 
                 values_downsampled = R_full[ii, jj].values[
                     indices_downsampled
@@ -293,44 +276,15 @@ class XCorrelation:
                 # ----------- Trim ---------------
                 # Create the half vectors for lags selection
                 # Fixed value of 20 lags.
-                n = nlags_from_user[ii, jj] + 2
-                # You can have asymmetry between positive and negative lags
-                negative_lags_indices_downsampled = np.where(
-                    lags_downsampled < 0
-                )[0]
-                positive_lags_indices_downsampled = np.where(
-                    lags_downsampled >= 0
-                )[0]
-                nlags_trimmed = int(
-                    min(
-                        n,
-                        min(
-                            len(negative_lags_indices_downsampled),
-                            len(positive_lags_indices_downsampled),
-                        ),
-                    )
-                )
+                n = nlags_from_user[ii, jj]
+                nlags_trimmed = int(min(n, lags_downsampled[-1]))
 
-                positive_lags_indices_trimmed = (
-                    positive_lags_indices_downsampled[: nlags_trimmed + 1]
-                )
-                negative_lags_indices_trimmed = (
-                    negative_lags_indices_downsampled[::-1][:nlags_trimmed]
-                )
-                # Combine and sort the indices
-                # indices_trimmed = sorted(first_half + second_half)
-                indices_trimmed = np.sort(
-                    np.concatenate(
-                        (
-                            negative_lags_indices_trimmed,
-                            positive_lags_indices_trimmed,
-                        )
-                    )
-                )
-
+                indices_trimmed = np.where(
+                    (-nlags_trimmed <= lags_downsampled)
+                    & (lags_downsampled <= nlags_trimmed)
+                )[0]
                 # Trim based on the number of lags
                 values_trimmed = R_downsampled[ii, jj].values[indices_trimmed]
-                print(len(values_trimmed))
                 lags_trimmed = R_downsampled[ii, jj].lags[indices_trimmed]
 
                 R_trimmed[ii, jj] = _rxy(values_trimmed, lags_trimmed)
