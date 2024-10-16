@@ -462,7 +462,6 @@ def generate_correlation_tensor():
     X_bandwidths = [5, 10]
     Y_bandwidths = [300, 6]
     sampling_period = 0.01
-    lag0_idx = 8
 
     # Expected values pre-computed with Matlab
     # Same for all tests
