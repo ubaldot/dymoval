@@ -30,7 +30,7 @@ from .utils import (
 )
 
 from .dataset import Dataset, Signal, validate_signals
-from typing import List, Dict, Literal, Any, Tuple, NamedTuple
+from typing import List, Dict, Literal, Any, NamedTuple
 from dataclasses import dataclass
 
 __all__ = [
@@ -261,9 +261,7 @@ class XCorrelation:
                 step = max(1, min(step, nlags_full // nlags_min))
                 indices_downsampled = np.where(lags_full % step == 0)[0]
 
-                values_downsampled = R_full[ii, jj].values[
-                    indices_downsampled
-                ]
+                values_downsampled = R_full[ii, jj].values[indices_downsampled]
 
                 lags_downsampled = lags_full[indices_downsampled] // step
 
@@ -302,9 +300,7 @@ class XCorrelation:
     def estimate_whiteness(
         self,
         local_statistic: Statistic_type = "quadratic",
-        local_weights: (
-            np.ndarray | None
-        ) = None,  # shall be a nlags*p*q tensor
+        local_weights: np.ndarray | None = None,  # shall be a nlags*p*q tensor
         global_statistic: Statistic_type = "max",
         global_weights: np.ndarray | None = None,  # Shall be a p*q matrix
     ) -> Any:
@@ -327,11 +323,9 @@ class XCorrelation:
                     if len(local_weights[ii, jj]) != len(R[ii, jj].lags):
                         raise IndexError(
                             f"""Number of lags and number of
-                                         weights must be the same. In index
-                                         {ii,jj} you have {len(R[ii,
-                                         jj].lags)} lags and
-                                         {len(local_weights[ii, jj]) }
-                                         weights."""
+                                weights must be the same. In index
+                                {ii, jj} you have {len(R[ii, jj].lags)} lags and
+                                {len(local_weights[ii, jj])} weights."""
                         )
             # if num_weights is equal to num_lags go ahead
             W_local = local_weights
@@ -1045,9 +1039,7 @@ class ValidationSession:
         # Cam be a positional or a keyword arg
         list_sims: str | list[str] | None = None,
         dataset: Literal["in", "out", "both"] | None = None,
-        layout: Literal[
-            "constrained", "compressed", "tight", "none"
-        ] = "tight",
+        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> matplotlib.figure.Figure:
@@ -1423,9 +1415,7 @@ class ValidationSession:
         list_sims: str | list[str] | None = None,
         *,
         plot_input: bool = True,
-        layout: Literal[
-            "constrained", "compressed", "tight", "none"
-        ] = "tight",
+        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> tuple[
@@ -1657,15 +1647,11 @@ class ValidationSession:
         vs_temp._simulation_validation(sim_name, y_names, y_data)
 
         y_units = list(
-            vs_temp._Dataset.dataset["OUTPUT"].columns.get_level_values(
-                "units"
-            )
+            vs_temp._Dataset.dataset["OUTPUT"].columns.get_level_values("units")
         )
 
         # Initialize sim df
-        df_sim = pd.DataFrame(
-            data=y_data, index=vs_temp._Dataset.dataset.index
-        )
+        df_sim = pd.DataFrame(data=y_data, index=vs_temp._Dataset.dataset.index)
         multicols = list(zip([sim_name] * len(y_names), y_names, y_units))
         df_sim.columns = pd.MultiIndex.from_tuples(
             multicols, names=["sim_names", "signal_names", "units"]
