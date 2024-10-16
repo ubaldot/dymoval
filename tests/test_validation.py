@@ -220,7 +220,7 @@ class Test_ClassValidationNominal:
             vs.simulation_signals_list("potato")
 
 
-class Test_ClassValidatioNominal_sim_validation:
+class Test_ClassValidationNominal_sim_validation:
     def test_existing_sim_raise(self, good_dataframe: pd.DataFrame) -> None:
         df, u_names, y_names, _, _, fixture = good_dataframe
         name_ds = "my_dataset"
@@ -844,7 +844,7 @@ class Test_whiteness:
         x1 = np.array([0.1419, 0.4218, 0.9157, 0.7922, 0.9595])
         whiteness_expected = 0.2055967474048869
 
-        whiteness_actual, _, _ = dmv.whiteness_level(x1)
+        whiteness_actual, _ = dmv.whiteness_level(x1)
 
         assert np.isclose(whiteness_expected, whiteness_actual, atol=ATOL)
 
