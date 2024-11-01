@@ -96,6 +96,17 @@ class Test_ClassValidationNominal:
                     ueps_xcorr_nlags=ueps_nlags_wrong_size,
                 )
 
+            # Bandwidths
+            with pytest.raises(IndexError):
+                _ = dmv.ValidationSession(
+                    name_vs, ds, U_bandwidths=np.array([1, 2])
+                )
+
+            with pytest.raises(IndexError):
+                _ = dmv.ValidationSession(
+                    name_vs, ds, Y_bandwidths=np.array([1])
+                )
+
     def test_random_walk(self, good_dataframe: pd.DataFrame) -> None:
         df, u_names, y_names, _, y_units, fixture = good_dataframe
         name_ds = "my_dataset"

@@ -600,9 +600,12 @@ class ValidationSession:
         self._Dataset: Dataset = validation_dataset
         """The reference :ref:`Dataset` object."""
 
+        # Number of inputs
         self._p = len(
             self._Dataset.dataset["INPUT"].columns.get_level_values("names")
         )
+
+        # Number of outputs
         self._q = len(
             self._Dataset.dataset["OUTPUT"].columns.get_level_values("names")
         )
@@ -645,6 +648,11 @@ class ValidationSession:
         and it should be considered as a *read-only* attribute."""
 
         # ------------------ Input --------------------
+        if isinstance(U_bandwidths, np.ndarray):
+            if U_bandwidths.size != self._p:
+                raise IndexError(
+                    "The number of elements of 'U_bandwidths' must be the same as the number of inputs"
+                )
         self._U_bandwidths = U_bandwidths
 
         # Same type as the argument
@@ -709,6 +717,11 @@ class ValidationSession:
         )
 
         # ------------ Residuals -----------------------------
+        if isinstance(Y_bandwidths, np.ndarray):
+            if Y_bandwidths.size != self._q:
+                raise IndexError(
+                    "The number of elements of 'Y_bandwidths' must be the same as the number of outputs"
+                )
         self._Y_bandwidths = Y_bandwidths
 
         # Residuals auto-correlation
