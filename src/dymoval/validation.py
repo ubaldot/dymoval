@@ -183,6 +183,17 @@ class XCorrelation:
         if isinstance(Y_bandwidths, float):
             Y_bandwidths = np.array([Y_bandwidths])
 
+        if isinstance(X_bandwidths, np.ndarray):
+            if X_bandwidths.size != p:
+                raise IndexError(
+                    f"The number of elements of 'X_bandwidths' must be equal to {p}"
+                )
+
+        if isinstance(Y_bandwidths, np.ndarray):
+            if Y_bandwidths.size != q:
+                raise IndexError(
+                    "The number of elements of 'Y_bandwidths' must be equal to {q}"
+                )
         # nlags
         nlags_from_user = 20 * np.ones((p, q)) if nlags is None else nlags
 
@@ -300,7 +311,9 @@ class XCorrelation:
     def estimate_whiteness(
         self,
         local_statistic: Statistic_type = "quadratic",
-        local_weights: np.ndarray | None = None,  # shall be a nlags*p*q tensor
+        local_weights: (
+            np.ndarray | None
+        ) = None,  # shall be p*q matrix where each element is a 1-D array.
         global_statistic: Statistic_type = "max",
         global_weights: np.ndarray | None = None,  # Shall be a p*q matrix
     ) -> Any:
@@ -310,6 +323,13 @@ class XCorrelation:
         p = R.shape[0]  # Number of rows
         q = R.shape[1]  # Number of columns
 
+        # ---- statistics type is correct ----
+        if (
+            local_statistic not in STATISTIC_TYPE
+            or global_statistic not in STATISTIC_TYPE
+        ):
+            raise ValueError(f"Statistic type must be in {STATISTIC_TYPE}")
+
         # -------------- Validation of locals and global weights from user
         if local_weights is None:
             W_local = np.empty((p, q), dtype=np.ndarray)
@@ -317,7 +337,17 @@ class XCorrelation:
                 for jj in range(q):
                     W_local[ii, jj] = np.ones(len(R[ii, jj].lags))
         else:
-            # Check that the number of lags and weights are the same
+            # TODO a bit flaky test because we only check the element in
+            # position [0,0]
+            # Check that the number of lags and weights are the same and that
+            # each element is a np.ndarray
+            if local_weights.shape != (p, q) or not isinstance(
+                local_weights[0, 0], np.ndarray
+            ):
+                raise IndexError(
+                    """'local_weights' must have the same shape of
+                                 'R' and each element must be a np.ndarray"""
+                )
             for ii in range(p):
                 for jj in range(q):
                     if len(local_weights[ii, jj]) != len(R[ii, jj].lags):
@@ -648,11 +678,6 @@ class ValidationSession:
         and it should be considered as a *read-only* attribute."""
 
         # ------------------ Input --------------------
-        if isinstance(U_bandwidths, np.ndarray):
-            if U_bandwidths.size != self._p:
-                raise IndexError(
-                    "The number of elements of 'U_bandwidths' must be the same as the number of inputs"
-                )
         self._U_bandwidths = U_bandwidths
 
         # Same type as the argument
@@ -717,11 +742,6 @@ class ValidationSession:
         )
 
         # ------------ Residuals -----------------------------
-        if isinstance(Y_bandwidths, np.ndarray):
-            if Y_bandwidths.size != self._q:
-                raise IndexError(
-                    "The number of elements of 'Y_bandwidths' must be the same as the number of outputs"
-                )
         self._Y_bandwidths = Y_bandwidths
 
         # Residuals auto-correlation

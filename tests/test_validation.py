@@ -96,17 +96,6 @@ class Test_ClassValidationNominal:
                     ueps_xcorr_nlags=ueps_nlags_wrong_size,
                 )
 
-            # Bandwidths
-            with pytest.raises(IndexError):
-                _ = dmv.ValidationSession(
-                    name_vs, ds, U_bandwidths=np.array([1, 2])
-                )
-
-            with pytest.raises(IndexError):
-                _ = dmv.ValidationSession(
-                    name_vs, ds, Y_bandwidths=np.array([1])
-                )
-
     def test_random_walk(self, good_dataframe: pd.DataFrame) -> None:
         df, u_names, y_names, _, y_units, fixture = good_dataframe
         name_ds = "my_dataset"
@@ -709,7 +698,12 @@ class Test_XCorrelation:
         # Not all arguments are passed
         # We only consider the MIMO case
         XCorr_actual = dmv.XCorrelation(
-            "foo", X, Y, None, X_bandwidths, sampling_period
+            "foo",
+            X,
+            Y,
+            None,
+            X_bandwidths=X_bandwidths,
+            sampling_period=sampling_period,
         )
         R_actual = XCorr_actual.R
 
@@ -748,6 +742,59 @@ class Test_XCorrelation:
         assert np.allclose(R_actual[1, 1].lags, lags_expected_x1y1)
 
         # TODO: check also if the values are correctly picked.
+
+    def test_initializer_with_wrong_params(self, correlation_tensors) -> None:
+        # Just test that it won't run any error
+        # Next, remove randoms with known values.
+        (
+            Rx0y0_expected,
+            Rx1y0_expected,
+            Rx0y1_expected,
+            Rx0y1_expected_partial,
+            Rx1y1_expected,
+            Rx1y1_expected_partial,
+            X,
+            Y,
+            X_bandwidths,
+            Y_bandwidths,
+            sampling_period,
+        ) = correlation_tensors
+
+        # Bandwidths
+        X_bandwidths = np.array([2])
+        with pytest.raises(IndexError):
+            _ = dmv.XCorrelation(
+                "foo", X, Y, None, X_bandwidths, Y_bandwidths, sampling_period
+            )
+
+    def test_estimate_whiteness_raise(self, correlation_tensors) -> None:
+        (
+            Rx0y0_expected,
+            Rx1y0_expected,
+            Rx0y1_expected,
+            Rx0y1_expected_partial,
+            Rx1y1_expected,
+            Rx1y1_expected_partial,
+            X,
+            Y,
+            X_bandwidths,
+            Y_bandwidths,
+            sampling_period,
+        ) = correlation_tensors
+
+        RXY = dmv.XCorrelation("foo", X, Y)
+
+        # Wrong statistics name
+        with pytest.raises(ValueError):
+            RXY.estimate_whiteness(local_statistic="potato")
+
+        # Wrong number of local weights
+        with pytest.raises(IndexError):
+            RXY.estimate_whiteness(local_weights=np.array([1, 2]))
+
+        # Wrong number of global weights
+        with pytest.raises(IndexError):
+            RXY.estimate_whiteness(global_weights=np.array([1, 2]))
 
     @pytest.mark.plots
     def test_plot(self, correlation_tensors) -> None:
