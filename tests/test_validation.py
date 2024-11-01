@@ -24,6 +24,78 @@ class Test_ClassValidationNominal:
         for ii in range(4):  # Size of coverage
             assert all(vs.dataset.coverage[ii] == ds.coverage[ii])
 
+    def test_init_with_args(self, good_dataframe: pd.DataFrame) -> None:
+        # Nominal data
+        df, u_names, y_names, _, _, fixture = good_dataframe
+        name_ds = "my_dataset"
+        ds = dmv.Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
+
+        p = len(ds.dataset["INPUT"].columns.get_level_values("names"))
+        q = len(ds.dataset["OUTPUT"].columns.get_level_values("names"))
+
+        name_vs = "my_validation"
+
+        u_nlags_wrong_size = np.array(
+            [[5, 3, 2, 5], [6, 4, 4, 8], [8, 10, 7, 22]]
+        )
+        eps_nlags_wrong_size = np.array(
+            [[5, 12, 99], [8, 30, 21], [11, 11, 22]]
+        )
+        ueps_nlags_wrong_size = np.array(
+            [[10, 20, 30], [32, 33, 45], [21, 8, 9]]
+        )
+        vs = dmv.ValidationSession(
+            name_vs,
+            ds,
+            u_acorr_nlags=u_nlags_wrong_size,
+            eps_acorr_nlags=eps_nlags_wrong_size,
+            ueps_xcorr_nlags=ueps_nlags_wrong_size,
+        )
+
+        expected_u_nlags = u_nlags_wrong_size[:p, :p]
+        expected_eps_nlags = eps_nlags_wrong_size[:q, :q]
+        expected_ueps_nlags = ueps_nlags_wrong_size[:p, :q]
+
+        np.testing.assert_array_equal(vs._u_acorr_nlags, expected_u_nlags)
+        np.testing.assert_array_equal(vs._eps_acorr_nlags, expected_eps_nlags)
+        np.testing.assert_array_equal(vs._ueps_xcorr_nlags, expected_ueps_nlags)
+
+    def test_init_with_args_raise(self, good_dataframe: pd.DataFrame) -> None:
+        # Nominal data
+        df, u_names, y_names, _, _, fixture = good_dataframe
+        name_ds = "my_dataset"
+        ds = dmv.Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
+
+        name_vs = "my_validation"
+        # Lags specified only for some residuals
+        if fixture == "MIMO":
+            eps_nlags_wrong_size = np.array([5, 8])
+
+            with pytest.raises(IndexError):
+                _ = dmv.ValidationSession(
+                    name_vs,
+                    ds,
+                    eps_acorr_nlags=eps_nlags_wrong_size,
+                )
+
+            # Lags specified only for some inputs
+            u_nlags_wrong_size = np.array([[5, 3], [6, 4]])
+            with pytest.raises(IndexError):
+                _ = dmv.ValidationSession(
+                    name_vs,
+                    ds,
+                    u_acorr_nlags=u_nlags_wrong_size,
+                )
+
+            # Lags specified only for some inputs
+            ueps_nlags_wrong_size = np.array([[10], [32], [21]])
+            with pytest.raises(IndexError):
+                _ = dmv.ValidationSession(
+                    name_vs,
+                    ds,
+                    ueps_xcorr_nlags=ueps_nlags_wrong_size,
+                )
+
     def test_random_walk(self, good_dataframe: pd.DataFrame) -> None:
         df, u_names, y_names, _, y_units, fixture = good_dataframe
         name_ds = "my_dataset"
