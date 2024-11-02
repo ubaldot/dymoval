@@ -767,6 +767,39 @@ class Test_XCorrelation:
                 "foo", X, Y, None, X_bandwidths, Y_bandwidths, sampling_period
             )
 
+    def test_estimate_whiteness(self, correlation_tensors) -> None:
+        (
+            Rx0y0_expected,
+            Rx1y0_expected,
+            Rx0y1_expected,
+            Rx0y1_expected_partial,
+            Rx1y1_expected,
+            Rx1y1_expected_partial,
+            X,
+            Y,
+            X_bandwidths,
+            Y_bandwidths,
+            sampling_period,
+        ) = correlation_tensors
+
+        # Test 1: if the local_weights are all one, then the whiteness
+        # estimate with and without weights shall be the same
+        RXY = dmv.XCorrelation("foo", X, Y)
+        w, W = RXY.estimate_whiteness()
+
+        global_weights = np.ones((2, 2))
+        local_weights = np.empty(RXY.R.shape, dtype=np.ndarray)
+        local_weights[0, 0] = np.ones(17)
+        local_weights[0, 1] = np.ones(17)
+        local_weights[1, 0] = np.ones(17)
+        local_weights[1, 1] = np.ones(17)
+        w_weighted, W_weighted = RXY.estimate_whiteness(
+            local_weights=local_weights, global_weights=global_weights
+        )
+
+        np.testing.assert_allclose(w, w_weighted)
+        np.testing.assert_allclose(W, W_weighted)
+
     def test_estimate_whiteness_raise(self, correlation_tensors) -> None:
         (
             Rx0y0_expected,
@@ -791,6 +824,15 @@ class Test_XCorrelation:
         # Wrong number of local weights
         with pytest.raises(IndexError):
             RXY.estimate_whiteness(local_weights=np.array([1, 2]))
+
+        # Wrong length of individual local weight element
+        local_weights = np.empty(RXY.R.shape, dtype=np.ndarray)
+        local_weights[0, 0] = np.ones(11)
+        local_weights[0, 1] = np.ones(3)
+        local_weights[1, 0] = np.ones(13)
+        local_weights[1, 1] = np.ones(6)  # This is wrong
+        with pytest.raises(IndexError):
+            RXY.estimate_whiteness(local_weights=local_weights)
 
         # Wrong number of global weights
         with pytest.raises(IndexError):
@@ -1413,3 +1455,34 @@ class Test_Compute_Statistics:
             compute_statistic(data=test_data, statistic="std", weights=weights),
             expected_std_weighted,
         )
+
+    def test_compute_statistics_raise(
+        self,
+    ) -> None:
+
+        X = np.ones(10)
+        X_bad = np.ones((2, 2))
+        weights_bad1 = np.ones(15)
+        weights_bad2 = np.ones((2, 2))
+        weights_bad3 = -np.ones((2, 2))
+        statistuc_bad = "quadraticcccc"
+
+        # X shall be a 1-D array
+        with pytest.raises(IndexError):
+            dmv.validation.compute_statistic(X_bad)
+
+        # weights shall have the same length as data
+        with pytest.raises(IndexError):
+            dmv.validation.compute_statistic(X, weights=weights_bad1)
+
+        # weights shall be a 1-D array
+        with pytest.raises(IndexError):
+            dmv.validation.compute_statistic(X, weights=weights_bad2)
+
+        # weights shall be all positive
+        with pytest.raises(ValueError):
+            dmv.validation.compute_statistic(X, weights=weights_bad3)
+
+        # weights shall be all positive
+        with pytest.raises(ValueError):
+            dmv.validation.compute_statistic(X, statistic=statistuc_bad)

@@ -112,6 +112,17 @@ class XCorrelation:
         1D array representing the bandwidths of each signal in Y.
     sampling_period:
         Sampling period of the signals X and Y.
+
+
+    Example:
+    --------
+    #  Assume that RXY is a XCorrelation instance
+    >>> local_weights = np.empty(RXY.R.shape, dtype=np.ndarray)
+    >>> local_weights[0, 0] = np.ones(11)
+    >>> local_weights[0, 1] = np.ones(3)
+    >>> local_weights[1, 0] = np.ones(13)
+    >>> local_weights[1, 1] = np.ones(6)
+    >>> w, W = RXY.estimate_whiteness(local_weights=local_weights)
     """
 
     def __init__(
@@ -301,7 +312,7 @@ class XCorrelation:
     def __repr__(self) -> str:
         # Include basic information about the object
         repr_str = (
-            f"XCorrelation tensor name: {self.name}\n"
+            f"name: {self.name}\n"
             f"type: {self.kind}\n"
             f"R shape: {self.R.shape}\n"  # Shows the dimensions of the tensor
         )
@@ -316,7 +327,7 @@ class XCorrelation:
         ) = None,  # shall be p*q matrix where each element is a 1-D array.
         global_statistic: Statistic_type = "max",
         global_weights: np.ndarray | None = None,  # Shall be a p*q matrix
-    ) -> Any:
+    ) -> tuple[float, np.ndarray]:
 
         # MAIN whiteness level =================================
         R = self.R
@@ -345,24 +356,23 @@ class XCorrelation:
                 local_weights[0, 0], np.ndarray
             ):
                 raise IndexError(
-                    """'local_weights' must have the same shape of
-                                 'R' and each element must be a np.ndarray"""
+                    "'local_weights' must have the same shape of "
+                    "'R' and each element must be a np.ndarray."
                 )
             for ii in range(p):
                 for jj in range(q):
                     if len(local_weights[ii, jj]) != len(R[ii, jj].lags):
                         raise IndexError(
-                            f"""Number of lags and number of
-                                weights must be the same. In index
-                                {ii, jj} you have {len(R[ii, jj].lags)} lags and
-                                {len(local_weights[ii, jj])} weights."""
+                            "Number of lags and number of weights must be the same.\n"
+                            f"In index {ii, jj} you have {len(R[ii, jj].lags)} lags and "
+                            f"{len(local_weights[ii, jj])} weights."
                         )
             # if num_weights is equal to num_lags go ahead
             W_local = local_weights
 
         # fix global weights
         if global_weights is not None and global_weights.shape != (p, q):
-            raise IndexError(f"'global_weights' must be a {p}x{q} matrix.")
+            raise IndexError(f"'global_weights' must be a {p}x{q} np.ndarray.")
         else:
             W_global = (
                 np.ones(p * q) if global_weights is None else global_weights
@@ -392,8 +402,8 @@ class XCorrelation:
         # Compute the overall statistic of the resulting matrix
         whiteness_estimate = compute_statistic(
             statistic=global_statistic,
-            weights=W_global,
-            data=whiteness_matrix,
+            weights=W_global.flatten(),
+            data=whiteness_matrix.flatten(),
         )
 
         return whiteness_estimate, whiteness_matrix
@@ -441,7 +451,7 @@ def compute_statistic(
     data: np.ndarray,
     statistic: Statistic_type = "mean",
     weights: np.ndarray | None = None,
-) -> Any:
+) -> float:
     """DOCSTRING
 
     If data.shape dimension is greater than 1 it will be flatten to a 1D array.
@@ -459,17 +469,17 @@ def compute_statistic(
 
     """
 
-    if len(data.shape) > 1:
-        data = data.flatten()
+    if data.ndim > 1:
+        raise IndexError("'data' must be a 1-D np.ndarray.")
 
     if weights is None:
         weights = np.ones(data.size)
     elif np.min(weights) < 0:
-        raise ValueError("All weights must be positive")
-    elif weights.ndim != 1:
-        raise ValueError("'weights' must be a 1D array")
+        raise ValueError("All weights must be positive.")
+    elif weights.ndim > 1:
+        raise IndexError("'weights' must be a 1-D np.ndarray.")
     elif data.size != weights.size:
-        raise IndexError("'data' and 'weights' must have the same length")
+        raise IndexError("'data' and 'weights' must have the same length.")
 
     # TODO: add this
     # if (data.T @ data) == 0:
@@ -501,7 +511,7 @@ def compute_statistic(
         result = np.sqrt(weighted_variance)  # Standard deviation
     else:
         raise ValueError(f"'statistic' must be one of [{STATISTIC_TYPE}]")
-    return result
+    return float(result)
 
 
 def rsquared(x: np.ndarray, y: np.ndarray) -> float:
@@ -546,7 +556,7 @@ def whiteness_level(
     ) = None,  # shall be a p*q matrix where each element is a 1D-array (like the lags)
     global_statistic: Statistic_type = "max",
     global_weights: np.ndarray | None = None,
-) -> tuple[np.floating, np.ndarray]:
+) -> tuple[float, np.ndarray]:
     # Convert signals into XCorrelation tensors and compute the
     # whiteness_level
 
