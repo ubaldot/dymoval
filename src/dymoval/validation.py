@@ -491,7 +491,8 @@ def compute_statistic(
         quadratic_form = data.T @ np.diag(weights) @ data
 
         result = quadratic_form / (np.max(weights) * len(data))
-        # If the weights are all the same, then the metric reduces to |x|²/n
+        # If the weights are all the same, then the metric reduces to |x|²/n,
+        # which is similar to the abs_norm with all the weights equal to 1.
 
     elif statistic == "abs_mean":
         # This is similar to RMS. By using l1 norm we are more gentle with
