@@ -321,7 +321,7 @@ class XCorrelation:
 
     def estimate_whiteness(
         self,
-        local_statistic: Statistic_type = "quadratic",
+        local_statistic: Statistic_type = "abs_mean",
         local_weights: (
             np.ndarray | None
         ) = None,  # shall be p*q matrix where each element is a 1-D array.
@@ -481,17 +481,22 @@ def compute_statistic(
     elif data.size != weights.size:
         raise IndexError("'data' and 'weights' must have the same length.")
 
-    # TODO: add this
-    # if (data.T @ data) == 0:
-    #     result = 0
     if statistic == "quadratic":
-        # TODO divide by np.sqrt(w.T @ W)*np.sqrt(data.T @ data), mind that
-        # x'Wx < lambda_max(W) |x|^2 and given that W is diagonal and with
-        # all positive entries it hold |W| = lamnda_max(W). To secure the
-        # metric to be always < 1 you have to divide by |x|**2|W|
+        # It holds x'Wx < lambda_max(W) |x|^2 = max(W) given that W is
+        # diagonal with all positive entries. Furthermore, it
+        # hold np.max(weights) = lambda_max(W).
+        # To avoid that the metric depends on the number of lags, we normalize
+        # by n.
+
         quadratic_form = data.T @ np.diag(weights) @ data
-        normalization_factor = np.sqrt(weights.T @ weights)
-        result = quadratic_form / normalization_factor
+
+        result = quadratic_form / (np.max(weights) * len(data))
+        # If the weights are all the same, then the metric reduces to |x|²/n
+
+    elif statistic == "abs_mean":
+        # This is similar to RMS. By using l1 norm we are more gentle with
+        # respect to outliers.
+        result = np.sum(weights * np.abs(data)) / np.sum(weights)
 
     elif statistic == "max":
         # To secure <1 you have to divide by |x|_inf|W|_inf
@@ -550,7 +555,7 @@ def whiteness_level(
     data_bandwidths: np.ndarray | float | None = None,
     sampling_period: float | None = None,
     nlags: np.ndarray | None = None,
-    local_statistic: Statistic_type = "quadratic",
+    local_statistic: Statistic_type = "abs_mean",
     local_weights: (
         np.ndarray | None
     ) = None,  # shall be a p*q matrix where each element is a 1D-array (like the lags)
@@ -608,7 +613,7 @@ class ValidationSession:
         u_acorr_nlags: np.ndarray | None = None,
         u_acorr_local_statistic_type_1st: Statistic_type = "mean",
         u_acorr_global_statistic_type_1st: Statistic_type = "max",
-        u_acorr_local_statistic_type_2nd: Statistic_type = "quadratic",
+        u_acorr_local_statistic_type_2nd: Statistic_type = "abs_mean",
         u_acorr_global_statistic_type_2nd: Statistic_type = "max",
         u_acorr_local_weights: np.ndarray | None = None,
         u_acorr_global_weights: np.ndarray | None = None,
@@ -616,7 +621,7 @@ class ValidationSession:
         eps_acorr_nlags: np.ndarray | None = None,
         eps_acorr_local_statistic_type_1st: Statistic_type = "mean",
         eps_acorr_global_statistic_type_1st: Statistic_type = "max",
-        eps_acorr_local_statistic_type_2nd: Statistic_type = "quadratic",
+        eps_acorr_local_statistic_type_2nd: Statistic_type = "abs_mean",
         eps_acorr_global_statistic_type_2nd: Statistic_type = "max",
         eps_acorr_local_weights: np.ndarray | None = None,
         eps_acorr_global_weights: np.ndarray | None = None,
@@ -624,7 +629,7 @@ class ValidationSession:
         ueps_xcorr_nlags: np.ndarray | None = None,
         ueps_xcorr_local_statistic_type_1st: Statistic_type = "mean",
         ueps_xcorr_global_statistic_type_1st: Statistic_type = "max",
-        ueps_xcorr_local_statistic_type_2nd: Statistic_type = "quadratic",
+        ueps_xcorr_local_statistic_type_2nd: Statistic_type = "abs_mean",
         ueps_xcorr_global_statistic_type_2nd: Statistic_type = "max",
         ueps_xcorr_local_weights: np.ndarray | None = None,
         ueps_xcorr_global_weights: np.ndarray | None = None,
@@ -944,20 +949,15 @@ class ValidationSession:
     def _get_validation_thresholds_default(
         self, ignore_input: bool
     ) -> Dict[str, float]:
-        # We take the default quadratic threshold as n*eps² which is the same as
-        # |x|/np.sqrt(n) < eps
-        eps = 0.5
-        u_quadratic_threshold = eps**2
-        res_quadratic_threshold = eps**2
 
         validation_thresholds_default = {
             "Ruu_whiteness_1st": 0.6,
-            "Ruu_whiteness_2nd": u_quadratic_threshold,
+            "Ruu_whiteness_2nd": 0.6,
             "r2": 65,
             "Ree_whiteness_1st": 0.5,
-            "Ree_whiteness_2nd": res_quadratic_threshold,
+            "Ree_whiteness_2nd": 0.5,
             "Rue_whiteness_1st": 0.5,
-            "Rue_whiteness_2nd": res_quadratic_threshold,
+            "Rue_whiteness_2nd": 0.5,
         }
 
         if ignore_input is True:

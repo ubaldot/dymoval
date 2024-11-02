@@ -62,5 +62,5 @@ Allowed_keys_type = Literal[
 ]
 SIGNAL_KEYS: list[Allowed_keys_type] = list(typing.get_args(Allowed_keys_type))
 
-Statistic_type = Literal["mean", "quadratic", "std", "max"]
+Statistic_type = Literal["mean", "quadratic", "std", "max", "abs_mean"]
 STATISTIC_TYPE: list[Statistic_type] = list(typing.get_args(Statistic_type))
