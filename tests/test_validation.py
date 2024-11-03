@@ -971,15 +971,19 @@ class Test_rsquared:
             dmv.rsquared(y_values, y_sim_values)
 
 
-class Test_whiteness:
+class Test_whiteness_level_function:
     def test_whiteness_level(self) -> None:
 
-        x1 = np.array([0.1419, 0.4218, 0.9157, 0.7922, 0.9595])
-        whiteness_expected = 0.2055967474048869
+        x1 = np.array([0.1419, -0.4218, 0.9157, -0.7922, 0.9595])
+        whiteness_expected = 0.3579244755541881
+        whiteness_matrix_expected = np.array([[0.35792448]])
 
-        whiteness_actual, _ = dmv.whiteness_level(x1)
+        whiteness_actual, whiteness_matrix_actual = dmv.whiteness_level(x1)
 
         assert np.isclose(whiteness_expected, whiteness_actual, atol=ATOL)
+        np.testing.assert_allclose(
+            whiteness_matrix_expected, whiteness_matrix_actual
+        )
 
 
 class Test_validate_models:
@@ -1387,24 +1391,29 @@ class Test_Compute_Statistics:
             [
                 0.49065828,
                 0.1754277,
-                0.37027646,
+                -0.37027646,
                 0.26591682,
-                0.62597191,
+                -0.62597191,
                 0.89125522,
-                0.14112183,
-                0.16938656,
+                -0.14112183,
+                -0.16938656,
                 0.31309603,
                 0.2876763,
             ]
         )
 
-        expected_mean = 0.37307871099999995
+        expected_mean = 0.11172735900000001
+        expected_abs_mean = 0.37307871099999995
         expected_inf = 0.89125522
-        expected_quad = 0.5992223630447827
-        expected_std = 0.22428335785688763
+        expected_quad = 0.18949074921298226
+        expected_std = 0.420722885595575
 
         assert np.isclose(
             compute_statistic(data=test_data, statistic="mean"), expected_mean
+        )
+        assert np.isclose(
+            compute_statistic(data=test_data, statistic="abs_mean"),
+            expected_abs_mean,
         )
         assert np.isclose(
             compute_statistic(data=test_data, statistic="max"), expected_inf
@@ -1430,16 +1439,23 @@ class Test_Compute_Statistics:
         # Calculate Gaussian weights
         weights = a * np.exp(-((x - mu) ** 2) / (2 * sigma**2))
 
-        expected_mean_weighted = 0.5967800071293234
+        expected_mean_weighted = 0.10053961584752258
+        expected_abs_mean_weighted = 0.5967800071293234
         expected_inf_weighted = 0.89125522
-        expected_quad_weighted = 0.8141111410026658
-        expected_std_weighted = 0.27609223009533146
+        expected_quad_weighted = 0.1228105035864878
+        expected_std_weighted = 0.6498192687767278
 
         assert np.isclose(
             compute_statistic(
                 data=test_data, statistic="mean", weights=weights
             ),
             expected_mean_weighted,
+        )
+        assert np.isclose(
+            compute_statistic(
+                data=test_data, statistic="abs_mean", weights=weights
+            ),
+            expected_abs_mean_weighted,
         )
         assert np.isclose(
             compute_statistic(data=test_data, statistic="max", weights=weights),

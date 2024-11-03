@@ -582,6 +582,9 @@ def whiteness_level(
         global_statistic=global_statistic,
         global_weights=global_weights,
     )
+
+    del Rxx
+
     return whiteness_estimate, whiteness_matrix
 
 
