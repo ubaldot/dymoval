@@ -872,11 +872,16 @@ class ValidationSession:
 
         # np.set_printoptions(precision=NUM_DECIMALS, suppress=True)
         # pd.options.display.float_format = lambda x: f"{x:.{NUM_DECIMALS}f}"
-        outcomes_head = "\t"
-        outcomes_body = "Outcome:"
+        outcomes_head = "         "
+        outcomes_body = "Outcome: "
         for k, v in self._outcome.items():
-            outcomes_head += f"\t{k} "
-            outcomes_body += f"\t{self._outcome[k]}"
+            delta = len(k) - len(v)
+            if delta >= 0:
+                outcomes_head += f"{k}  "
+                outcomes_body += f"{self._outcome[k]}" + " " * (delta + 2)
+            else:
+                outcomes_head += f"{k}" + " " * (delta + 2)
+                outcomes_body += f"{self._outcome[k]}"
 
         if self._ignore_input:
             Ruu_whiteness_1st = ""
@@ -890,23 +895,27 @@ class ValidationSession:
         repr_str = (
             f"Validation session name: {self.name}\n\n"
             f"Validation setup:\n----------------\n"
-            f"Input\n"
+            f"Inputs auto-correlation\n"
             f"1st statistic: {self._u_acorr_local_statistic_type_1st}-{self._u_acorr_global_statistic_type_1st}\n"
             f"2nd statistic: {self._u_acorr_local_statistic_type_2nd}-{self._u_acorr_global_statistic_type_2nd}\n"
             f"local weights: {self._u_acorr_local_weights}\n"
             f"global weights: {self._u_acorr_global_weights}\n"
-            f"num lags: {self._u_acorr_nlags}\n\n"
+            f"num lags: {self._u_acorr_nlags}\n"
+            f"Input ignored: {self._ignore_input}\n\n"
             f"Residuals auto-correlation:\n"
             f"1st statistic: {self._eps_acorr_local_statistic_type_1st}-{self._eps_acorr_global_statistic_type_1st}\n"
             f"2nd statistic: {self._eps_acorr_local_statistic_type_2nd}-{self._eps_acorr_global_statistic_type_2nd}\n"
             f"local weights: {self._eps_acorr_local_weights}\n"
             f"global weights: {self._eps_acorr_global_weights}\n"
+            f"num lags: {self._eps_acorr_nlags}\n\n"
             f"Input-residuals cross-correlation:\n"
             f"1st statistic: {self._ueps_xcorr_local_statistic_type_1st}-{self._ueps_xcorr_global_statistic_type_1st}\n"
             f"2nd statistic: {self._ueps_xcorr_local_statistic_type_2nd}-{self._ueps_xcorr_global_statistic_type_2nd}\n"
             f"local weights: {self._ueps_xcorr_local_weights}\n"
             f"global weights: {self._ueps_xcorr_global_weights}\n"
-            f"Validation thresholds: \n"
+            f"num lags: {self._eps_acorr_nlags}\n\n"
+            f"Validation results:\n-------------------\n"
+            f"Thresholds: \n"
             f"{Ruu_whiteness_1st}"
             f"{Ruu_whiteness_2nd}"
             f"{self._validation_results.index[2]}: {self._validation_thresholds['r2']:.4f} \n"
@@ -914,11 +923,10 @@ class ValidationSession:
             f"{self._validation_results.index[4]}: {self._validation_thresholds['Ree_whiteness_2nd']:.4f} \n"
             f"{self._validation_results.index[5]}: {self._validation_thresholds['Rue_whiteness_1st']:.4f} \n"
             f"{self._validation_results.index[6]}: {self._validation_thresholds['Rue_whiteness_2nd']:.4f} \n\n"
-            f"Validation results:\n-------------------\n"
+            "Actuals:\n"
             f"{validation_results}\n\n"
             f"{outcomes_head}\n"
             f"{outcomes_body}\n\n"
-            f"Input ignored: {self._ignore_input}\n"
         )
 
         # try:
