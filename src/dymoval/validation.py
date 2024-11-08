@@ -206,10 +206,16 @@ class XCorrelation:
                     "The number of elements of 'Y_bandwidths' must be equal to {q}"
                 )
         # nlags
-        nlags_from_user = 20 * np.ones((p, q)) if nlags is None else nlags
+        if nlags is not None:
+            if nlags.shape[0] < p or nlags.shape[1] < q:
+                raise IndexError(f"'nlags' shall be a {p}x{q} array.")
+            else:
+                nlags_from_user = nlags[0:p, 0:q]
+        else:
+            # Default 20 lags
+            nlags_from_user = 10 * np.ones((p, q))
 
         # Let's preserve some immutability
-        #
         R_full = np.empty((p, q), dtype=_rxy)
         R_downsampled = np.empty((p, q), dtype=_rxy)
         R_trimmed = np.empty((p, q), dtype=_rxy)
@@ -293,8 +299,7 @@ class XCorrelation:
 
                 # ----------- Trim ---------------
                 # Create the half vectors for lags selection
-                # Fixed value of 20 lags.
-                n = nlags_from_user[ii, jj]
+                n = nlags_from_user[ii, jj] // 2
                 nlags_trimmed = int(min(n, lags_downsampled[-1]))
 
                 indices_trimmed = np.where(
@@ -660,7 +665,8 @@ class ValidationSession:
         )
 
         # Simulation based
-        self.name: str = name  #: The validation session name.
+        self.name: str = name  # The validation session name.
+        self._default_nlags = 41
 
         self._simulations_values: pd.DataFrame = pd.DataFrame(
             index=validation_dataset.dataset.index, columns=[[], [], []]
@@ -699,8 +705,11 @@ class ValidationSession:
         # ------------------ Input --------------------
         self._U_bandwidths = U_bandwidths
 
-        # Same type as the argument
-        self._u_acorr_nlags: np.ndarray | None
+        # Input nlags
+        # Default 41 lags (20 negative and 20 positive)
+        self._u_acorr_nlags = np.full(
+            (self._p, self._p), fill_value=self._default_nlags
+        )
         if u_acorr_nlags is not None:
             if (
                 u_acorr_nlags.shape[0] < self._p
@@ -711,8 +720,13 @@ class ValidationSession:
                 )
             else:
                 self._u_acorr_nlags = u_acorr_nlags[0 : self._p, 0 : self._p]
-        else:
-            self._u_acorr_nlags = None
+        elif u_acorr_local_weights is not None:
+            # Iterate through the input array and count the number of lags
+            for ii in range(self._p):
+                for jj in range(self._p):
+                    self._u_acorr_nlags[ii, jj] = len(
+                        u_acorr_local_weights[ii, jj]
+                    )
 
         self._u_acorr_local_statistic_type_1st = (
             u_acorr_local_statistic_type_1st
@@ -764,8 +778,12 @@ class ValidationSession:
         self._Y_bandwidths = Y_bandwidths
 
         # Residuals auto-correlation
-        # Check that eps_acorr_nlags is at least a qxq matrix
-        self._eps_acorr_nlags: np.ndarray | None
+        self._eps_acorr_tensor: Dict[str, XCorrelation] = {}
+
+        # nlags
+        self._eps_acorr_nlags = np.full(
+            (self._q, self._q), fill_value=self._default_nlags
+        )
         if eps_acorr_nlags is not None:
             if (
                 eps_acorr_nlags.shape[0] < self._q
@@ -778,31 +796,14 @@ class ValidationSession:
                 self._eps_acorr_nlags = eps_acorr_nlags[
                     0 : self._q, 0 : self._q
                 ]
-        else:
-            self._eps_acorr_nlags = None
+        elif eps_acorr_local_weights is not None:
+            # Iterate through the input array and count the number of lags
+            for ii in range(self._q):
+                for jj in range(self._q):
+                    self._eps_acorr_nlags[ii, jj] = len(
+                        eps_acorr_local_weights[ii, jj]
+                    )
 
-        self._eps_acorr_tensor: Dict[str, XCorrelation] = {}
-
-        # Input-Residuals cross-correlation
-        self._ueps_xcorr_nlags: np.ndarray | None
-        if ueps_xcorr_nlags is not None:
-            if (
-                ueps_xcorr_nlags.shape[0] < self._p
-                or ueps_xcorr_nlags.shape[1] < self._q
-            ):
-                raise IndexError(
-                    f"'ueps_xcorr_nlags' shall be a {self._p}x{self._q} array."
-                )
-            else:
-                self._ueps_xcorr_nlags = ueps_xcorr_nlags[
-                    0 : self._p, 0 : self._q
-                ]
-        else:
-            self._ueps_xcorr_nlags = None
-
-        self._ueps_xcorr_tensor: Dict[str, XCorrelation] = {}
-
-        # acorr begins
         self._eps_acorr_local_statistic_type_1st = (
             eps_acorr_local_statistic_type_1st
         )
@@ -818,7 +819,32 @@ class ValidationSession:
         self._eps_acorr_local_weights = eps_acorr_local_weights
         self._eps_acorr_global_weights = eps_acorr_global_weights
 
-        # xcorr begins
+        # Input-Residuals cross-correlation
+        self._ueps_xcorr_tensor: Dict[str, XCorrelation] = {}
+
+        self._ueps_xcorr_nlags = np.full(
+            (self._p, self._q), fill_value=self._default_nlags
+        )
+        if ueps_xcorr_nlags is not None:
+            if (
+                ueps_xcorr_nlags.shape[0] < self._p
+                or ueps_xcorr_nlags.shape[1] < self._q
+            ):
+                raise IndexError(
+                    f"'ueps_xcorr_nlags' shall be a {self._p}x{self._q} array."
+                )
+            else:
+                self._ueps_xcorr_nlags = ueps_xcorr_nlags[
+                    0 : self._p, 0 : self._q
+                ]
+        elif ueps_xcorr_local_weights is not None:
+            # Iterate through the input array and count the number of lags
+            for ii in range(self._p):
+                for jj in range(self._q):
+                    self._ueps_xcorr_nlags[ii, jj] = len(
+                        ueps_xcorr_local_weights[ii, jj]
+                    )
+
         self._ueps_xcorr_local_statistic_type_1st = (
             ueps_xcorr_local_statistic_type_1st
         )
@@ -1115,7 +1141,7 @@ class ValidationSession:
         if not self.simulations_names:
             raise KeyError(
                 "The simulations list looks empty. "
-                "Check the available simulation names with 'simulations_namess()'"
+                "Check the available simulation names with 'simulations_names()'"
             )
 
     def _simulation_validation(

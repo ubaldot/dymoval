@@ -602,7 +602,7 @@ class Test_XCorrelation:
             sampling_period,
         ) = correlation_tensors
         # x0y0_whiteness_expected = 0.38281031914047287
-        lags_expected_long = np.arange(-8, 9)
+        lags_expected_long = np.arange(-5, 6)
 
         x0 = X[:, 0].T
         y0 = Y[:, 0].T
@@ -672,7 +672,7 @@ class Test_XCorrelation:
         # x0y0_whiteness_expected = 0.38281031914047287
         lags_expected_short_x0y1 = np.arange(-1, 2)
         lags_expected_short_x1y1 = np.arange(-2, 3)
-        lags_expected_long = np.arange(-8, 9)
+        lags_expected_long = np.arange(-5, 6)
 
         # We only consider the MIMO case
         XCorr_actual = dmv.XCorrelation(
@@ -720,8 +720,8 @@ class Test_XCorrelation:
 
         # Test nlags arg
         nlags = np.array([[5, 3], [6, 4]])
-        lags_expected_x0y0 = np.arange(-5, 6)
-        lags_expected_x1y0 = np.arange(-6, 7)
+        lags_expected_x0y0 = np.arange(-2, 3)
+        lags_expected_x1y0 = np.arange(-3, 4)
         lags_expected_x0y1 = np.arange(-1, 2)
         lags_expected_x1y1 = np.arange(-2, 3)
 
@@ -789,10 +789,10 @@ class Test_XCorrelation:
 
         global_weights = np.ones((2, 2))
         local_weights = np.empty(RXY.R.shape, dtype=np.ndarray)
-        local_weights[0, 0] = np.ones(17)
-        local_weights[0, 1] = np.ones(17)
-        local_weights[1, 0] = np.ones(17)
-        local_weights[1, 1] = np.ones(17)
+        local_weights[0, 0] = np.ones(11)
+        local_weights[0, 1] = np.ones(11)
+        local_weights[1, 0] = np.ones(11)
+        local_weights[1, 1] = np.ones(11)
         w_weighted, W_weighted = RXY.estimate_whiteness(
             local_weights=local_weights, global_weights=global_weights
         )
