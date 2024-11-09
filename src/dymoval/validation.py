@@ -909,37 +909,131 @@ class ValidationSession:
                 outcomes_head += f"{k}" + " " * (delta + 2)
                 outcomes_body += f"{self._outcome[k]}"
 
+        # u acorr weights
+        if self._u_acorr_local_weights is None:
+            u_acorr_local_weights_str = (
+                f"local weights: {self._u_acorr_local_weights}\n"
+            )
+        else:
+            u_acorr_local_weights_str = (
+                "local weights: Yes (see self._u_acorr_local_weights)\n"
+            )
+
+        if self._u_acorr_global_weights is None:
+            u_acorr_global_weights_str = (
+                f"global weights: {self._u_acorr_global_weights}\n"
+            )
+        else:
+            u_acorr_global_weights_str = (
+                "global weights: Yes (see self._u_acorr_global_weights)\n"
+            )
+
+        # u_nlags
+        if np.all(
+            self._u_acorr_nlags.flatten() == self._u_acorr_nlags.flatten()[0]
+        ):
+            u_nlags_str = f"num lags: {self._u_acorr_nlags[0,0]}\n"
+        else:
+            u_nlags_str = f"num lags: \n{self._u_acorr_nlags}\n"
+
+        # Ignore input
         if self._ignore_input:
+            inputs_acorr_str = f"Input ignored: {self._ignore_input}\n"
             Ruu_whiteness_1st = ""
             Ruu_whiteness_2nd = ""
             validation_results = self._validation_results.iloc[2:, :]
         else:
+            inputs_acorr_str = (
+                f"Inputs auto-correlation\n"
+                f"1st statistic: {self._u_acorr_local_statistic_type_1st}-{self._u_acorr_global_statistic_type_1st}\n"
+                f"2nd statistic: {self._u_acorr_local_statistic_type_2nd}-{self._u_acorr_global_statistic_type_2nd}\n"
+                + u_acorr_local_weights_str
+                + u_acorr_global_weights_str
+                + u_nlags_str
+            )
             Ruu_whiteness_1st = f"{self._validation_results.index[0]}: {self._validation_thresholds['Ruu_whiteness_1st']} \n"
             Ruu_whiteness_2nd = f"{self._validation_results.index[1]}: {self._validation_thresholds['Ruu_whiteness_2nd']} \n"
             validation_results = self._validation_results
 
+        # eps_nlags
+        if np.all(
+            self._eps_acorr_nlags.flatten()
+            == self._eps_acorr_nlags.flatten()[0]
+        ):
+            eps_nlags_str = f"num lags: {self._eps_acorr_nlags[0,0]}\n"
+        else:
+            eps_nlags_str = f"num lags: \n{self._eps_acorr_nlags}\n"
+
+        # eps acorr weights
+        if self._eps_acorr_local_weights is None:
+            eps_acorr_local_weights_str = (
+                f"local weights: {self._eps_acorr_local_weights}\n"
+            )
+        else:
+            eps_acorr_local_weights_str = (
+                "local weights: Yes (see self._eps_acorr_local_weights)\n"
+            )
+
+        if self._eps_acorr_global_weights is None:
+            eps_acorr_global_weights_str = (
+                f"global weights: {self._eps_acorr_global_weights}\n"
+            )
+        else:
+            eps_acorr_global_weights_str = (
+                "global weights: Yes (see self._eps_acorr_global_weights)\n"
+            )
+
+        # ueps_nlags
+        if np.all(
+            self._ueps_xcorr_nlags.flatten()
+            == self._ueps_xcorr_nlags.flatten()[0]
+        ):
+            ueps_nlags_str = f"num lags: {self._ueps_xcorr_nlags[0,0]}\n"
+        else:
+            ueps_nlags_str = f"num lags: \n{self._ueps_xcorr_nlags}\n"
+
+        # ueps xcorr weights
+        if self._ueps_xcorr_local_weights is None:
+            ueps_xcorr_local_weights_str = (
+                f"local weights: {self._ueps_xcorr_local_weights}\n"
+            )
+        else:
+            ueps_xcorr_local_weights_str = (
+                "local weights: Yes (see self._ueps_xcorr_local_weights)\n"
+            )
+
+        if self._ueps_xcorr_global_weights is None:
+            ueps_xcorr_global_weights_str = (
+                f"global weights: {self._ueps_xcorr_global_weights}\n"
+            )
+        else:
+            ueps_xcorr_global_weights_str = (
+                "global weights: Yes (see self._ueps_xcorr_global_weights)\n"
+            )
+
         repr_str = (
             f"Validation session name: {self.name}\n\n"
             f"Validation setup:\n----------------\n"
-            f"Inputs auto-correlation\n"
-            f"1st statistic: {self._u_acorr_local_statistic_type_1st}-{self._u_acorr_global_statistic_type_1st}\n"
-            f"2nd statistic: {self._u_acorr_local_statistic_type_2nd}-{self._u_acorr_global_statistic_type_2nd}\n"
-            f"local weights: {self._u_acorr_local_weights}\n"
-            f"global weights: {self._u_acorr_global_weights}\n"
-            f"num lags: {self._u_acorr_nlags}\n"
-            f"Input ignored: {self._ignore_input}\n\n"
-            f"Residuals auto-correlation:\n"
+            + inputs_acorr_str
+            + "\n"
+            + f"Residuals auto-correlation:\n"
             f"1st statistic: {self._eps_acorr_local_statistic_type_1st}-{self._eps_acorr_global_statistic_type_1st}\n"
             f"2nd statistic: {self._eps_acorr_local_statistic_type_2nd}-{self._eps_acorr_global_statistic_type_2nd}\n"
-            f"local weights: {self._eps_acorr_local_weights}\n"
-            f"global weights: {self._eps_acorr_global_weights}\n"
-            f"num lags: {self._eps_acorr_nlags}\n\n"
+            + eps_acorr_local_weights_str
+            + eps_acorr_global_weights_str
+            + eps_nlags_str
+            + "\n"
+            +
+            #
             f"Input-residuals cross-correlation:\n"
             f"1st statistic: {self._ueps_xcorr_local_statistic_type_1st}-{self._ueps_xcorr_global_statistic_type_1st}\n"
             f"2nd statistic: {self._ueps_xcorr_local_statistic_type_2nd}-{self._ueps_xcorr_global_statistic_type_2nd}\n"
-            f"local weights: {self._ueps_xcorr_local_weights}\n"
-            f"global weights: {self._ueps_xcorr_global_weights}\n"
-            f"num lags: {self._eps_acorr_nlags}\n\n"
+            + ueps_xcorr_local_weights_str
+            + ueps_xcorr_global_weights_str
+            + ueps_nlags_str
+            + "\n"
+            +
+            #
             f"Validation results:\n-------------------\n"
             f"Thresholds: \n"
             f"{Ruu_whiteness_1st}"
@@ -952,7 +1046,7 @@ class ValidationSession:
             "Actuals:\n"
             f"{validation_results}\n\n"
             f"{outcomes_head}\n"
-            f"{outcomes_body}\n\n"
+            f"{outcomes_body}\n"
         )
 
         # try:
