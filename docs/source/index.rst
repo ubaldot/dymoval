@@ -44,7 +44,7 @@ Main Features
 -------------
 
 Measurements analysis and manipulation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 - Time and frequency analysis
 - Easy plotting
 - Missing data handling

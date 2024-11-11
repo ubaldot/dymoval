@@ -82,11 +82,6 @@ class Signal(TypedDict):
     }
     >>> dmv.plot_signals(my_signal)
 
-
-    Attributes
-    ----------
-    samples: np.ndarray
-        Signal values.
     """
 
     name: str  #: Signal name.

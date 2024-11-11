@@ -69,60 +69,60 @@ class _rxy(NamedTuple):
 class XCorrelation:
     # You have to manually write the type in TypedDicts docstrings
     # and you have to exclude them in the :automodule:
-    """Type used to store MIMO cross-correlations.
+    """Cross-correlation of two MIMO signals  `X` and `Y`.
 
-
-    Attributes
-    ----------
-    name:
-        The XCorrelation name.
-    R:
-        MIMO Correlation matrix. The i,j-th element of R
-        represents the cross correlation function between the i-th signal of
-        X and the j-th signal of Y. Each i,j element is a NamedTuple with attributes
-        values (np.ndarray) and lags (np.ndarray).
-    kind:
-        Correlation kind.
-
-
-    Return the normalized cross-correlation of two MIMO signals.
-
-    If X = Y then it return the normalized auto-correlation of X.
-
-    You must pass X_Bandwidth, Y_Bandwidth and sampling_period or
+    If `X = Y` then it return the normalized auto-correlation of `X`.
+    You must pass ``X_Bandwidth``, ``Y_Bandwidth`` and ``sampling_period`` or
     none of them.
+
+    The cross-correlation functions are stored in the attribute `R` which is
+    an array where the `(i, j)`-th element
+    is the cross-correlation function between the `i`-th signal of
+    `X` and the `j`-th signal of `Y`. The cross-correlation functions
+    are ``NamedTuple`` s with attributes
+    values (``np.ndarray``) and lags (``np.ndarray``).
+
 
     Parameters
     ----------
-    name :
+    name:
         The XCorrelation name.
-    X :
-        MIMO signal realizations expressed as `Nxp` 2D array
+    X:
+        MIMO signal realizations expressed as `Nxp` 2-D array
         of `N` observations of `p` signals.
-    Y :
-        MIMO signal realizations expressed as `Nxq` 2D array
+    Y:
+        MIMO signal realizations expressed as `Nxq` 2-D array
         of `N` observations of `q` signals.
     nlags:
-        p*q np.ndarray where the i,j-th element represents the number of lags
-        of the cross-correlation function associated to the i-th signal of X
-        and the j-th signal of Y.
-    X_bandwidths: np.ndarray
-        1D array representing the bandwidths of each signal in X.
+        `pxq` array where the `(i, j)`-th element represents the number of lags
+        of the cross-correlation function associated to the `i`-th signal of
+        `X` with the `j`-th signal of `Y`.
+    X_bandwidths:
+        1-D array representing the bandwidths of each signal in  `X`.
     Y_bandwidths:
-        1D array representing the bandwidths of each signal in Y.
+        1-D array representing the bandwidths of each signal in `Y`.
     sampling_period:
         Sampling period of the signals X and Y.
 
-
-    Example:
-    --------
-    #  Assume that RXY is a XCorrelation instance
-    >>> local_weights = np.empty(RXY.R.shape, dtype=np.ndarray)
-    >>> local_weights[0, 0] = np.ones(11)
-    >>> local_weights[0, 1] = np.ones(3)
-    >>> local_weights[1, 0] = np.ones(13)
-    >>> local_weights[1, 1] = np.ones(6)
-    >>> w, W = RXY.estimate_whiteness(local_weights=local_weights)
+    Example
+    -------
+    >>> import dymoval as dmv
+    >>> import numpy as np
+    >>> rng = np.random.default_rng()
+    >>> X = rng.uniform(low=-1, high=1, size=(10,3))
+    >>> Y = rng.normal(size=(10,4))
+    >>> lags = np.array([[10,8,20,12],[8 ,6 ,2 ,10],[20, 12, 8, 8]])
+    >>> Rxy = dmv.XCorrelation("foo", X, Y, nlags=lags)
+    # Cross-correlation between the first element of X (1D time-series) and
+    # the third element of Y (1D time-series).
+    >>> Rxy.R[0,2].lags
+        array([-9, -8, -7, -6, -5, -4, -3, -2, -1,  0,  1,  2,  3,  4,  5,  6,  7,
+        8,  9])
+    >>> Rxy.R[0,2].values
+        array([-0.06377225, -0.0083634 ,  0.14850791,  0.06379516, -0.16405862,
+               -0.24074438,  0.14147755,  0.06538316, -0.26679362,  0.14813509,
+                0.64887265,  0.22247482, -0.4785613 , -0.30908332,  0.12834458,
+               -0.08259541, -0.27451256,  0.25320947,  0.06828447])
     """
 
     def __init__(
@@ -207,7 +207,11 @@ class XCorrelation:
                 )
         # nlags
         if nlags is not None:
-            if nlags.shape[0] < p or nlags.shape[1] < q:
+            if (
+                not isinstance(nlags, np.ndarray)
+                or nlags.shape[0] < p
+                or nlags.shape[1] < q
+            ):
                 raise IndexError(f"'nlags' shall be a {p}x{q} array.")
             else:
                 nlags_from_user = nlags[0:p, 0:q]
@@ -283,6 +287,7 @@ class XCorrelation:
                     # We downsample with step 1 (= no downsampling). TODO Could be
                     # refactored
                     step = 1
+
                 # We won't take less than 3 lags
                 # Saturate the steps based on number of observations
                 nlags_min = 3
@@ -333,6 +338,52 @@ class XCorrelation:
         global_statistic: Statistic_type = "max",
         global_weights: np.ndarray | None = None,  # Shall be a p*q matrix
     ) -> tuple[float, np.ndarray]:
+        """Return the whiteness estimates based on the selected statistics.
+
+        Compute first the statistic for each `pxq` cross-correlation function,
+        then compute the statistic of the resulting `pxq` array.
+
+        The statistics are computed through the function
+        :py:meth:`~dymoval.validation.compute_statistic`.
+
+        Parameters
+        ----------
+        local_statistic:
+            Statistic type for each `(i,j)` cross-correlation function of `XCorrelation.R` array.
+
+        local_weights:
+            Weights for each `(i, j)` element of `XCorrelation.R` array. It
+            shall be a `pxq` array where each element is a 1-D array.
+
+        global_statistic:
+            Statistic type for each element of the resulting `pxq` array
+            obtained by computing the statistics for each `pxq`
+            cross-correlation functions.
+
+        global_weights:
+            Weights for each element of the resulting `pxq` array
+            obtained by computing the statistics for each `pxq`
+            cross-correlation functions.
+            It shall be a `pxq` array.
+
+        Returns
+        -------
+        whiteness_estimate:
+            The overall whiteness estimate.
+        whiteness_matrix:
+            A `pxq` array where the `(i, j)`-th element is the statistic computed
+            for the `(i, j)`-th cross-correlation function.
+
+        Example
+        -------
+        >>> #  Assume that RXY is a XCorrelation instance
+        >>> local_weights = np.empty(RXY.R.shape, dtype=np.ndarray)
+        >>> local_weights[0, 0] = np.ones(11)
+        >>> local_weights[0, 1] = np.ones(3)
+        >>> local_weights[1, 0] = np.ones(13)
+        >>> local_weights[1, 1] = np.ones(6)
+        >>> w, W = RXY.estimate_whiteness(local_weights=local_weights)
+        """
 
         # MAIN whiteness level =================================
         R = self.R
@@ -414,6 +465,8 @@ class XCorrelation:
         return whiteness_estimate, whiteness_matrix
 
     def plot(self) -> matplotlib.figure.Figure:
+        """Plot the `pxq` cross-correlation functions."""
+
         p = self.R.shape[0]
         q = self.R.shape[1]
         fig, ax = plt.subplots(p, q, squeeze=False)
@@ -457,9 +510,11 @@ def compute_statistic(
     statistic: Statistic_type = "mean",
     weights: np.ndarray | None = None,
 ) -> float:
-    """DOCSTRING
+    """Compute the statistic of a sequence of numbers.
 
-    If data.shape dimension is greater than 1 it will be flatten to a 1D array.
+    The samples can be weighted through the `weights` array.
+
+    If data.shape dimension is greater than 1 it will be flatten to a 1-D array.
 
     The  return values are normalized such that the function always return
     values between 0 and 1.
@@ -533,9 +588,9 @@ def rsquared(x: np.ndarray, y: np.ndarray) -> float:
 
     Parameters
     ----------
-    x :
+    x:
         First input signal.
-    y :
+    y:
         Second input signal.
 
     Raises
@@ -568,6 +623,19 @@ def whiteness_level(
     global_statistic: Statistic_type = "max",
     global_weights: np.ndarray | None = None,
 ) -> tuple[float, np.ndarray]:
+    """Estimate the whiteness of the time-series `data`.
+
+    If data is a MIMO signal, then first the auto-correlation functions of
+    each pair of signal is computed. Then, for each auto-correlation function
+    a statistic is computed according to `local_statistic` value, thus
+    resulting in a `pxp` array. Finally, a statistic of the resulting array is
+    computed based on the values of `global_statistic` and `global_weights`.
+
+    See Also
+    --------
+    :py:meth:`~dymoval.validation.compute_statistic`
+    """
+
     # Convert signals into XCorrelation tensors and compute the
     # whiteness_level
 
@@ -1955,7 +2023,7 @@ def validate_models(
     Y_bandwidths: np.ndarray | float | None = None,
     **kwargs: Any,
 ) -> ValidationSession:
-    """akakakak
+    """Validate models based on measured and simulated data.
 
     sampling_period will retrieved from Signal id List[Signal], otherwise must
     be explicitely passed.
