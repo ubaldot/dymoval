@@ -2,7 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import h5py
 from copy import deepcopy
-from itertools import product
 import dymoval as dmv
 import matplotlib
 from dymoval_tutorial.DCMotorModel import DCMotor_dt
@@ -11,30 +10,29 @@ import control as ct
 matplotlib.use("qtagg")
 matplotlib.pyplot.ioff()
 
-path_h5 = "/home/yt75534/dymoval/src/dymoval_tutorial/DCMotorLogs.h5"
+path_h5 = "/home/yt75534/dymoval/src/dymoval_tutorial/signals.h5"
 # path_h5 = (
 #     "/Users/ubaldot/Documents/dymoval/src/dymoval_tutorial/DCMotorLogs.h5"
 # )
 
 logs = h5py.File(
-    # "/Users/ubaldot/Documents/dymoval/src/dymoval_tutorial/DCMotorLogs.h5",
     path_h5,
     "r",
 )
 logs["signals"].keys()
 
 V = logs["signals/V"]
-ia = logs["signals/ia"]
-dot_theta = logs["signals/dot_theta"]
+Ia = logs["signals/Ia"]
+Motor_Speed = logs["signals/motor_speed"]
 
 signal_list = []
-for val in [V, ia, dot_theta]:
+for val in [V, Ia, Motor_Speed]:
     temp: dmv.Signal = {
-        "name": val.attrs["name"].decode("utf-8"),
+        "name": val.attrs["name"],
         "samples": val[:],
-        "signal_unit": val.attrs["unit"].decode("utf-8"),
-        "sampling_period": val.attrs["period"][0],
-        "time_unit": val.attrs["sampling_unit"].decode("utf-8"),
+        "signal_unit": val.attrs["unit"],
+        "sampling_period": val.attrs["period"],
+        "time_unit": val.attrs["sampling_unit"],
     }
     signal_list.append(deepcopy(temp))
 
@@ -80,7 +78,7 @@ ds_filt.name = "Filtered"
 
 # Simulate model
 res = ct.forced_response(DCMotor_dt, X0=[0.0, 0.0, 0.0], U=u)
-y_sim = res.y.T[:, [0, 2]]
+y_sim = res.y.T
 
 measured_signals = ds_filt.dump_to_signals()
 measured_in = measured_signals["INPUT"]

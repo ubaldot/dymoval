@@ -67,7 +67,7 @@ class _rxy(NamedTuple):
 
 @dataclass
 class XCorrelation:
-    # You have to manually write the type in TypedDicts docstrings
+    # You have to manually write the type in the docstrings
     # and you have to exclude them in the :automodule:
     """Cross-correlation of two MIMO signals  `X` and `Y`.
 
@@ -331,7 +331,7 @@ class XCorrelation:
 
     def estimate_whiteness(
         self,
-        local_statistic: Statistic_type = "abs_mean",
+        local_statistic: Statistic_type = "quadratic",
         local_weights: (
             np.ndarray | None
         ) = None,  # shall be p*q matrix where each element is a 1-D array.
@@ -616,7 +616,7 @@ def whiteness_level(
     data_bandwidths: np.ndarray | float | None = None,
     sampling_period: float | None = None,
     nlags: np.ndarray | None = None,
-    local_statistic: Statistic_type = "abs_mean",
+    local_statistic: Statistic_type = "quadratic",
     local_weights: (
         np.ndarray | None
     ) = None,  # shall be a p*q matrix where each element is a 1D-array (like the lags)
@@ -690,7 +690,7 @@ class ValidationSession:
         u_acorr_nlags: np.ndarray | None = None,
         u_acorr_local_statistic_type_1st: Statistic_type = "mean",
         u_acorr_global_statistic_type_1st: Statistic_type = "max",
-        u_acorr_local_statistic_type_2nd: Statistic_type = "abs_mean",
+        u_acorr_local_statistic_type_2nd: Statistic_type = "quadratic",
         u_acorr_global_statistic_type_2nd: Statistic_type = "max",
         u_acorr_local_weights: np.ndarray | None = None,
         u_acorr_global_weights: np.ndarray | None = None,
@@ -698,7 +698,7 @@ class ValidationSession:
         eps_acorr_nlags: np.ndarray | None = None,
         eps_acorr_local_statistic_type_1st: Statistic_type = "mean",
         eps_acorr_global_statistic_type_1st: Statistic_type = "max",
-        eps_acorr_local_statistic_type_2nd: Statistic_type = "abs_mean",
+        eps_acorr_local_statistic_type_2nd: Statistic_type = "quadratic",
         eps_acorr_global_statistic_type_2nd: Statistic_type = "max",
         eps_acorr_local_weights: np.ndarray | None = None,
         eps_acorr_global_weights: np.ndarray | None = None,
@@ -706,7 +706,7 @@ class ValidationSession:
         ueps_xcorr_nlags: np.ndarray | None = None,
         ueps_xcorr_local_statistic_type_1st: Statistic_type = "mean",
         ueps_xcorr_global_statistic_type_1st: Statistic_type = "max",
-        ueps_xcorr_local_statistic_type_2nd: Statistic_type = "abs_mean",
+        ueps_xcorr_local_statistic_type_2nd: Statistic_type = "quadratic",
         ueps_xcorr_global_statistic_type_2nd: Statistic_type = "max",
         ueps_xcorr_local_weights: np.ndarray | None = None,
         ueps_xcorr_global_weights: np.ndarray | None = None,
@@ -1000,7 +1000,7 @@ class ValidationSession:
         if np.all(
             self._u_acorr_nlags.flatten() == self._u_acorr_nlags.flatten()[0]
         ):
-            u_nlags_str = f"num lags: {self._u_acorr_nlags[0,0]}\n"
+            u_nlags_str = f"num lags: {self._u_acorr_nlags[0, 0]}\n"
         else:
             u_nlags_str = f"num lags: \n{self._u_acorr_nlags}\n"
 
@@ -1028,7 +1028,7 @@ class ValidationSession:
             self._eps_acorr_nlags.flatten()
             == self._eps_acorr_nlags.flatten()[0]
         ):
-            eps_nlags_str = f"num lags: {self._eps_acorr_nlags[0,0]}\n"
+            eps_nlags_str = f"num lags: {self._eps_acorr_nlags[0, 0]}\n"
         else:
             eps_nlags_str = f"num lags: \n{self._eps_acorr_nlags}\n"
 
@@ -1056,7 +1056,7 @@ class ValidationSession:
             self._ueps_xcorr_nlags.flatten()
             == self._ueps_xcorr_nlags.flatten()[0]
         ):
-            ueps_nlags_str = f"num lags: {self._ueps_xcorr_nlags[0,0]}\n"
+            ueps_nlags_str = f"num lags: {self._ueps_xcorr_nlags[0, 0]}\n"
         else:
             ueps_nlags_str = f"num lags: \n{self._ueps_xcorr_nlags}\n"
 
@@ -2122,6 +2122,15 @@ def validate_models(
         data=measured_out, sampling_period=sampling_period, kind="out"
     )
 
+    # Check if simulated_data is in the correct format.
+    N = measured_out_list[0]["samples"].shape[0]
+    if isinstance(simulated_out, np.ndarray) and simulated_out.shape[0] != N:
+        raise ValueError(
+            "'simulated_out' shall be a "
+            f"{N}x{len(measured_out_list)} np.ndarray "
+            f"or a list of 1-D np.ndarray of length {len(measured_out_list)}"
+        )
+
     # Build Dataset instance and Validation instance
     input_labels = [s["name"] for s in measured_in_list]
     output_labels = [s["name"] for s in measured_out_list]
@@ -2140,9 +2149,9 @@ def validate_models(
     vs_kwargs = kwargs.copy()
     vs = ValidationSession("quick & dirty", ds, **vs_kwargs)
 
-    for ii, sim in enumerate(simulated_out):
-        sim = np.column_stack(sim) if isinstance(sim, list) else sim
-        sim = sim[:, np.newaxis] if len(sim.shape) == 1 else sim
+    # If only one simulation is passed, put it into a list
+    simulated_out_list = obj2list(simulated_out)
+    for ii, sim in enumerate(simulated_out_list):
         sim_name = f"Sim_{ii}"
         vs = vs.append_simulation(
             sim_name=sim_name, y_names=output_labels, y_data=sim

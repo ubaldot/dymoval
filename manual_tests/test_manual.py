@@ -6,7 +6,6 @@
 # ===========================================================================
 
 
-from copy import deepcopy
 import dymoval as dmv
 from tests.conftest import (
     generate_correlation_tensor,
@@ -16,7 +15,6 @@ from tests.conftest import (
 from dymoval.validation import (
     XCorrelation,
     ValidationSession,
-    whiteness_level,
 )
 
 import numpy as np
@@ -131,23 +129,7 @@ name_ds = "my_dataset"
 ds1 = dmv.Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
 
 name_vs = "my_validation"
-# u_nlags = np.array([[5, 3, 2, 5], [6, 4, 4, 8], [8, 10, 7, 22]])
-# TODO Test when the size of the matrix is less that pxp
-# u_nlags = np.array([[5, 3], [6, 4]])
-# eps_nlags = np.array([[5, 12], [8, 30]])
-# eps_nlags_wrong_size = np.array([[5, 12, 99], [8, 30, 21], [11, 11, 22]])
-# ueps_nlags_wrong_size = np.array([[5, 12, 99], [8, 30, 21], [11, 11, 22]])
-# ueps_nlags = np.array([[5, 12], [8, 11]])
 
-
-local_weights = np.empty((3, 2), dtype=np.ndarray)
-local_weights[0, 0] = np.ones(41)
-local_weights[0, 1] = np.ones(41)
-local_weights[1, 0] = np.ones(41)
-local_weights[1, 1] = np.ones(41)
-local_weights[2, 0] = np.ones(41)
-local_weights[2, 1] = np.ones(22)
-vs = ValidationSession(name_vs, ds1, ueps_xcorr_local_weights=local_weights)
 
 # eps_nlags_wrong_size = np.array([[5], [8]])
 # vs_weird = ValidationSession(
