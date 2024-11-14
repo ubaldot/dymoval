@@ -189,9 +189,9 @@ class XCorrelation:
         q = Y.shape[1]
 
         # Some input check
-        if isinstance(X_bandwidths, float):
+        if isinstance(X_bandwidths, (int, float)):
             X_bandwidths = np.array([X_bandwidths])
-        if isinstance(Y_bandwidths, float):
+        if isinstance(Y_bandwidths, (float, int)):
             Y_bandwidths = np.array([Y_bandwidths])
 
         if isinstance(X_bandwidths, np.ndarray):
@@ -275,19 +275,21 @@ class XCorrelation:
                     # Fs/(2*B3) but cannot be too long, e.g. you cannot have a
                     # step of 15 if the total number of lags are 10. Min 3
                     # lags.
-                    step = int(
-                        1
-                        // (
-                            2.0
-                            * sampling_period
-                            * max(X_bandwidths[ii], Y_bandwidths[jj])
+                    bandwidth_max = max(X_bandwidths[ii], Y_bandwidths[jj])
+                    Fs = 1 / sampling_period
+                    if Fs < 2 * bandwidth_max:
+                        raise ValueError(
+                            "Nyquist criteria violated. "
+                            f"Sampling frequency is {Fs} whereas "
+                            f"some signal bandwidth is {bandwidth_max}"
                         )
-                    )
+                    step = int(Fs // (2.0 * bandwidth_max))
                 else:
                     # We downsample with step 1 (= no downsampling). TODO Could be
                     # refactored
                     step = 1
 
+                print(f"step = {step}")
                 # We won't take less than 3 lags
                 # Saturate the steps based on number of observations
                 nlags_min = 3
@@ -2019,8 +2021,6 @@ def validate_models(
     measured_out: np.ndarray | List[Signal] | List[np.ndarray],
     simulated_out: np.ndarray | List[np.ndarray],
     sampling_period: float | None = None,
-    U_bandwidths: np.ndarray | float | None = None,
-    Y_bandwidths: np.ndarray | float | None = None,
     **kwargs: Any,
 ) -> ValidationSession:
     """Validate models based on measured and simulated data.
@@ -2146,8 +2146,7 @@ def validate_models(
 
     # Create a ValidationSession object
     # TODO: Check here
-    vs_kwargs = kwargs.copy()
-    vs = ValidationSession("quick & dirty", ds, **vs_kwargs)
+    vs = ValidationSession("quick & dirty", ds, **kwargs)
 
     # If only one simulation is passed, put it into a list
     simulated_out_list = obj2list(simulated_out)
