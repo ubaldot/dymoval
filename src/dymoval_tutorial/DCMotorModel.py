@@ -10,11 +10,13 @@ from dymoval_tutorial.virtual_lab import get_ss_matrices, Ts
 # This is the model to be validated. The parameters are perturbed.
 # We simulate this model in the tutorial
 
-L_model = 1.8e-3
-R_model = 1.8
+
+L_model = 1.2e-3
+R_model = 1.4
 J_model = 6.5e-5
-b_model = 0.6e-4
-K_model = 0.104
+b_model = 1.08e-4
+K_model = 0.102
+
 # Nominal values
 # L_model = 1e-3
 # R_model = 1.0

@@ -118,24 +118,31 @@ time, u = get_low_frequency_input_signal(
     clip=True,
 )
 
-# Simulate "real" plant
-res = ct.forced_response(DCMotor_nominal_ct, T=time, X0=[0.0, 0.0, 0.0], U=u)
-y = res.y
+# TODO: Simulate "real" plant
+res_ct = ct.forced_response(DCMotor_nominal_ct, T=time, X0=[0.0, 0.0, 0.0], U=u)
+# res_dt = ct.forced_response(
+#     ct.c2d(DCMotor_nominal_ct, 1 / sampling_rate),
+#     T=time,
+#     X0=[0.0, 0.0, 0.0],
+#     U=u,
+# )
+
+y = res_ct.y
 
 # ==================== Sensor model =====================================
 # Add noise to the measurements
 rng = np.random.default_rng()
-u_noisy = u + rng.uniform(low=-2, high=2, size=u.shape[0])
-y0_noisy = y[0] + rng.uniform(low=-0.05, high=0.05, size=y[0].shape[0])
+u_noisy = u + rng.uniform(low=-0.4, high=0.4, size=u.shape[0])
+y0_noisy = y[0] + rng.uniform(low=-0.02, high=0.02, size=y[0].shape[0])
 y1_noisy = y[1] + rng.uniform(low=-100, high=100, size=y[1].shape[0])
 
-u_noisy = u
-y0_noisy = y[0]
-y1_noisy = y[1]
+# u_noisy = u
+# y0_noisy = y[0]
+# y1_noisy = y[1]
 # Sample the signals...
 # Sampling period of the sensors. This will also be used as time-period
 # for model discretization
-Ts = 0.02
+Ts = 0.01
 
 u_sampled = u_noisy[:: int(sampling_rate * Ts)]
 y0_sampled = y0_noisy[:: int(sampling_rate * Ts)]
@@ -144,12 +151,6 @@ y_sampled = np.vstack((y0_sampled, y1_sampled)).T
 time_sampled = time[:: int(sampling_rate * Ts)]
 
 # TODO: test REMOVE_ME =====================================
-# motor_dt = ct.c2d(DCMotor_nominal_ct, Ts)
-# res = ct.forced_response(
-#     motor_dt, T=time_sampled, X0=[0.0, 0.0, 0.0], U=u_sampled
-# )
-# y_sampled = res.y
-
 
 # Nominal values
 # L_model = 1e-3
@@ -158,11 +159,11 @@ time_sampled = time[:: int(sampling_rate * Ts)]
 # b_model = 1e-4
 # K_model = 0.1
 
-L_model = 1.8e-3
-R_model = 1.8
-J_model = 6.5e-5
-b_model = 0.6e-4
-K_model = 0.104
+L_model = 1e-3
+R_model = 1.0
+J_model = 5e-5
+b_model = 1.0e-4
+K_model = 0.1
 
 A_model, B_model, C_model, D_model = get_ss_matrices(
     R=R_model, L=L_model, K=K_model, J=J_model, b=b_model
@@ -179,23 +180,24 @@ y_model = res.y.T
 y0_model = y_model[:, 0]
 y1_model = y_model[:, 1]
 
-# fig, ax = plt.subplots(2, 1)
-# ax[0].plot(time_sampled, y0_model)
-# ax[0].plot(time_sampled, y0_sampled)
-# ax[1].plot(time_sampled, y1_model)
-# ax[1].plot(time_sampled, y1_sampled)
+# fig, ax = plt.subplots(3, 1)
+# ax[0].plot(time_sampled, y0_model, label="model", color="blue")
+# ax[0].plot(time_sampled, y0_sampled, label="measurements", color="green")
+# ax[1].plot(time_sampled, y1_model, color="blue")
+# ax[1].plot(time_sampled, y1_sampled, color="green")
+# ax[2].plot(time_sampled, u_sampled)
+# ax[2].plot(time, u, label="Voltage")
+# # ax[0].legend()
+# fig.legend()
 # plt.show()
-
-
-r2 = rsquared(y_sampled, y_model)
 
 vs = validate_models(
     measured_in=u_sampled,
-    # measured_out=y0_sampled[:, np.newaxis],
-    # simulated_out=y0_model[:, np.newaxis],
     measured_out=y_sampled,
     simulated_out=y_model,
     sampling_period=Ts,
+    U_bandwidths=2,
+    Y_bandwidths=[2, 2],
 )
 print(vs)
 # =======================================================

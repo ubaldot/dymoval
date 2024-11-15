@@ -48,7 +48,7 @@ except FileNotFoundError:  # pragma: no cover
 
 COLORMAP: Any = config["COLORMAP"]
 
-ATOL = 10e-4
+ATOL = 10e-9
 
 # Internal constants
 Signal_type = Literal["INPUT", "OUTPUT"]
@@ -62,5 +62,12 @@ Allowed_keys_type = Literal[
 ]
 SIGNAL_KEYS: list[Allowed_keys_type] = list(typing.get_args(Allowed_keys_type))
 
-Statistic_type = Literal["mean", "quadratic", "std", "max", "abs_mean"]
-STATISTIC_TYPE: list[Statistic_type] = list(typing.get_args(Statistic_type))
+XCorr_Statistic_type = Literal["mean", "quadratic", "std", "max", "abs_mean"]
+XCORR_STATISTIC_TYPE: list[XCorr_Statistic_type] = list(
+    typing.get_args(XCorr_Statistic_type)
+)
+
+R2_Statistic_type = Literal["mean", "min"]
+R2_STATISTIC_TYPE: list[R2_Statistic_type] = list(
+    typing.get_args(R2_Statistic_type)
+)

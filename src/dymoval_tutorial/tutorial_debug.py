@@ -50,7 +50,7 @@ ds = dmv.Dataset(
 )
 
 #
-cutoff = 1  # [Hz]
+cutoff = 5  # [Hz]
 ds_filt = ds.low_pass_filter(
     ("Supply_Voltage", cutoff),
     ("Motor_Speed", cutoff),
@@ -60,7 +60,7 @@ ds_filt.name = "Filtered"
 (t, u, y) = ds_filt.dataset_values()
 # (t, u, y) = ds.dataset_values()
 
-# dmv.compare_datasets(ds, ds_filt)
+dmv.compare_datasets(ds, ds_filt)
 # dmv.compare_datasets(ds.remove_means(), ds_filt.remove_means(), kind="power")
 
 # Generated simulated out Model
@@ -75,13 +75,10 @@ y1_sim_filt = ct.forced_response(lpf_dt, U=y_sim[:, 1]).y.T
 
 y_sim_filt = np.hstack((y0_sim_filt, y1_sim_filt))
 
-
-#
-
 VS = dmv.validation.validate_models(
     measured_in=u,
     measured_out=y,
-    simulated_out=y_sim,
+    simulated_out=y_sim_filt,
     sampling_period=Ts,
     U_bandwidths=cutoff,
     Y_bandwidths=[cutoff, cutoff],
