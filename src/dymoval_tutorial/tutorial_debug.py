@@ -18,7 +18,7 @@ plt.ioff()
 dymoval_tutorial.virtual_lab
 # logs = h5py.File("./src/dymoval_tutorial/DCMotorLogs.h5", "r")
 # logs = h5py.File("./src/dymoval_tutorial/signals.h5", "r")
-with h5py.File("./src//dymoval_tutorial/signals.h5", "r") as logs:
+with h5py.File("./src//dymoval_tutorial/DCMotor_measurements.h5", "r") as logs:
     # logs = f["signals"].keys()
     V = logs["signals/V_measured"]
     Ia = logs["signals/Ia_measured"]
@@ -61,7 +61,7 @@ ds_filt.name = "Filtered"
 # (t, u, y) = ds.dataset_values()
 
 dmv.compare_datasets(ds, ds_filt)
-# dmv.compare_datasets(ds.remove_means(), ds_filt.remove_means(), kind="power")
+dmv.compare_datasets(ds.remove_means(), ds_filt.remove_means(), kind="power")
 
 # Generated simulated out Model
 res_sim = ct.forced_response(DCMotor_model_dt, X0=[0.0, 0.0, 0.0], U=u)

@@ -22,7 +22,6 @@ from typing import Any
 import h5py
 from copy import deepcopy
 from scipy.signal import butter, lfilter
-from dymoval.validation import validate_models, rsquared
 
 matplotlib.use("qtagg")
 plt.ioff()
@@ -150,61 +149,6 @@ y1_sampled = y1_noisy[:: int(sampling_rate * Ts)]
 y_sampled = np.vstack((y0_sampled, y1_sampled)).T
 time_sampled = time[:: int(sampling_rate * Ts)]
 
-# TODO: test REMOVE_ME =====================================
-
-# Nominal values
-# L_model = 1e-3
-# R_model = 1.0
-# J_model = 5e-5
-# b_model = 1e-4
-# K_model = 0.1
-
-L_model = 1e-3
-R_model = 1.0
-J_model = 5e-5
-b_model = 1.0e-4
-K_model = 0.1
-
-A_model, B_model, C_model, D_model = get_ss_matrices(
-    R=R_model, L=L_model, K=K_model, J=J_model, b=b_model
-)
-
-DCMotor_model_ct = ct.ss(A_model, B_model, C_model, D_model)
-DCMotor_model_dt = ct.sample_system(DCMotor_model_ct, Ts, method="zoh")
-
-
-res = ct.forced_response(
-    DCMotor_model_dt, T=time_sampled, X0=[0.0, 0.0, 0.0], U=u_sampled
-)
-y_model = res.y.T
-y0_model = y_model[:, 0]
-y1_model = y_model[:, 1]
-
-# fig, ax = plt.subplots(3, 1)
-# ax[0].plot(time_sampled, y0_model, label="model", color="blue")
-# ax[0].plot(time_sampled, y0_sampled, label="measurements", color="green")
-# ax[1].plot(time_sampled, y1_model, color="blue")
-# ax[1].plot(time_sampled, y1_sampled, color="green")
-# ax[2].plot(time_sampled, u_sampled)
-# ax[2].plot(time, u, label="Voltage")
-# # ax[0].legend()
-# fig.legend()
-# plt.show()
-
-vs = validate_models(
-    measured_in=u_sampled,
-    measured_out=y_sampled,
-    simulated_out=y_model,
-    sampling_period=Ts,
-    U_bandwidths=2,
-    Y_bandwidths=[2, 2],
-)
-print(vs)
-# =======================================================
-
-# %%
-
-
 # ... and missing values...
 # Input
 u_measured = deepcopy(u_sampled)
@@ -227,7 +171,7 @@ for tin, tout in ((76, 96),):
 
 # ============= Save log data to file ======================
 # Our measurements are ready. Save it to file.
-with h5py.File("./src/dymoval_tutorial/signals.h5", "w") as h5file:
+with h5py.File("./src/dymoval_tutorial/DCMotor_measurements.h5", "w") as h5file:
     # Create a group named "signals"
     signals_group = h5file.create_group("signals")
 
@@ -279,13 +223,3 @@ with h5py.File("./src/dymoval_tutorial/signals.h5", "w") as h5file:
     motor_speed.attrs["unit"] = "RPM"
     motor_speed.attrs["period"] = Ts
     motor_speed.attrs["sampling_unit"] = "s"
-
-
-# fig, ax = plt.subplots(3, 1, sharex=True)
-
-# ax[0].plot(time_sampled, u_sampled)
-# ax[1].plot(time_sampled, y0_sampled)
-# ax[1].plot(time, y[0])
-# ax[2].plot(time_sampled, y1_sampled)
-# ax[2].plot(time, y[1])
-# fig.show()
