@@ -20,7 +20,9 @@ from matplotlib import pyplot as plt
 import matplotlib
 from typing import Any
 import h5py
+from copy import deepcopy
 from scipy.signal import butter, lfilter
+from dymoval.validation import validate_models, rsquared
 
 matplotlib.use("qtagg")
 plt.ioff()
@@ -121,14 +123,24 @@ res = ct.forced_response(DCMotor_nominal_ct, T=time, X0=[0.0, 0.0, 0.0], U=u)
 y = res.y
 
 # ==================== Sensor model =====================================
+# Add noise to the measurements
+rng = np.random.default_rng()
+u_noisy = u + rng.uniform(low=-2, high=2, size=u.shape[0])
+y0_noisy = y[0] + rng.uniform(low=-0.05, high=0.05, size=y[0].shape[0])
+y1_noisy = y[1] + rng.uniform(low=-100, high=100, size=y[1].shape[0])
+
+u_noisy = u
+y0_noisy = y[0]
+y1_noisy = y[1]
 # Sample the signals...
-# sampling period of the sensors. This will also be used as time-period
+# Sampling period of the sensors. This will also be used as time-period
 # for model discretization
 Ts = 0.02
 
-u_sampled = u[:: int(sampling_rate * Ts)]
-y0_sampled = y[0][:: int(sampling_rate * Ts)]
-y1_sampled = y[1][:: int(sampling_rate * Ts)]
+u_sampled = u_noisy[:: int(sampling_rate * Ts)]
+y0_sampled = y0_noisy[:: int(sampling_rate * Ts)]
+y1_sampled = y1_noisy[:: int(sampling_rate * Ts)]
+y_sampled = np.vstack((y0_sampled, y1_sampled)).T
 time_sampled = time[:: int(sampling_rate * Ts)]
 
 # TODO: test REMOVE_ME =====================================
@@ -138,25 +150,65 @@ time_sampled = time[:: int(sampling_rate * Ts)]
 # )
 # y_sampled = res.y
 
-# # plt.plot(time, y[1])
-# # plt.plot(time_sampled, y_sampled[1])
-# # plt.show()
+
+# Nominal values
+# L_model = 1e-3
+# R_model = 1.0
+# J_model = 5e-5
+# b_model = 1e-4
+# K_model = 0.1
+
+L_model = 1.8e-3
+R_model = 1.8
+J_model = 6.5e-5
+b_model = 0.6e-4
+K_model = 0.104
+
+A_model, B_model, C_model, D_model = get_ss_matrices(
+    R=R_model, L=L_model, K=K_model, J=J_model, b=b_model
+)
+
+DCMotor_model_ct = ct.ss(A_model, B_model, C_model, D_model)
+DCMotor_model_dt = ct.sample_system(DCMotor_model_ct, Ts, method="zoh")
+
+
+res = ct.forced_response(
+    DCMotor_model_dt, T=time_sampled, X0=[0.0, 0.0, 0.0], U=u_sampled
+)
+y_model = res.y.T
+y0_model = y_model[:, 0]
+y1_model = y_model[:, 1]
+
+# fig, ax = plt.subplots(2, 1)
+# ax[0].plot(time_sampled, y0_model)
+# ax[0].plot(time_sampled, y0_sampled)
+# ax[1].plot(time_sampled, y1_model)
+# ax[1].plot(time_sampled, y1_sampled)
+# plt.show()
+
+
+r2 = rsquared(y_sampled, y_model)
+
+vs = validate_models(
+    measured_in=u_sampled,
+    # measured_out=y0_sampled[:, np.newaxis],
+    # simulated_out=y0_model[:, np.newaxis],
+    measured_out=y_sampled,
+    simulated_out=y_model,
+    sampling_period=Ts,
+)
+print(vs)
 # =======================================================
 
 # %%
 
-# ...add noise to the measurements
-rng = np.random.default_rng()
-u_measured = u_sampled + rng.uniform(low=-2, high=2, size=u_sampled.shape[0])
-y0_measured = y0_sampled + rng.uniform(
-    low=-0.05, high=0.05, size=y0_sampled.shape[0]
-)
-y1_measured = y1_sampled + rng.uniform(
-    low=-100, high=100, size=y1_sampled.shape[0]
-)
 
 # ... and missing values...
 # Input
+u_measured = deepcopy(u_sampled)
+y0_measured = deepcopy(y0_sampled)
+y1_measured = deepcopy(y1_sampled)
+
 for tin, tout in ((0, 15), (82, 91)):
     indices = np.where((time_sampled >= tin) & (time_sampled <= tout))
     u_measured[indices] = np.nan

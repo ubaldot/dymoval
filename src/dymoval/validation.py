@@ -289,7 +289,7 @@ class XCorrelation:
                     # refactored
                     step = 1
 
-                print(f"step = {step}")
+                # print(f"step = {step}")
                 # We won't take less than 3 lags
                 # Saturate the steps based on number of observations
                 nlags_min = 3
@@ -582,7 +582,7 @@ def compute_statistic(
     return float(result)
 
 
-def rsquared(x: np.ndarray, y: np.ndarray) -> float:
+def rsquared(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     """
     Return the :math:`R^2` value of two signals.
 
@@ -591,14 +591,11 @@ def rsquared(x: np.ndarray, y: np.ndarray) -> float:
     Parameters
     ----------
     x:
-        First input signal.
+        First input signal. It must have shape `Nxp`, where `N` is the number of
+        observation and `p` the signal dimension.
     y:
-        Second input signal.
-
-    Raises
-    ------
-    IndexError
-        If x and y don't have the same number of samples.
+        Second input signal. It must have shape `Nxp`, where `N` is the number of
+        observation and `p` the signal dimension.
     """
 
     if x.shape != y.shape:
@@ -606,10 +603,13 @@ def rsquared(x: np.ndarray, y: np.ndarray) -> float:
     eps = x - y
     # Compute r-square fit (%)
     x_mean = np.mean(x, axis=0)
-    r2 = (
-        1.0 - np.linalg.norm(eps, 2) ** 2 / np.linalg.norm(x - x_mean, 2) ** 2
-    ) * 100
-    return r2  # type: ignore
+
+    # Compute the R² index
+    ss_res = np.sum(eps**2, axis=0)
+    ss_tot = np.sum((x - x_mean) ** 2, axis=0)
+    r2: np.ndarray = np.asarray((1.0 - ss_res / ss_tot) * 100)
+
+    return r2
 
 
 # TODO: Not happy with this
@@ -687,6 +687,8 @@ class ValidationSession:
         # Model validation
         validation_thresholds: Dict[str, float] | None = None,
         ignore_input: bool = False,
+        # r2
+        r2_statistic: Any = "min",
         # The following are input to XCorrelation.estimate_whiteness() method.
         # input auto-correlation
         u_acorr_nlags: np.ndarray | None = None,
@@ -745,6 +747,10 @@ class ValidationSession:
         This attribute is automatically set through
         :py:meth:`~dymoval.validation.ValidationSession.append_simulation`
         and it should be considered as a *read-only* attribute."""
+        # Format: 'name_sim': r2
+        self._r2_list: dict[str, np.ndarray] = {}
+        self._r2: dict[str, float] = {}
+        self._r2_statistic = r2_statistic
 
         # Input: Ruu
         self._u_auto_correlation_tensors: XCorrelation
@@ -1180,6 +1186,20 @@ class ValidationSession:
         vals = self._validation_results[sim_name].to_numpy()
         return dict(zip(keys, vals))
 
+    def _compute_r2_statistic(
+        self, r2_list: np.ndarray, statistic: Literal["min", "mean"] = "min"
+    ) -> float:
+
+        result: float = 0.0
+        if statistic == "mean":
+            result = np.mean(r2_list)
+        elif statistic == "min":
+            result = np.min(r2_list)
+        else:
+            raise ValueError("'r2_statistic' must be 'mean' or 'min'")
+
+        return result
+
     def _append_validation_results(
         self,
         sim_name: str,
@@ -1200,8 +1220,10 @@ class ValidationSession:
                 "Simulation outputs are identical to measured outputs. Are you cheating?"
             )
 
-        # rsquared and various statistics
+        # r2 value and r2 statistics
         r2 = rsquared(y_values, y_sim_values)
+        self._r2_list[sim_name] = r2
+        self._r2[sim_name] = self._compute_r2_statistic(r2, self._r2_statistic)
 
         # Residuals auto-correlation
         Ree = XCorrelation(
@@ -1276,7 +1298,7 @@ class ValidationSession:
             [
                 self._u_acorr_whiteness_1st,
                 self._u_acorr_whiteness_2nd,
-                r2,
+                self._r2[sim_name],
                 self._eps_acorr_whiteness_1st[sim_name],
                 self._eps_acorr_whiteness_2nd[sim_name],
                 self._ueps_xcorr_whiteness_1st[sim_name],
