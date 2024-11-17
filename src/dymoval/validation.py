@@ -31,7 +31,7 @@ from .utils import (
 )
 
 from .dataset import Dataset, Signal, validate_signals
-from typing import Dict, Literal, Any, NamedTuple
+from typing import Literal, Any, NamedTuple
 from dataclasses import dataclass
 
 __all__ = [
@@ -688,7 +688,7 @@ class ValidationSession:
         U_bandwidths: np.ndarray | float | None = None,
         Y_bandwidths: np.ndarray | float | None = None,
         # Model validation
-        validation_thresholds: Dict[str, float] | None = None,
+        validation_thresholds: dict[str, float] | None = None,
         ignore_input: bool = False,
         # r2
         r2_statistic: Any = "min",
@@ -828,7 +828,7 @@ class ValidationSession:
         self._Y_bandwidths = Y_bandwidths
 
         # Residuals auto-correlation
-        self._eps_acorr_tensor: Dict[str, XCorrelation] = {}
+        self._eps_acorr_tensor: dict[str, XCorrelation] = {}
 
         # nlags
         self._eps_acorr_nlags = np.full(
@@ -860,7 +860,7 @@ class ValidationSession:
         self._eps_acorr_global_weights = eps_acorr_global_weights
 
         # Input-Residuals cross-correlation
-        self._ueps_xcorr_tensor: Dict[str, XCorrelation] = {}
+        self._ueps_xcorr_tensor: dict[str, XCorrelation] = {}
 
         self._ueps_xcorr_nlags = np.full(
             (self._p, self._q), fill_value=self._default_nlags
@@ -915,7 +915,7 @@ class ValidationSession:
         self._ignore_input = ignore_input
 
         # Initialize PASS/FAIL
-        self._outcome: Dict[str, str] = {}
+        self._outcome: dict[str, str] = {}
         """The validation results.
         This attribute is automatically set
         and it should be considered as a *read-only* attribute."""
@@ -1096,18 +1096,18 @@ class ValidationSession:
         return list(self._simulations_values.columns.levels[0])
 
     @property
-    def outcome(self) -> Dict[str, str]:
+    def outcome(self) -> dict[str, str]:
         return self._outcome
 
     def _get_validation_thresholds_default(
         self, ignore_input: bool
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
 
         validation_thresholds_default = {
-            "Ruu_whiteness": 0.6,
-            "r2": 65,
-            "Ree_whiteness": 0.5,
-            "Rue_whiteness": 0.5,
+            "Ruu_whiteness": 0.5,
+            "r2": 35,
+            "Ree_whiteness": 0.4,
+            "Rue_whiteness": 0.4,
         }
 
         if ignore_input is True:
@@ -1954,8 +1954,8 @@ class ValidationSession:
 
 
 def validate_models(
-    measured_in: np.ndarray | list[Signal] | list[np.ndarray],
-    measured_out: np.ndarray | list[Signal] | list[np.ndarray],
+    measured_in: np.ndarray | list[Signal],
+    measured_out: np.ndarray | list[Signal],
     simulated_out: np.ndarray | list[np.ndarray],
     sampling_period: float | None = None,
     **kwargs: Any,
@@ -1973,13 +1973,12 @@ def validate_models(
         sampling_period: float,
         kind: Literal["in", "out"],
     ) -> list[Signal]:
-        # Input must be a 2D-array, of size (N,p)
 
-        uy = "u" if kind == "in" else "y"
+        uy_label = "u" if kind == "in" else "y"
         signal_list = []
         for ii in range(dataset.shape[1]):
             tmp: Signal = {
-                "name": f"{uy}{ii}",
+                "name": f"{uy_label}{ii}",
                 "samples": dataset[:, ii],  # Must be a 1D array
                 "signal_unit": "NA",
                 "sampling_period": sampling_period,
@@ -1989,58 +1988,39 @@ def validate_models(
         return signal_list
 
     def _to_list_of_Signal(
-        data: list[np.ndarray] | np.ndarray | list[Signal],
+        data: np.ndarray | list[Signal],
         sampling_period: float,
         kind: Literal["in", "out"],
     ) -> list[Signal]:
-        # Convert a np.ndarray or a list[np.ndarray] to a list[Signal]
-        # It performs some checks to the input data.
 
-        # Scalar case: 1D np.ndarray: stack it into a column array
-        if isinstance(data, np.ndarray) and data.ndim == 1:
-            data_list = _dummy_signal_list(
-                dataset=data[:, np.newaxis],
-                sampling_period=sampling_period,
-                kind=kind,
-            )
-
-        # Case 2D np.ndarray, columns are samples
-        elif isinstance(data, np.ndarray) and data.ndim == 2:
+        # Case 2D np.ndarray, convert to a list[Signal]
+        if isinstance(data, np.ndarray):
             data_list = _dummy_signal_list(
                 dataset=data, sampling_period=sampling_period, kind=kind
             )
 
-        # Case list[nd.array]
-        elif isinstance(data, list) and all(
-            isinstance(item, np.ndarray) for item in data
-        ):
-            # Check if all arrays have the same length
-            lengths = [len(item) for item in data]
-            if len(set(lengths)) == 1:  # All lengths should be the same
-                data_list = _dummy_signal_list(
-                    dataset=np.column_stack(data),  # type: ignore
-                    sampling_period=sampling_period,
-                    kind=kind,
-                )
-            else:
-                raise ValueError("All arrays must have the same length")
-
         # Case list[Signal]
-
         elif isinstance(data, list) and all(
             isinstance(item, dict) and set(item.keys()) == set(SIGNAL_KEYS)
             for item in data
         ):
             # elif isinstance(data, list) and all(isinstance(item, dict) and set(item.keys()) == set(SIGNAL_KEYS), for all items in data):
-            data_list = data  # type: ignore
+            data_list = data
         else:
             raise ValueError(
-                "'measured_in' and 'measured_out' must be 2D-arrays, list of 1D-arrays, or List of Signals"
+                "'measured_in' and 'measured_out' must be 2D-arrays or list of Signals."
             )
 
         return data_list
 
     # ======== MAIN ================
+    # Sanity check
+    if isinstance(measured_in, np.ndarray) and measured_in.ndim != 2:
+        raise IndexError("'measured_in' shall be a Nxp np.ndarray.")
+
+    if isinstance(measured_out, np.ndarray) and measured_out.ndim != 2:
+        raise IndexError("'measured_out' shall be a Nxq np.ndarray.")
+
     # Gather sampling_period from Signals
     if (
         isinstance(measured_out, list)
@@ -2049,24 +2029,15 @@ def validate_models(
     ):
         sampling_period = measured_out[0]["sampling_period"]
     elif sampling_period is None:
-        raise TypeError("'sampling_period' missing")
+        raise TypeError("'sampling_period' missing.")
 
-    # Convert everything into list[Signal]
+    # Convert everything into list[Signal] to create a dataset object
     measured_in_list = _to_list_of_Signal(
         data=measured_in, sampling_period=sampling_period, kind="in"
     )
     measured_out_list = _to_list_of_Signal(
         data=measured_out, sampling_period=sampling_period, kind="out"
     )
-
-    # Check if simulated_data is in the correct format.
-    N = measured_out_list[0]["samples"].shape[0]
-    if isinstance(simulated_out, np.ndarray) and simulated_out.shape[0] != N:
-        raise ValueError(
-            "'simulated_out' shall be a "
-            f"{N}x{len(measured_out_list)} np.ndarray "
-            f"or a list of 1-D np.ndarray of length {len(measured_out_list)}"
-        )
 
     # Build Dataset instance and Validation instance
     input_labels = [s["name"] for s in measured_in_list]
@@ -2081,12 +2052,26 @@ def validate_models(
         full_time_interval=True,
     )
 
-    # Create a ValidationSession object
-    # TODO: Check here
+    # Create a ValidationSession object placeholder
     vs = ValidationSession("quick & dirty", ds, **kwargs)
 
-    # If only one simulation is passed, put it into a list
+    # ---- Fix simulated_out arg -----
     simulated_out_list = obj2list(simulated_out)
+    # Fetch the number of observations
+    N = measured_out_list[0]["samples"].shape[0]
+
+    # Format check
+    if all(
+        sim.shape[0] != N or sim.shape[1] != len(measured_out_list)
+        for sim in simulated_out_list
+    ):
+        raise ValueError(
+            "'simulated_out' shall be a "
+            f"{N}x{len(measured_out_list)} np.ndarray "
+            f"or a list of {N}x{len(measured_out_list)} np.ndarray."
+        )
+
+    # Append simulated_outs
     for ii, sim in enumerate(simulated_out_list):
         sim_name = f"Sim_{ii}"
         vs = vs.append_simulation(
