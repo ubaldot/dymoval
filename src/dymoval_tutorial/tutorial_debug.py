@@ -5,11 +5,12 @@ from copy import deepcopy
 import numpy as np
 import dymoval as dmv
 import matplotlib
+
 from dymoval_tutorial.DCMotorModel import (
     DCMotor_model_dt,
 )
-from dymoval_tutorial.virtual_lab import Ts
 import dymoval_tutorial.virtual_lab
+from dymoval_tutorial.virtual_lab import Ts
 import control as ct
 
 matplotlib.use("qtagg")
@@ -78,7 +79,7 @@ y_sim_filt = np.hstack((y0_sim_filt, y1_sim_filt))
 VS = dmv.validation.validate_models(
     measured_in=u,
     measured_out=y,
-    simulated_out=y_sim_filt,
+    simulated_out=[y_sim_filt, y_sim],
     sampling_period=Ts,
     U_bandwidths=cutoff,
     Y_bandwidths=[cutoff, cutoff],

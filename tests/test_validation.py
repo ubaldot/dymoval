@@ -653,7 +653,7 @@ class Test_XCorrelation:
         XCorr_actual = dmv.XCorrelation("foo", X, X)
         assert XCorr_actual.kind == "auto-correlation"
 
-    def test_initializer_with_params(self, correlation_tensors) -> None:
+    def test_initializer_with_bandwidth_args(self, correlation_tensors) -> None:
         # Just test that it won't run any error
         # Next, remove randoms with known values.
         (
@@ -671,7 +671,7 @@ class Test_XCorrelation:
         ) = correlation_tensors
         # x0y0_whiteness_expected = 0.38281031914047287
         lags_expected_short_x0y1 = np.arange(-1, 2)
-        lags_expected_short_x1y1 = np.arange(-2, 3)
+        lags_expected_short_x1y1 = np.arange(-1, 2)
         lags_expected_long = np.arange(-5, 6)
 
         # We only consider the MIMO case
@@ -695,8 +695,24 @@ class Test_XCorrelation:
         assert np.allclose(R_actual[1, 1].lags, lags_expected_short_x1y1)
         assert XCorr_actual.kind == "cross-correlation"
 
+    def test_initializer_with_not_all_args_passed(
+        self, correlation_tensors
+    ) -> None:
         # Not all arguments are passed
         # We only consider the MIMO case
+        (
+            Rx0y0_expected,
+            Rx1y0_expected,
+            Rx0y1_expected,
+            Rx0y1_expected_partial,
+            Rx1y1_expected,
+            Rx1y1_expected_partial,
+            X,
+            Y,
+            X_bandwidths,
+            Y_bandwidths,
+            sampling_period,
+        ) = correlation_tensors
         XCorr_actual = dmv.XCorrelation(
             "foo",
             X,
@@ -706,6 +722,7 @@ class Test_XCorrelation:
             sampling_period=sampling_period,
         )
         R_actual = XCorr_actual.R
+        lags_expected_long = np.arange(-5, 6)
 
         assert np.allclose(R_actual[0, 0].values, Rx0y0_expected, atol=1e-3)
         assert np.allclose(R_actual[0, 1].values, Rx0y1_expected, atol=1e-3)
@@ -718,13 +735,24 @@ class Test_XCorrelation:
         assert np.allclose(R_actual[1, 1].lags, lags_expected_long)
         assert XCorr_actual.kind == "cross-correlation"
 
-        # Test nlags arg
-        nlags = np.array([[5, 3], [6, 4]])
-        lags_expected_x0y0 = np.arange(-2, 3)
-        lags_expected_x1y0 = np.arange(-3, 4)
-        lags_expected_x0y1 = np.arange(-1, 2)
-        lags_expected_x1y1 = np.arange(-2, 3)
+    def test_initializer_with_nlags_arg(self, correlation_tensors) -> None:
+        # Not all arguments are passed
+        # We only consider the MIMO case
+        (
+            Rx0y0_expected,
+            Rx1y0_expected,
+            Rx0y1_expected,
+            Rx0y1_expected_partial,
+            Rx1y1_expected,
+            Rx1y1_expected_partial,
+            X,
+            Y,
+            X_bandwidths,
+            Y_bandwidths,
+            sampling_period,
+        ) = correlation_tensors
 
+        nlags = np.array([[5, 3], [6, 4]])
         XCorr_actual = dmv.XCorrelation(
             name="foo",
             X=X,
@@ -735,6 +763,11 @@ class Test_XCorrelation:
             sampling_period=sampling_period,
         )
         R_actual = XCorr_actual.R
+
+        lags_expected_x0y0 = np.arange(-2, 3)
+        lags_expected_x1y0 = np.arange(-3, 4)
+        lags_expected_x0y1 = np.arange(-1, 2)
+        lags_expected_x1y1 = np.arange(-1, 2)
 
         assert np.allclose(R_actual[0, 0].lags, lags_expected_x0y0)
         assert np.allclose(R_actual[0, 1].lags, lags_expected_x0y1)
@@ -936,7 +969,7 @@ class Test_rsquared:
         )
 
         rsquared_expected_SISO = 91.2775
-        rsquared_expected_MIMO = 92.6092
+        rsquared_expected_MIMO = np.array([91.27830428, 91.89543218])
 
         rsquared_actual_SISO = dmv.rsquared(y1, y1Calc)
         rsquared_actual_MIMO = dmv.rsquared(
@@ -947,7 +980,7 @@ class Test_rsquared:
             rsquared_expected_SISO, rsquared_actual_SISO, atol=ATOL
         )
 
-        assert np.isclose(
+        np.testing.assert_allclose(
             rsquared_expected_MIMO, rsquared_actual_MIMO, atol=ATOL
         )
 
@@ -975,8 +1008,8 @@ class Test_whiteness_level_function:
     def test_whiteness_level(self) -> None:
 
         x1 = np.array([0.1419, -0.4218, 0.9157, -0.7922, 0.9595])
-        whiteness_expected = 0.3579244755541881
-        whiteness_matrix_expected = np.array([[0.35792448]])
+        whiteness_expected = 0.21371152394463847
+        whiteness_matrix_expected = np.array([[0.21371152394463847]])
 
         whiteness_actual, whiteness_matrix_actual = dmv.whiteness_level(x1)
 

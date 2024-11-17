@@ -6,12 +6,12 @@
 # ===========================================================================
 
 
-import dymoval as dmv
 from tests.conftest import (
     generate_correlation_tensor,
     generate_good_dataframe,
     generate_good_signals_no_nans,
 )
+from dymoval.dataset import validate_signals, Dataset
 from dymoval.validation import (
     XCorrelation,
     ValidationSession,
@@ -33,10 +33,10 @@ matplotlib.pyplot.ioff()
 ) = generate_good_signals_no_nans("MIMO")
 
 
-# dmv.validate_signals
-dmv.validate_signals(*signal_list)
+# .validate_signals
+validate_signals(*signal_list)
 
-ds = dmv.Dataset(
+ds = Dataset(
     "my_dataset",
     signal_list,
     u_names,
@@ -126,10 +126,14 @@ df, u_names, y_names, _, y_units, fixture = generate_good_dataframe(
 )
 
 name_ds = "my_dataset"
-ds1 = dmv.Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
+ds1 = Dataset(name_ds, df, u_names, y_names, full_time_interval=True)
 
 name_vs = "my_validation"
 
+vs = ValidationSession(
+    name_vs,
+    ds,
+)
 
 # eps_nlags_wrong_size = np.array([[5], [8]])
 # vs_weird = ValidationSession(
@@ -161,13 +165,13 @@ sim2_values = vs.dataset.dataset["OUTPUT"].values + np.random.rand(
 vs = vs.append_simulation(sim2_name, sim2_labels, sim2_values)
 
 
-R_trim = dmv.XCorrelation(
+R_trim = XCorrelation(
     "foo",
     signal_list[0]["samples"],
     signal_list[1]["samples"],
 )
 
-# Rue = dmv.XCorrelation(
+# Rue =.XCorrelation(
 #     "", signal_list[0]["samples"], signal_list[1]["samples"]
 # )
 # Rue.plot()

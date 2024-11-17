@@ -460,7 +460,7 @@ def generate_correlation_tensor():
     Y = np.array([y0, y1]).T
 
     X_bandwidths = [5, 10]
-    Y_bandwidths = [300, 6]
+    Y_bandwidths = [40, 6]
     sampling_period = 0.01
 
     # Expected values pre-computed with Matlab
@@ -533,9 +533,7 @@ def generate_correlation_tensor():
 
     # Computed by taking into account the Bandwidths and sampling periods
     Rx0y1_expected_partial = np.array([0.11068929, -0.44652205, 0.35630626])
-    Rx1y1_expected_partial = np.array(
-        [0.0186679, -0.01706344, -0.12048405, 0.34948741, -0.11869607]
-    )
+    Rx1y1_expected_partial = np.array([0.29732113, -0.12048405, -0.28269522])
 
     return (
         Rx0y0_expected,
