@@ -22,6 +22,7 @@ from typing import Any
 import h5py
 from copy import deepcopy
 from scipy.signal import butter, lfilter
+from pathlib import Path
 
 matplotlib.use("qtagg")
 plt.ioff()
@@ -171,7 +172,8 @@ for tin, tout in ((76, 96),):
 
 # ============= Save log data to file ======================
 # Our measurements are ready. Save it to file.
-with h5py.File("./src/dymoval_tutorial/DCMotor_measurements.h5", "w") as h5file:
+measurements_path = Path(__file__).parent
+with h5py.File(measurements_path / "DCMotor_measurements.h5", "w") as h5file:
     # Create a group named "signals"
     signals_group = h5file.create_group("signals")
 

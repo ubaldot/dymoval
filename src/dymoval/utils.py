@@ -68,7 +68,6 @@ def difference_lists_of_str(
 T = TypeVar("T")
 
 
-# TODO: rename obj2list
 def obj2list(x: T | List[T]) -> List[T]:
     # def obj2list(x: Any | List[Any]) -> List[Any]:
     """
@@ -86,17 +85,15 @@ def obj2list(x: T | List[T]) -> List[T]:
     return x
 
 
-def _get_tutorial_files(dymoval_tutorial_folder: str) -> None:
+def _get_tutorial_files(dymoval_tutorial_folder: Path) -> None:
 
     tutorial_site_package_dir = resources.files("dymoval_tutorial")
 
     # Iterate over each file in the "dymoval_tutorial" package and move it to the destination folder
     for file_path in tutorial_site_package_dir.iterdir():
         if file_path.is_file():
-            destination_file = os.path.join(
-                dymoval_tutorial_folder, file_path.name
-            )
-            shutil.copyfile(str(file_path), destination_file)
+            destination_file = dymoval_tutorial_folder / file_path.name
+            shutil.copyfile(str(file_path), str(destination_file))
 
 
 def open_tutorial() -> Any:
@@ -108,8 +105,8 @@ def open_tutorial() -> Any:
     called.
     """
 
-    home = str(Path.home())
-    dymoval_tutorial_folder = os.path.join(home, "dymoval_tutorial")
+    home = Path.home()
+    dymoval_tutorial_folder = home / "dymoval_tutorial"
 
     # Delete everything inside the destination folder if it exists
     if os.path.exists(dymoval_tutorial_folder):
@@ -120,12 +117,11 @@ def open_tutorial() -> Any:
 
     _get_tutorial_files(dymoval_tutorial_folder)
 
+    destination = dymoval_tutorial_folder / "dymoval_tutorial.ipynb"
     if sys.platform == "win32":
-        destination = dymoval_tutorial_folder + "\\dymoval_tutorial.ipynb"
-        shell_process = subprocess.run(["explorer.exe", destination])
+        shell_process = subprocess.run(["explorer.exe", str(destination)])
     else:
-        destination = dymoval_tutorial_folder + "/dymoval_tutorial.ipynb"
         opener = "open" if sys.platform == "darwin" else "xdg-open"
-        shell_process = subprocess.run([opener, destination])
+        shell_process = subprocess.run([opener, str(destination)])
 
     return shell_process, destination

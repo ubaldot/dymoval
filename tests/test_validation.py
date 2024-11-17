@@ -1045,9 +1045,12 @@ class Test_validate_models:
             high=1e-4,
             size=(dataset_out[0]["samples"].size, len(y_names)),
         )
-        sim_good = [
-            s["samples"] + w for s, w in zip(dataset_out, small_perturbation.T)
-        ]
+        sim_good = np.array(
+            [
+                s["samples"] + w
+                for s, w in zip(dataset_out, small_perturbation.T)
+            ]
+        ).T
 
         # It is a (N,q) array
         sim_bad = np.random.random(
@@ -1063,10 +1066,9 @@ class Test_validate_models:
 
         if fixture == "MISO" or fixture == "SISO":
             dataset_out = [dataset_out[0]]
-
-            sim_good = sim_good[0]
-            sim_bad = sim_bad[:, 0]
-            sim_bad2 = sim_bad2[:, 0]
+            # sim_good = sim_good[:,0]
+            sim_bad = sim_bad[:, 0][:, np.newaxis]
+            sim_bad2 = sim_bad2[:, 0][:, np.newaxis]
 
         #  act
         vs = validate_models(
@@ -1122,7 +1124,9 @@ class Test_validate_models:
             high=1e-4,
             size=(dataset_out[0].size, len(y_names)),
         )
-        sim_good = [s + w for s, w in zip(dataset_out, small_perturbation.T)]
+        sim_good = np.array(
+            [s + w for s, w in zip(dataset_out, small_perturbation.T)]
+        )
 
         # It is a (N,q) array
         sim_bad = [np.random.random(dataset_out[0].size) for _ in y_names]

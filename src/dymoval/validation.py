@@ -31,7 +31,7 @@ from .utils import (
 )
 
 from .dataset import Dataset, Signal, validate_signals
-from typing import List, Dict, Literal, Any, NamedTuple
+from typing import Dict, Literal, Any, NamedTuple
 from dataclasses import dataclass
 
 __all__ = [
@@ -1954,9 +1954,9 @@ class ValidationSession:
 
 
 def validate_models(
-    measured_in: np.ndarray | List[Signal] | List[np.ndarray],
-    measured_out: np.ndarray | List[Signal] | List[np.ndarray],
-    simulated_out: np.ndarray | List[np.ndarray],
+    measured_in: np.ndarray | list[Signal] | list[np.ndarray],
+    measured_out: np.ndarray | list[Signal] | list[np.ndarray],
+    simulated_out: np.ndarray | list[np.ndarray],
     sampling_period: float | None = None,
     **kwargs: Any,
 ) -> ValidationSession:
@@ -1972,7 +1972,7 @@ def validate_models(
         dataset: np.ndarray,  # Must be 2D array
         sampling_period: float,
         kind: Literal["in", "out"],
-    ) -> List[Signal]:
+    ) -> list[Signal]:
         # Input must be a 2D-array, of size (N,p)
 
         uy = "u" if kind == "in" else "y"
@@ -1989,11 +1989,11 @@ def validate_models(
         return signal_list
 
     def _to_list_of_Signal(
-        data: List[np.ndarray] | np.ndarray | List[Signal],
+        data: list[np.ndarray] | np.ndarray | list[Signal],
         sampling_period: float,
         kind: Literal["in", "out"],
-    ) -> List[Signal]:
-        # Convert a np.ndarray or a List[np.ndarray] to a List[Signal]
+    ) -> list[Signal]:
+        # Convert a np.ndarray or a list[np.ndarray] to a list[Signal]
         # It performs some checks to the input data.
 
         # Scalar case: 1D np.ndarray: stack it into a column array
@@ -2010,7 +2010,7 @@ def validate_models(
                 dataset=data, sampling_period=sampling_period, kind=kind
             )
 
-        # Case List[nd.array]
+        # Case list[nd.array]
         elif isinstance(data, list) and all(
             isinstance(item, np.ndarray) for item in data
         ):
@@ -2025,7 +2025,7 @@ def validate_models(
             else:
                 raise ValueError("All arrays must have the same length")
 
-        # Case List[Signal]
+        # Case list[Signal]
 
         elif isinstance(data, list) and all(
             isinstance(item, dict) and set(item.keys()) == set(SIGNAL_KEYS)
@@ -2051,7 +2051,7 @@ def validate_models(
     elif sampling_period is None:
         raise TypeError("'sampling_period' missing")
 
-    # Convert everything into List[Signal]
+    # Convert everything into list[Signal]
     measured_in_list = _to_list_of_Signal(
         data=measured_in, sampling_period=sampling_period, kind="in"
     )

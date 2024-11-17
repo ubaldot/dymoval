@@ -5,6 +5,7 @@ from copy import deepcopy
 import numpy as np
 import dymoval as dmv
 import matplotlib
+from pathlib import Path
 
 from dymoval_tutorial.DCMotorModel import (
     DCMotor_model_dt,
@@ -17,9 +18,9 @@ matplotlib.use("qtagg")
 plt.ioff()
 
 dymoval_tutorial.virtual_lab
-# logs = h5py.File("./src/dymoval_tutorial/DCMotorLogs.h5", "r")
-# logs = h5py.File("./src/dymoval_tutorial/signals.h5", "r")
-with h5py.File("./src//dymoval_tutorial/DCMotor_measurements.h5", "r") as logs:
+
+measurements_path = Path(__file__).parent
+with h5py.File(measurements_path / "DCMotor_measurements.h5", "r") as logs:
     # logs = f["signals"].keys()
     V = logs["signals/V_measured"]
     Ia = logs["signals/Ia_measured"]
