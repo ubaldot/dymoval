@@ -27,6 +27,8 @@ from pathlib import Path
 matplotlib.use("qtagg")
 plt.ioff()
 
+DEBUG = False
+
 
 def apply_higher_order_filter(
     data: np.ndarray,
@@ -140,15 +142,19 @@ y1_noisy = y[1] + rng.uniform(low=-100, high=100, size=y[1].shape[0])
 # y0_noisy = y[0]
 # y1_noisy = y[1]
 # Sample the signals...
-# Sampling period of the sensors. This will also be used as time-period
+# Sampling period of the sensors. Ts is also used as time-period
 # for model discretization
 Ts = 0.01
 
+# Sampling period for y1 = Motor_Speed
+Ts_alt = 0.005
+
 u_sampled = u_noisy[:: int(sampling_rate * Ts)]
 y0_sampled = y0_noisy[:: int(sampling_rate * Ts)]
-y1_sampled = y1_noisy[:: int(sampling_rate * Ts)]
-y_sampled = np.vstack((y0_sampled, y1_sampled)).T
+y1_sampled = y1_noisy[:: int(sampling_rate * Ts_alt)]
+# y_sampled = np.vstack((y0_sampled, y1_sampled)).T
 time_sampled = time[:: int(sampling_rate * Ts)]
+time_sampled_alt = time[:: int(sampling_rate * Ts_alt)]
 
 # ... and missing values...
 # Input
@@ -165,15 +171,20 @@ for tin, tout in ((19, 15), (80, 92)):
     indices = np.where((time_sampled >= tin) & (time_sampled <= tout))
     y0_measured[indices] = np.nan
 
-# y0
+# y1
 for tin, tout in ((76, 96),):
-    indices = np.where((time_sampled >= tin) & (time_sampled <= tout))
+    indices = np.where((time_sampled_alt >= tin) & (time_sampled_alt <= tout))
     y1_measured[indices] = np.nan
 
 # ============= Save log data to file ======================
 # Our measurements are ready. Save it to file.
-measurements_path = Path(__file__).parent
-with h5py.File(measurements_path / "DCMotor_measurements.h5", "w") as h5file:
+if DEBUG:
+    measurements_file = str(Path(__file__).parent / "DCMotor_measurements.h5")
+else:
+    # Be sure in ./dymoval/stc/dymoval_tutorial folder
+    measurements_file = "./DCMotor_measurements.h5"
+
+with h5py.File(measurements_file, "w") as h5file:
     # Create a group named "signals"
     signals_group = h5file.create_group("signals")
 
@@ -223,5 +234,5 @@ with h5py.File(measurements_path / "DCMotor_measurements.h5", "w") as h5file:
     )
     motor_speed.attrs["name"] = "Motor_Speed"
     motor_speed.attrs["unit"] = "RPM"
-    motor_speed.attrs["period"] = Ts
+    motor_speed.attrs["period"] = Ts_alt
     motor_speed.attrs["sampling_unit"] = "s"

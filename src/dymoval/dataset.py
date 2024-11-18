@@ -3077,13 +3077,14 @@ def plot_signals(*signals: Signal) -> matplotlib.figure.Figure:
         )
         ax_flatten[ii].plot(timeline, s["samples"], label=signal_names[ii])
         ax_flatten[ii].text(
-            0.8,
-            0.8,
-            f"$T_s$ = {s['sampling_period']} s",
+            x=0.05,
+            y=0.1,
+            s=f"$T_s$ = {s['sampling_period']} s",
+            transform=ax_flatten[ii].transAxes,
             bbox=dict(facecolor="yellow", alpha=0.8),
         )
         ax_flatten[ii].grid()
-        ax_flatten[ii].legend()
+        ax_flatten[ii].legend(loc="upper right")
         ax_flatten[ii].set_xlabel(f"Time ({s['time_unit']})")
         ax_flatten[ii].set_ylabel(f"({s['signal_unit']})")
 
