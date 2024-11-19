@@ -184,55 +184,56 @@ else:
     # Be sure in ./dymoval/stc/dymoval_tutorial folder
     measurements_file = "./DCMotor_measurements.h5"
 
-with h5py.File(measurements_file, "w") as h5file:
-    # Create a group named "signals"
-    signals_group = h5file.create_group("signals")
+if DEBUG or not Path(measurements_file).exists():
+    with h5py.File(measurements_file, "w") as h5file:
+        # Create a group named "signals"
+        signals_group = h5file.create_group("signals")
 
-    # Store the arrays under the specified names with attributes
-    # V = signals_group.create_dataset("V", data=u_measured)
-    V = signals_group.create_dataset("V", data=u)
-    V.attrs["name"] = "Supply_Voltage"
-    V.attrs["unit"] = "V"
-    V.attrs["period"] = 1 / sampling_rate
-    V.attrs["sampling_unit"] = "s"
+        # Store the arrays under the specified names with attributes
+        # V = signals_group.create_dataset("V", data=u_measured)
+        V = signals_group.create_dataset("V", data=u)
+        V.attrs["name"] = "Supply_Voltage"
+        V.attrs["unit"] = "V"
+        V.attrs["period"] = 1 / sampling_rate
+        V.attrs["sampling_unit"] = "s"
 
-    # Ia = signals_group.create_dataset("Ia", data=y0_measured)
-    Ia = signals_group.create_dataset("Ia", data=y[0])
-    Ia.attrs["name"] = "Armature_Current"
-    Ia.attrs["unit"] = "A"
-    Ia.attrs["period"] = 1 / sampling_rate
-    Ia.attrs["sampling_unit"] = "s"
+        # Ia = signals_group.create_dataset("Ia", data=y0_measured)
+        Ia = signals_group.create_dataset("Ia", data=y[0])
+        Ia.attrs["name"] = "Armature_Current"
+        Ia.attrs["unit"] = "A"
+        Ia.attrs["period"] = 1 / sampling_rate
+        Ia.attrs["sampling_unit"] = "s"
 
-    motor_speed = signals_group.create_dataset(
-        # "motor_speed", data=y1_measured
-        "motor_speed",
-        data=y[1],
-    )
-    motor_speed.attrs["name"] = "Motor_Speed"
-    motor_speed.attrs["unit"] = "RPM"
-    motor_speed.attrs["period"] = 1 / sampling_rate
-    motor_speed.attrs["sampling_unit"] = "s"
+        motor_speed = signals_group.create_dataset(
+            # "motor_speed", data=y1_measured
+            "motor_speed",
+            data=y[1],
+        )
+        motor_speed.attrs["name"] = "Motor_Speed"
+        motor_speed.attrs["unit"] = "RPM"
+        motor_speed.attrs["period"] = 1 / sampling_rate
+        motor_speed.attrs["sampling_unit"] = "s"
 
-    # Store the arrays under the specified names with attributes
-    # V = signals_group.create_dataset("V", data=u_measured)
-    V = signals_group.create_dataset("V_measured", data=u_measured)
-    V.attrs["name"] = "Supply_Voltage"
-    V.attrs["unit"] = "V"
-    V.attrs["period"] = Ts
-    V.attrs["sampling_unit"] = "s"
+        # Store the arrays under the specified names with attributes
+        # V = signals_group.create_dataset("V", data=u_measured)
+        V = signals_group.create_dataset("V_measured", data=u_measured)
+        V.attrs["name"] = "Supply_Voltage"
+        V.attrs["unit"] = "V"
+        V.attrs["period"] = Ts
+        V.attrs["sampling_unit"] = "s"
 
-    # Ia = signals_group.create_dataset("Ia", data=y0_measured)
-    Ia = signals_group.create_dataset("Ia_measured", data=y0_measured)
-    Ia.attrs["name"] = "Armature_Current"
-    Ia.attrs["unit"] = "A"
-    Ia.attrs["period"] = Ts
-    Ia.attrs["sampling_unit"] = "s"
+        # Ia = signals_group.create_dataset("Ia", data=y0_measured)
+        Ia = signals_group.create_dataset("Ia_measured", data=y0_measured)
+        Ia.attrs["name"] = "Armature_Current"
+        Ia.attrs["unit"] = "A"
+        Ia.attrs["period"] = Ts
+        Ia.attrs["sampling_unit"] = "s"
 
-    motor_speed = signals_group.create_dataset(
-        "motor_speed_measured",
-        data=y1_measured,
-    )
-    motor_speed.attrs["name"] = "Motor_Speed"
-    motor_speed.attrs["unit"] = "RPM"
-    motor_speed.attrs["period"] = Ts_alt
-    motor_speed.attrs["sampling_unit"] = "s"
+        motor_speed = signals_group.create_dataset(
+            "motor_speed_measured",
+            data=y1_measured,
+        )
+        motor_speed.attrs["name"] = "Motor_Speed"
+        motor_speed.attrs["unit"] = "RPM"
+        motor_speed.attrs["period"] = Ts_alt
+        motor_speed.attrs["sampling_unit"] = "s"
