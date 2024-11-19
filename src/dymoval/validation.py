@@ -1104,10 +1104,10 @@ class ValidationSession:
     ) -> dict[str, float]:
 
         validation_thresholds_default = {
-            "Ruu_whiteness": 0.5,
+            "Ruu_whiteness": 0.6,
             "r2": 35,
-            "Ree_whiteness": 0.4,
-            "Rue_whiteness": 0.4,
+            "Ree_whiteness": 0.5,
+            "Rue_whiteness": 0.5,
         }
 
         if ignore_input is True:

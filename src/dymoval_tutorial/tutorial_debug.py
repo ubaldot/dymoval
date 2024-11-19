@@ -90,7 +90,6 @@ ds_filt = ds.low_pass_filter(
 )
 ds_filt.name = "Filtered"
 (t, u, y) = ds_filt.dataset_values()
-# (t, u, y) = ds.dataset_values()
 
 # dmv.compare_datasets(ds, ds_filt)
 # dmv.compare_datasets(ds.remove_means(), ds_filt.remove_means(), kind="power")
@@ -112,7 +111,7 @@ measured_in = measured_signals["INPUT"]
 measured_out = measured_signals["OUTPUT"]
 sampling_period = measured_in[0]["sampling_period"]
 
-VS = dmv.validation.validate_models(
+vs = dmv.validation.validate_models(
     # measured_in=u[:, np.newaxis],
     measured_in=measured_in,
     # measured_out=y,
@@ -123,7 +122,7 @@ VS = dmv.validation.validate_models(
     Y_bandwidths=[cutoff, cutoff],
 )
 
-vs_trimmed = VS.trim(1, 35)
+vs_trimmed = vs.trim(1, 30)
 print(vs_trimmed)
-# VS.plot_residuals()
-# VS.plot_simulations(dataset="out")
+# vs.plot_residuals()
+# vs.plot_simulations(dataset="out")
