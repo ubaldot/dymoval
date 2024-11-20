@@ -18,25 +18,6 @@ or
 
 everything should work fine.
 
-.. Typically :code:`conda` handles scientific packages better than `pip`, and given that many *dymoval* dependencies are scientific packages, it is suggested to install all the dependencies through :code:`conda` and then to install *dymoval* through :code:`pip`.
-
-.. To do that, download the :code:`environment.yml` file from `here`_ and run
-
-
-.. .. code-block::
-
-..    conda env update --name env_name --file environment.yml
-..    pip install dymoval
-
-.. where *env_name* is the environment name where you want to install *dymoval*.
-.. If not provided, *dymoval* will be installed in a new environment called :code:`dymoval`.
-
-.. .. _here: https://github.com/VolvoGroup/dymoval/blob/main/environment.yml
-
-.. Why not `conda install dymoval`?
-.. ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. Unfortunately, it is not possible (yet?) to easily build :code:`conda` packages when the project is handled through a :code:`pyproject.toml` file, and therefore the *dymoval* package, which uses a :code:`pyproject.toml` file, is only available through :code:`pip`.
-
 
 Installation from the repo
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -65,15 +46,9 @@ or
 
 Configuration
 -------------
-The configuration of `dymoval` is fairly straightforward since there are only
-two parameters that you can set.
+The configuration of `dymoval` is fairly straightforward since there is only
+one parameter that you can set.
 
-.. confval:: num_decimals
-    :type: int
-    :default: 4
-
-    Number of decimal digits.
-    At the end of every function/method, `dymoval` round *float* numbers to a certain number of decimals.
 
 .. confval:: color_map
     :type: str
@@ -88,8 +63,10 @@ A :code:`~/.dymoval/config.toml` could for example include the following content
 
 .. code-block::
 
-    num_decimals = 4
     color_map = "tab20"
 
-It is also suggested to have `plt.ioff()` in your script as interactive
-methods may create problems in different environments.
+Plots
+^^^^^
+Dymoval shall be able to recognize if you are working or not in an interactive
+environment. It is however suggested to disable the matplotlib interactivity
+with `plt.ioff()`.

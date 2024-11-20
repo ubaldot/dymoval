@@ -48,20 +48,6 @@ Dymoval also provides essential functions for handling measurement data,
 addressing common issues such as noise, missing data, and varying sampling
 intervals.
 
-## Why dymoval?
-
-Simulation results frequently deviate significantly from real-world
-measurements, leading to a growing skepticism towards simulation models.
-_Dymoval_ is dedicated to bridging this gap, aiming to restore confidence in
-simulation accuracy and reliability.
-
-Dymoval specializes in model validation, offering robust solutions for a
-variety of models, including MIMO (Multiple Input Multiple Output) and stiff
-models, all in an easy and comprehensible manner. Additionally, Dymoval
-provides a comprehensive toolbox designed to handle real-world measurement
-data, which often comes with challenges such as noise, missing data, and
-varying sampling intervals. This ensures that your models are not only
-validated but also capable of accurately reflecting real-world conditions.
 
 ## Main Features
 
@@ -106,9 +92,8 @@ Do as it follows:
   input `u_meas`, measured out `y_meas` and $Nxq$, $Nxp$ and $Nxq$
   `np.ndarray`, respectively.
 * Call
-  `validate_models(measured_in=u_meas, measured_out=y_meas, simulated_out=y_sim, sampling\_period = sampling\_period`,
-  where `sampling\_period` is the signals sampling period, and see the
-  results.
+  `validate_models(measured_in=u_meas, measured_out=y_meas, simulated_out=y_sim, sampling_period = sampling_period`,
+  where `sampling_period` is the signals sampling period, and see the results.
 
 You should see something like the following:
 
@@ -141,8 +126,9 @@ needed to run the tutorial in your `home` folder. All you have to do is to run
 Jupyter notebook named `dymoval_tutorial.ipynb`. You need an app for opening
 `.ipynb` files.
 
-Finally, if you want a deeper understanding on _Dymoval_ and on model validation
-in general, check out the [docs](https://ubaldot.github.io/dymoval/).
+Finally, if you want a deeper understanding on _Dymoval_ and on model
+validation in general, check out the
+[docs](https://ubaldot.github.io/dymoval/).
 
 ## License
 
