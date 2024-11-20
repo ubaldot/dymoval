@@ -25,11 +25,12 @@
 **Dymoval** (**Dy**namic **Mo**del **Val**idation) is a Python package for
 analyzing _measurements data_ and validate _models_.
 
-It does not matter if your model is a Deep Neural Network, an ODE or something
-more complex, nor is important if you use Modelica or Simulink or whatever as
-modeling tool. All you need to do is to feed _Dymoval_ with real-world
-measurements and model-generated data and you will get a model quality
-evaluation in r-squared fit, residuals norms and coverage region.
+Whether your model is a Deep Neural Network, an ODE, or something more
+complex, and regardless of whether you use Modelica or Simulink as your
+modeling tool, Dymoval has you covered. Simply provide Dymoval with
+measurements and model-generated data, and it will deliver a comprehensive
+model quality evaluation, including r-squared fit, residuals norms, and
+coverage region.
 
 <div align="center"
 	<br>
@@ -40,35 +41,40 @@ evaluation in r-squared fit, residuals norms and coverage region.
 	<br>
 </div>
 
-If you are developing your models in a CI/CD environment, then _Dymoval_ can
-help you in deciding if merging or not the latest model changes. In-fact,
-_Dymoval_ functions can also be included in development pipelines scripts, so
-the whole CI/CD process can be fully automatized.
+If you are tracking your models changes in a CI/CD environment, then _Dymoval_
+API can be easily used to run tests in Jenkins or GitHub Actions pipelines.
 
-_Dymoval_ finally provides you with some essential functions for dealing with
-dataset analysis and manipulation.
-
-Although the tool has been thought with engineers in mind, no one prevents you
-to use it in other application domains.
+Dymoval also provides essential functions for handling measurement data,
+addressing common issues such as noise, missing data, and varying sampling
+intervals.
 
 ## Why dymoval?
 
-There plenty of amazing packages out there like _matplotlib_, _pandas_,
-_numpy_, _scipy_, etc for analyzing data, compute statistics, and so on, but
-they are huge and the plethora of functionalities they offer may be
-overwhelming.
+Simulation results frequently deviate significantly from real-world
+measurements, leading to a growing skepticism towards simulation models.
+_Dymoval_ is dedicated to bridging this gap, aiming to restore confidence in
+simulation accuracy and reliability.
 
-_Dymoval_ has been built on top of these tools and it aims at providing an
-extremely easy and intuitive API that shall serve most of the tasks an
-engineer typically face in his/her daily job in a simple and comprehensive
-way.
-
-However, _Dymoval_ leaves the door open: most of the functions return objects
-that can be used straight away with the aforementioned tools without any extra
-steps. Hence, if you need more power, you always get an object that can be
-immediately handled by some other more powerful tool while using _Dymoval_.
+Dymoval specializes in model validation, offering robust solutions for a
+variety of models, including MIMO (Multiple Input Multiple Output) and stiff
+models, all in an easy and comprehensible manner. Additionally, Dymoval
+provides a comprehensive toolbox designed to handle real-world measurement
+data, which often comes with challenges such as noise, missing data, and
+varying sampling intervals. This ensures that your models are not only
+validated but also capable of accurately reflecting real-world conditions.
 
 ## Main Features
+
+**Model validation**
+
+* Validation metrics:
+  * R-square fit
+  * Residuals auto-correlation statistics
+  * Input-Residuals cross-correlation statistics
+* Coverage region
+* MIMO models
+* Independence of the modeling tool used.
+* API suitable for model unit-tests
 
 **Measurement data analysis and manipulation**
 
@@ -80,22 +86,6 @@ immediately handled by some other more powerful tool while using _Dymoval_.
 * Re-sampling
 * Physical units
 
-**Model validation**
-
-* Validation metrics:
-  * R-square fit
-  * Residuals auto-correlation statistics
-  * Input-Residuals cross-correlation statistics
-* Coverage region
-* Enable model unit-tests
-* Work for both SISO and MIMO models
-* Modeling tool independence
-* Easily integrate with CI/CD pipelines.
-
-The residuals x-correlation statistics are expressed in terms of weighted
-quadratic forms, thus allowing model quality evaluation in terms of known
-tests such as Ljung-Box, Box-Pierce, etc.
-
 ## Installation
 
 Dymoval exists on both `pip` and `conda`, so you can choose between the
@@ -106,24 +96,55 @@ following:
 
 ## Getting started
 
-Assume...
+Suppose you want to validate a model with $p$ inputs and $q$ outputs and have
+the corresponding measurement data available.
 
-If you are already familiar with model validation, then the best way to get
-started with dymoval is to run the tutorial scripts that you can open with
+Do as it follows:
 
-    import dymoval as dmv
-    dmv.open_tutorial()
+* Feed your model with the measurement data corresponding to the model input,
+* Collect the simulated out `y_sim` and arrange them along with the measured
+  input `u_meas`, measured out `y_meas` and $Nxq$, $Nxp$ and $Nxq$
+  `np.ndarray`, respectively.
+* Call
+  `validate_models(measured_in=u_meas, measured_out=y_meas, simulated_out=y_sim, sampling\_period = sampling\_period`,
+  where `sampling\_period` is the signals sampling period, and see the
+  results.
 
-This create a `dymoval_tutorial` folder containing all the files needed to run
-the tutorial in your `home` folder. All you have to do is to run Jupyter
-notebook named `dymoval_tutorial.ipynb`. You need an app for opening `.ipynb`
-files.
+You should see something like the following:
 
-For more info on what is model validation and what is implemented in _dymoval_
-along with the _dymoval_ complete API, you can check the
-[docs](https://ubaldot.github.io/dymoval/).
+```
+Input whiteness (abs_mean-max)      0.3532
+R-Squared (%)                      65.9009
+Residuals whiteness (abs_mean-max)  0.1087
+Input-Res whiteness (abs_mean-max)  0.2053
+
+         My_Model
+Outcome: PASS
+```
+
+The rule-of-thumb is that the R-squared index shall be as high as possible,
+while the various whiteness metrics should be as close to zero as possible.
+
+If your results are not satisfactory, don't worry. It might not be the model
+that's at fault, but rather the validation procedure may need more tweaking.
+No need to panic... yet! :)
+
+Take a look at the tutorial that you can open with the following:
+
+```
+import dymoval as dmv
+dmv.open_tutorial()
+```
+
+The above commands create a `dymoval_tutorial` folder containing all the files
+needed to run the tutorial in your `home` folder. All you have to do is to run
+Jupyter notebook named `dymoval_tutorial.ipynb`. You need an app for opening
+`.ipynb` files.
+
+Finally, if you want a deeper understanding on _Dymoval_ and on model validation
+in general, check out the [docs](https://ubaldot.github.io/dymoval/).
 
 ## License
 
-Dymoval is licensed under
+_Dymoval_ is licensed under
 [BSD 3](https://github.com/ubaldot/dymoval/blob/main/LICENSE) license.
