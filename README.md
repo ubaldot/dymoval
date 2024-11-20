@@ -106,6 +106,8 @@ following:
 
 ## Getting started
 
+Assume...
+
 If you are already familiar with model validation, then the best way to get
 started with dymoval is to run the tutorial scripts that you can open with
 
