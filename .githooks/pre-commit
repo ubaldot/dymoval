@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Run flake8 and mypy
 flake8 ./src
