@@ -23,7 +23,7 @@
 ## What is it?
 
 **Dymoval** (**Dy**namic **Mo**del **Val**idation) is a Python package for
-analyzing _datasets_ and validate _models_.
+analyzing _measurements data_ and validate _models_.
 
 It does not matter if your model is a Deep Neural Network, an ODE or something
 more complex, nor is important if you use Modelica or Simulink or whatever as
