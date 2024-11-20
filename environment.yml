@@ -1,3 +1,5 @@
+name: dymoval_dev
+
 channels:
   - conda-forge
 dependencies:
@@ -21,3 +23,4 @@ dependencies:
   - h5py
   - pip
   - filelock
+  - typing_extensions
