@@ -48,21 +48,21 @@ The R-squared index tells us how well the simulation results fit the
 measurement data, whereas the residuals provide information about the dynamic
 behavior of our model. More precisely:
 
-  - If the input signal has a low whiteness value (i.e., as close to 0.0 as
-    possible), it means that during the lab tests, the system was adequately
-    stimulated, covering all aspects of the real motor. This gives higher
-    trust to our model if the validation metrics are good.
-  - If the residuals' whiteness is large, it indicates that some dynamics
-    have been poorly modeled, and therefore the model needs updates. In this
-    case, if the R-squared is large, it only means that your model is
-    fitting
-    well what has been modeled, but there are still many aspects not
-    modeled. If our model is of the form $\dot x = Ax + Bu$, then the model
-    between $x$ and $\dot x$ shall be revised.
-  - If the input-residuals' whiteness level is large, it means that the
-    input-output model needs improvements. If our model is of the form
-    $\dot x = Ax + Bu$, then the model between $u$ and $\dot x$ shall be
-    revised.
+- If the input signal has a low whiteness value (i.e., as close to 0.0 as
+  possible), it means that during the lab tests, the system was adequately
+  stimulated, covering all aspects of the real motor. This gives higher
+  trust to our model if the validation metrics are good.
+- If the residuals' whiteness is large, it indicates that some dynamics
+  have been poorly modeled, and therefore the model needs updates. In this
+  case, if the R-squared is large, it only means that your model is
+  fitting
+  well what has been modeled, but there are still many aspects not
+  modeled. If our model is of the form $\dot x = Ax + Bu$, then the model
+  between $x$ and $\dot x$ shall be revised.
+- If the input-residuals' whiteness level is large, it means that the
+  input-output model needs improvements. If our model is of the form
+  $\dot x = Ax + Bu$, then the model between $u$ and $\dot x$ shall be
+  revised.
 
 For simulation models, which motivated the development of Dymoval, we are more
 interested in the dynamic behavior of models than the point-wise fit of the

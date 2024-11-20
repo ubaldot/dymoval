@@ -86,8 +86,8 @@ Index
   :maxdepth: 2
 
   installation
+  getting_started
   some_theory
-  integration
   reference
   api
 

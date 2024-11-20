@@ -1,10 +1,6 @@
 What is model validation?
 =========================
 
-
-*If you are already familiar with the concept of model validation you can skip
-this Section.*
-
 Imagine you are developing an innovative product or process. At various
 stages, you need to test it. Based on the test outcomes, you adjust your
 development direction. This cycle of development and testing continues
@@ -24,24 +20,24 @@ accurately represents the target environment and behaves similarly.
 
 A typical validation process consists of the following steps:
 
-#. Design a Set of Experiments: Define a set of experiments to be carried out
+#. **Design a Set of Experiments**: Define a set of experiments to be carried out
    on
-   the target environment, also known as the Design of Experiments (DoE). This
-   involves specifying the set of stimuli (input) to be given to the target
+   the target environment, also known as the Design of Experiments (*DoE*). This
+   involves specifying the set of stimuli (*input*) to be given to the target
    environment.
 
-#. Run Experiments on the Target Environment: Execute the experiments designed
+#. **Run Experiments on the Target Environment**: Execute the experiments designed
    in
    step 1 on the target environment and log its response. The combination of
    the
    input signals and the target environment's response is referred to as the
    *measurement dataset* (or simply dataset).
 
-#. Run the Same Experiments on Your Model: Conduct the exact same experiments
+#. **Run the Same Experiments on Your Model**: Conduct the exact same experiments
    defined in step 1 on your model and log its response. The response of your
    model is referred to as the simulation results.
 
-#. Evaluate the Results: Assess how "close" the simulation results from step 3
+#. **Evaluate the Results**: Assess how "close" the simulation results from step 3
    are to the logged responses from step 2 using specific validation metrics.
 
 .. figure:: ../figures/ModelValidation.svg
