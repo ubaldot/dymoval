@@ -280,9 +280,7 @@ class XCorrelation:
                 step = max(1, min(step, nlags_full // nlags_min))
                 indices_downsampled = np.where(lags_full % step == 0)[0]
 
-                values_downsampled = R_full[ii, jj].values[
-                    indices_downsampled
-                ]
+                values_downsampled = R_full[ii, jj].values[indices_downsampled]
 
                 lags_downsampled = lags_full[indices_downsampled] // step
 
@@ -418,9 +416,7 @@ class XCorrelation:
 
         # fix global weights
         if global_weights is not None and global_weights.shape != (p, q):
-            raise IndexError(
-                f"'global_weights' must be a {p}x{q} np.ndarray."
-            )
+            raise IndexError(f"'global_weights' must be a {p}x{q} np.ndarray.")
         else:
             W_global = (
                 np.ones(p * q) if global_weights is None else global_weights
@@ -568,9 +564,7 @@ def compute_statistic(
         )
         result = np.sqrt(weighted_variance)  # Standard deviation
     else:
-        raise ValueError(
-            f"'statistic' must be one of [{XCORR_STATISTIC_TYPE}]"
-        )
+        raise ValueError(f"'statistic' must be one of [{XCORR_STATISTIC_TYPE}]")
     return float(result)
 
 
@@ -844,9 +838,7 @@ class ValidationSession:
                     )
 
         self._eps_acorr_local_statistic_type = eps_acorr_local_statistic_type
-        self._eps_acorr_global_statistic_type = (
-            eps_acorr_global_statistic_type
-        )
+        self._eps_acorr_global_statistic_type = eps_acorr_global_statistic_type
         self._eps_acorr_local_weights = eps_acorr_local_weights
         self._eps_acorr_global_weights = eps_acorr_global_weights
 
@@ -876,9 +868,7 @@ class ValidationSession:
                         ueps_xcorr_local_weights[ii, jj]
                     )
 
-        self._ueps_xcorr_local_statistic_type = (
-            ueps_xcorr_local_statistic_type
-        )
+        self._ueps_xcorr_local_statistic_type = ueps_xcorr_local_statistic_type
         self._ueps_xcorr_global_statistic_type = (
             ueps_xcorr_global_statistic_type
         )
@@ -1154,9 +1144,7 @@ class ValidationSession:
         # r2 value and r2 statistics
         r2 = rsquared(y_values, y_sim_values)
         self._r2_list[sim_name] = r2
-        self._r2[sim_name] = self._compute_r2_statistic(
-            r2, self._r2_statistic
-        )
+        self._r2[sim_name] = self._compute_r2_statistic(r2, self._r2_statistic)
 
         # Residuals auto-correlation
         Ree = XCorrelation(
@@ -1281,9 +1269,7 @@ class ValidationSession:
         # Cam be a positional or a keyword arg
         list_sims: str | list[str] | None = None,
         dataset: Literal["in", "out", "both"] | None = None,
-        layout: Literal[
-            "constrained", "compressed", "tight", "none"
-        ] = "tight",
+        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> matplotlib.figure.Figure:
@@ -1659,9 +1645,7 @@ class ValidationSession:
         list_sims: str | list[str] | None = None,
         *,
         plot_input: bool = True,
-        layout: Literal[
-            "constrained", "compressed", "tight", "none"
-        ] = "tight",
+        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> tuple[
@@ -1893,15 +1877,11 @@ class ValidationSession:
         vs_temp._simulation_validation(sim_name, y_names, y_data)
 
         y_units = list(
-            vs_temp._Dataset.dataset["OUTPUT"].columns.get_level_values(
-                "units"
-            )
+            vs_temp._Dataset.dataset["OUTPUT"].columns.get_level_values("units")
         )
 
         # Initialize sim df
-        df_sim = pd.DataFrame(
-            data=y_data, index=vs_temp._Dataset.dataset.index
-        )
+        df_sim = pd.DataFrame(data=y_data, index=vs_temp._Dataset.dataset.index)
         multicols = list(zip([sim_name] * len(y_names), y_names, y_units))
         df_sim.columns = pd.MultiIndex.from_tuples(
             multicols, names=["sim_names", "signal_names", "units"]
