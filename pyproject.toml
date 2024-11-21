@@ -54,8 +54,7 @@ dev = [
     "sphinx-autodoc-typehints",
     "pytest",
     "mypy",
-    "black",
-    "flake8",
+    "ruff",
     "coverage",
     "grayskull",
 ]
