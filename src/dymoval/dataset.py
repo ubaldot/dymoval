@@ -558,9 +558,7 @@ class Dataset:
             tout = self.dataset.index[-1]
 
         # All possible names
-        u_names = list(
-            self.dataset["INPUT"].columns.get_level_values("names")
-        )
+        u_names = list(self.dataset["INPUT"].columns.get_level_values("names"))
         y_names = list(
             self.dataset["OUTPUT"].columns.get_level_values("names")
         )
@@ -643,14 +641,10 @@ class Dataset:
         ]
 
         u_units = [
-            x["signal_unit"]
-            for x in resampled_signals
-            if x["name"] in u_names
+            x["signal_unit"] for x in resampled_signals if x["name"] in u_names
         ]
         y_units = [
-            x["signal_unit"]
-            for x in resampled_signals
-            if x["name"] in y_names
+            x["signal_unit"] for x in resampled_signals if x["name"] in y_names
         ]
         # Trim the signals to have equal length,
         # then build the DataFrame for inizializing the Dataset class.
@@ -745,9 +739,7 @@ class Dataset:
             df["INPUT"].iloc[:, u_names_idx].columns.get_level_values("units")
         )
         y_units = list(
-            df["OUTPUT"]
-            .iloc[:, y_names_idx]
-            .columns.get_level_values("units")
+            df["OUTPUT"].iloc[:, y_names_idx].columns.get_level_values("units")
         )
 
         # Collect in dicts as it is cleaner
@@ -2121,9 +2113,7 @@ class Dataset:
                     line_abs_r[0].set_label(*label_abs_r)
 
                     # angle
-                    line_angle_r, _ = axes_right[
-                        1
-                    ].get_legend_handles_labels()
+                    line_angle_r, _ = axes_right[1].get_legend_handles_labels()
                     label_angle_r = [f"{s[1]}, angle"]
                     line_angle_r[0].set_label(*label_angle_r)
 
@@ -2158,9 +2148,7 @@ class Dataset:
 
         # A small check
         if kind not in SPECTRUM_KIND:
-            raise ValueError(
-                f"Argument 'kind' must be one of {SPECTRUM_KIND}"
-            )
+            raise ValueError(f"Argument 'kind' must be one of {SPECTRUM_KIND}")
 
         # ===================================================
         # Selection of signals
@@ -2734,9 +2722,7 @@ class Dataset:
                 s
                 in list(ds.dataset["INPUT"].columns.get_level_values("names"))
                 and len(
-                    list(
-                        ds.dataset["INPUT"].columns.get_level_values("names")
-                    )
+                    list(ds.dataset["INPUT"].columns.get_level_values("names"))
                 )
                 > 1
             )
@@ -2744,9 +2730,7 @@ class Dataset:
             # Output detected
             cond2 = (
                 s
-                in list(
-                    ds.dataset["OUTPUT"].columns.get_level_values("names")
-                )
+                in list(ds.dataset["OUTPUT"].columns.get_level_values("names"))
                 and len(
                     list(
                         ds.dataset["OUTPUT"].columns.get_level_values("names")
@@ -2830,9 +2814,7 @@ def change_axes_layout(
     # Add new axes
     for ii in range(nrows):
         for jj in range(ncols):
-            axes_2d[ii, jj] = fig.add_subplot(
-                gs[ii, jj], sharex=axes_2d[0, 0]
-            )
+            axes_2d[ii, jj] = fig.add_subplot(gs[ii, jj], sharex=axes_2d[0, 0])
     return fig, axes_2d.flatten().tolist()
 
 
@@ -2949,9 +2931,7 @@ def validate_signals(*signals: Signal) -> None:
         if s["sampling_period"] < 0.0 or np.isclose(
             s["sampling_period"], 0.0, atol=ATOL
         ):
-            raise ValueError(
-                "Key 'sampling_period' must be a positive float."
-            )
+            raise ValueError("Key 'sampling_period' must be a positive float.")
         # Check that all signals have been sampled with the same time_unit
 
     time_units = [s["time_unit"] for s in signals]
@@ -3288,9 +3268,7 @@ def compare_datasets(
     assert gs is not None
     nrows, ncols = gs.get_geometry()
     if kind == "amplitude":
-        fig.set_size_inches(
-            ncols * ax_width * 2, nrows * ax_height * 2 + 1.25
-        )
+        fig.set_size_inches(ncols * ax_width * 2, nrows * ax_height * 2 + 1.25)
     else:
         fig.set_size_inches(ncols * ax_width, nrows * ax_height + 1.25)
     fig.set_layout_engine(layout)

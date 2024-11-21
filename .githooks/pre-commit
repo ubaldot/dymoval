@@ -6,7 +6,7 @@ MYPY_EXIT_CODE=$?
 ruff check ./src
 RUFF_LINT_EXIT_CODE=$?
 
-ruff check format .
+ruff format --check .
 RUFF_FORMAT_EXIT_CODE=$?
 
 # If either flake8 or mypy return an error, skip black and the commit process
