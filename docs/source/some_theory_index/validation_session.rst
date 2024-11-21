@@ -79,4 +79,11 @@ In any case, it is important that you deliver your model along with the
 validation results and the coverage region, so users know within which limits
 they can trust the model.
 
+The results are disappointing.
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+How Dymoval computes the statistics?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
 .. vim: set ts=2 tw=78:

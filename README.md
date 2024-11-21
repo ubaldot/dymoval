@@ -48,7 +48,6 @@ Dymoval also provides essential functions for handling measurement data,
 addressing common issues such as noise, missing data, and varying sampling
 intervals.
 
-
 ## Main Features
 
 **Model validation**
