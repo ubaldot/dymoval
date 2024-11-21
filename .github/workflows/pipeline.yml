@@ -114,7 +114,7 @@ jobs:
         os: ["ubuntu-latest", "macos-latest", "windows-latest"]
         python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
-# dependabot/github_actions/conda-incubator/setup-miniconda-3
+    # dependabot/github_actions/conda-incubator/setup-miniconda-3
       - uses: actions/checkout@v4
       - uses: conda-incubator/setup-miniconda@v3
 

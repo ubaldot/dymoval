@@ -14,7 +14,7 @@ if [ $RUFF_LINT_EXIT_CODE -ne 0 ] || [ $RUFF_FORMAT_EXIT_CODE -ne 0 ] || [ $MYPY
   echo "mypy or ruff checks failed."
   exit 1
 fi
-# black .
+# ruff format .
 # git add -u
 
 # if ! git diff-index --quiet HEAD; then

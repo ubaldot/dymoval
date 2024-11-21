@@ -74,53 +74,46 @@ dev = [
 # ===================================
 # Formatting, type check, unit-test
 # ===================================
-# black
-        [tool.ruff]
-        target-version = "py310"
-        line-length = 79
-        exclude = ["manual_tests", "docs", "src/dymoval_tutorial", ".*"]
+[tool.ruff]
+target-version = "py310"
+line-length = 79
+exclude = ["manual_tests", "docs", "src/dymoval_tutorial", ".*"]
 
-        [tool.ruff.lint]
-        select = [
-            # Pyflakes
-            "F",
-            # isort
-            "I",
-        ]
-        ignore = ["F403","F405", "E501", "W291", "E203"]
+[tool.ruff.lint]
+select = [
+    # Pyflakes
+    "F",
+    # isort
+    "I",
+]
+ignore = ["F403","F405", "E501", "W291", "E203"]
 # mypy
-         [tool.mypy]
-         python_version = "3.12"
-         disallow_untyped_defs = true
-         show_error_codes = true
-         no_implicit_optional = true
-         warn_return_any = true
-         warn_unused_ignores = true
+[tool.mypy]
+python_version = "3.12"
+disallow_untyped_defs = true
+show_error_codes = true
+no_implicit_optional = true
+warn_return_any = true
+warn_unused_ignores = true
 # For now, mypy is only run on ./src
 # The following two shall be module specific
-         ignore_missing_imports = true
-         # disable_error_code = ["name-defined"]
+ignore_missing_imports = true
+# disable_error_code = ["name-defined"]
 
-         [[tool.mypy.overrides]]
-         module = [
-             "dataset",
-             "validation",
-             "utils",
-             "config",
-         ]
-
-
-        # flake8 does not work with pyproject.toml
-         # [tool.flake8]
-         # extend-ignore = F403,F405, E501, W291,E203, W503
-         # exclude = .git,__pycache__,docs/source/conf.py,build
+[[tool.mypy.overrides]]
+module = [
+    "dataset",
+    "validation",
+    "utils",
+    "config",
+]
 
 
 # pytest
-         [tool.pytest.ini_options]
-         norecursedirs = ["manual_tests"] # Exclude folders
-         markers = [
-             "plots: marks SLOW plot tests (deselect with '-m \"not plots\"')",
-             "open_tutorial: marks the open_tutorial (which opens VSCode all the times)"
+[tool.pytest.ini_options]
+norecursedirs = ["manual_tests"] # Exclude folders
+markers = [
+    "plots: marks SLOW plot tests (deselect with '-m \"not plots\"')",
+    "open_tutorial: marks the open_tutorial (which opens VSCode all the times)"
 
-         ]
+]
