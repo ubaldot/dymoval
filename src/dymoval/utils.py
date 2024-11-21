@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
 """Module containing some useful functions."""
 
-import numpy as np
-
-from typing import Any, List, TypeVar
-import sys
 import os
-import subprocess
-from importlib import resources
 import shutil
+import subprocess
+import sys
+from importlib import resources
 from pathlib import Path
+from typing import Any, List, TypeVar
+
+import numpy as np
 
 __all__ = [
     "is_interactive_shell",
@@ -86,7 +86,6 @@ def obj2list(x: T | List[T]) -> List[T]:
 
 
 def _get_tutorial_files(dymoval_tutorial_folder: Path) -> None:
-
     tutorial_site_package_dir = resources.files("dymoval_tutorial")
 
     # Iterate over each file in the "dymoval_tutorial" package and move it to the destination folder

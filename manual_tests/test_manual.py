@@ -121,9 +121,7 @@ RXY = XCorrelation(
 # )
 # %% ============ Test validation session with args ===============
 fixture_type = "MIMO"
-df, u_names, y_names, _, y_units, fixture = generate_good_dataframe(
-    fixture_type
-)
+df, u_names, y_names, _, y_units, fixture = generate_good_dataframe(fixture_type)
 
 name_ds = "my_dataset"
 ds1 = Dataset(name_ds, df, u_names, y_names, full_time_interval=True)

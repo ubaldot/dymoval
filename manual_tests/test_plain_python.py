@@ -62,9 +62,7 @@ def main():
     output_signal_names = ["y1", "y2", "y3", "y4"]
     output_sampling_periods = [0.1, 0.1, 0.1, 0.1]
     output_signal_values = [
-        np.hstack(
-            (np.random.rand(50), nan_thing, np.random.rand(100), nan_thing)
-        ),
+        np.hstack((np.random.rand(50), nan_thing, np.random.rand(100), nan_thing)),
         np.hstack(
             (
                 np.random.rand(100),

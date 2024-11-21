@@ -57,9 +57,7 @@ def get_low_frequency_input_signal(
     white_noise = rng.normal(loc=mean, scale=std, size=num_samples)
 
     # Generate a low_frequency signal from white noise
-    low_freq_signal = apply_higher_order_filter(
-        white_noise, bandwidth, sampling_rate
-    )
+    low_freq_signal = apply_higher_order_filter(white_noise, bandwidth, sampling_rate)
 
     if clip:
         # clip negative values to 0 (Voltage always positive)

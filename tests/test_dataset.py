@@ -1,10 +1,18 @@
 # -*- coding: utf-8 -*-
 
 
-import dymoval as dmv
+import random
+from copy import deepcopy
+from typing import Any
+
+import matplotlib
 import numpy as np
 import pandas as pd
 import pytest
+from matplotlib import pyplot as plt
+
+import dymoval as dmv
+from dymoval.config import ATOL, Signal_type
 
 # from fixture_data import *  # noqa
 # from fixture_data import (
@@ -14,16 +22,8 @@ import pytest
 #     sine_dataframe as sine_dataframe,
 #     constant_ones_dataframe as constant_ones_dataframe,
 # )
-
 from dymoval.dataset import Signal
-from dymoval.config import ATOL, Signal_type
 from dymoval.utils import obj2list
-from typing import Any
-import random
-import matplotlib
-from matplotlib import pyplot as plt
-from copy import deepcopy
-
 
 # import warnings
 # show_kw = True
@@ -152,7 +152,9 @@ class TestInitializerFromSignals:
         )
 
         # assert sampling period
-        assert np.isclose(ds.sampling_period, target_sampling_period, atol=ATOL)
+        assert np.isclose(
+            ds.sampling_period, target_sampling_period, atol=ATOL
+        )
 
     def test_no_leftovers(self, good_signals: list[Signal]) -> None:
         # Nominal data
@@ -829,7 +831,9 @@ class Test_Dataset_nominal:
         df_actual = ds.dataset
         assert np.allclose(df_actual.to_numpy(), df.to_numpy(), atol=ATOL)
 
-    def test_remove_offset(self, constant_ones_dataframe: pd.DataFrame) -> None:
+    def test_remove_offset(
+        self, constant_ones_dataframe: pd.DataFrame
+    ) -> None:
         df, u_names, y_names, _, _, fixture = constant_ones_dataframe
 
         # Test values, i.e. offset to be removed from the specified signal.
@@ -1293,7 +1297,9 @@ class Test_Dataset_nominal:
         # Act.
         ds_actual = ds.apply(*test_values[fixture])
         print("actual_units", ds_actual.dataset.columns)
-        actual_units = list(ds_actual.dataset.columns.get_level_values("units"))
+        actual_units = list(
+            ds_actual.dataset.columns.get_level_values("units")
+        )
 
         # Assert
         assert np.allclose(ds_actual.dataset, df_expected, atol=ATOL)
@@ -1873,7 +1879,9 @@ class Test_validate_dataframe:
 
 
 class Test_fix_sampling_periods:
-    def test_excluded_signals_no_args(self, good_signals: list[Signal]) -> None:
+    def test_excluded_signals_no_args(
+        self, good_signals: list[Signal]
+    ) -> None:
         # Nominal values
         (
             signal_list,
@@ -1909,7 +1917,9 @@ class Test_fix_sampling_periods:
             expected_excluded = []
 
         expected_resampled = [
-            s["name"] for s in signal_list if s["name"] not in expected_excluded
+            s["name"]
+            for s in signal_list
+            if s["name"] not in expected_excluded
         ]
 
         # Assert. Check that all signals are either re-sampled or excluded.
@@ -1960,7 +1970,9 @@ class Test_fix_sampling_periods:
             expected_excluded = []
 
         expected_resampled = [
-            s["name"] for s in signal_list if s["name"] not in expected_excluded
+            s["name"]
+            for s in signal_list
+            if s["name"] not in expected_excluded
         ]
 
         # Assert. Check that all signals are either re-sampled or excluded.

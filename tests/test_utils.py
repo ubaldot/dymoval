@@ -6,11 +6,12 @@ Created on Thu Jul 14 11:43:21 2022
 @author: yt75534
 """
 
-import pytest
-from dymoval.utils import obj2list, difference_lists_of_str, open_tutorial
-
 # from fixture_data import *  # noqa
 import os
+
+import pytest
+
+from dymoval.utils import difference_lists_of_str, obj2list, open_tutorial
 
 # import sys
 # import subprocess

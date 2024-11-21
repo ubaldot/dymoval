@@ -1,10 +1,9 @@
 """Config file."""
 
 import pathlib
-from typing import Literal, Any
-import typing
 import shutil
-
+import typing
+from typing import Any, Literal
 
 # Initialize the latex_installed variable
 is_latex_installed = False

@@ -64,18 +64,10 @@ for ii, val in enumerate(input_signal_names):
 output_signal_names = ["y1", "y2", "y3", "y4"]
 output_sampling_periods = [0.1, 0.1, 0.1, 0.1]
 output_signal_values = [
-    np.hstack(
-        (np.random.rand(50), nan_thing, np.random.rand(100), nan_thing)
-    ),
-    np.hstack(
-        (np.random.rand(100), nan_thing[0:50], np.random.rand(150), nan_thing)
-    ),
-    np.hstack(
-        (np.random.rand(10), nan_thing[0:105], np.random.rand(50), nan_thing)
-    ),
-    np.hstack(
-        (np.random.rand(20), nan_thing[0:85], np.random.rand(60), nan_thing)
-    ),
+    np.hstack((np.random.rand(50), nan_thing, np.random.rand(100), nan_thing)),
+    np.hstack((np.random.rand(100), nan_thing[0:50], np.random.rand(150), nan_thing)),
+    np.hstack((np.random.rand(10), nan_thing[0:105], np.random.rand(50), nan_thing)),
+    np.hstack((np.random.rand(20), nan_thing[0:85], np.random.rand(60), nan_thing)),
 ]
 
 output_signal_units = ["m/s", "deg", "°C", "kPa"]
@@ -182,9 +174,7 @@ ds.plot_spectrum(linecolor_input="r", linecolor_output="c", alpha_fg=0.5)
 
 # %%
 ds.plot_spectrum(kind="psd")
-ds.plot_spectrum(
-    kind="psd", linecolor_input="r", linecolor_output="c", alpha_fg=0.5
-)
+ds.plot_spectrum(kind="psd", linecolor_input="r", linecolor_output="c", alpha_fg=0.5)
 
 # %%
 ds.plot_spectrum(kind="amplitude")

@@ -72,16 +72,16 @@ in your `home` folder. All you have to do is to run Jupyter notebook named
 The content of the `dymoval_tutorial` folder will be overwritten every time
 this function is called.
 
-*******************
- CI/CD integration
-*******************
+CI/CD integration
+=================
 
 *Dymoval* can be used for unit-testing your models and therefore can be used
 in development pipelines like those provided for example by e.g. Jenkins or
 GitLab.
 
-Unit-test
-=========
+###########
+ Unit-test
+###########
 
 The development of large models is typically done by breaking it down in
 smaller components.
@@ -94,8 +94,9 @@ However, smaller components are models themselves and therefore they can be
 validated against some dataset through *Dymoval*. This means that you can use
 *Dymoval* for unit-testing single components.
 
-CI/CD integration
-=================
+###################
+ CI/CD integration
+###################
 
 A traditional software development workflow consists in pushing your software
 changes towards a repo where there is some source automation server (like

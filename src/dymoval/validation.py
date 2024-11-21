@@ -9,30 +9,31 @@ try:
 except ImportError:
     from typing_extensions import Self  # noqa
 
+from copy import deepcopy
+from dataclasses import dataclass
+from typing import Any, Literal, NamedTuple
+
 import matplotlib
 import numpy as np
 import pandas as pd
-from matplotlib import pyplot as plt
-from copy import deepcopy
 import scipy.signal as signal
+from matplotlib import pyplot as plt
+
 from .config import (
     COLORMAP,
-    XCorr_Statistic_type,
+    SIGNAL_KEYS,
     XCORR_STATISTIC_TYPE,
     R2_Statistic_type,
-    SIGNAL_KEYS,
+    XCorr_Statistic_type,
     is_latex_installed,
 )
+from .dataset import Dataset, Signal, validate_signals
 from .utils import (
-    is_interactive_shell,
-    factorize,
     difference_lists_of_str,
+    factorize,
+    is_interactive_shell,
     obj2list,
 )
-
-from .dataset import Dataset, Signal, validate_signals
-from typing import Literal, Any, NamedTuple
-from dataclasses import dataclass
 
 __all__ = [
     "XCorrelation",
@@ -119,7 +120,6 @@ class XCorrelation:
         Y_bandwidths: np.ndarray | float | None = None,
         sampling_period: float | None = None,
     ) -> None:
-
         # =========================================
         # Attributes
         # =========================================
@@ -151,7 +151,6 @@ class XCorrelation:
         Y_bandwidths: np.ndarray | float | None = None,
         sampling_period: float | None = None,
     ) -> np.ndarray:
-
         # The initialization consists in computing the following
         #  1. full x-correation
         #  2. downsample
@@ -564,7 +563,9 @@ def compute_statistic(
         )
         result = np.sqrt(weighted_variance)  # Standard deviation
     else:
-        raise ValueError(f"'statistic' must be one of [{XCORR_STATISTIC_TYPE}]")
+        raise ValueError(
+            f"'statistic' must be one of [{XCORR_STATISTIC_TYPE}]"
+        )
     return float(result)
 
 
@@ -1085,7 +1086,6 @@ class ValidationSession:
     def _get_validation_thresholds_default(
         self, ignore_input: bool
     ) -> dict[str, float]:
-
         validation_thresholds_default = {
             "Ruu_whiteness": 0.6,
             "r2": 35,
@@ -1110,7 +1110,6 @@ class ValidationSession:
     def _compute_r2_statistic(
         self, r2_list: np.ndarray, statistic: R2_Statistic_type = "min"
     ) -> float:
-
         result: float = 0.0
         if statistic == "mean":
             result = np.mean(r2_list)
@@ -1269,7 +1268,9 @@ class ValidationSession:
         # Cam be a positional or a keyword arg
         list_sims: str | list[str] | None = None,
         dataset: Literal["in", "out", "both"] | None = None,
-        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
+        layout: Literal[
+            "constrained", "compressed", "tight", "none"
+        ] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> matplotlib.figure.Figure:
@@ -1645,7 +1646,9 @@ class ValidationSession:
         list_sims: str | list[str] | None = None,
         *,
         plot_input: bool = True,
-        layout: Literal["constrained", "compressed", "tight", "none"] = "tight",
+        layout: Literal[
+            "constrained", "compressed", "tight", "none"
+        ] = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> tuple[
@@ -1877,11 +1880,15 @@ class ValidationSession:
         vs_temp._simulation_validation(sim_name, y_names, y_data)
 
         y_units = list(
-            vs_temp._Dataset.dataset["OUTPUT"].columns.get_level_values("units")
+            vs_temp._Dataset.dataset["OUTPUT"].columns.get_level_values(
+                "units"
+            )
         )
 
         # Initialize sim df
-        df_sim = pd.DataFrame(data=y_data, index=vs_temp._Dataset.dataset.index)
+        df_sim = pd.DataFrame(
+            data=y_data, index=vs_temp._Dataset.dataset.index
+        )
         multicols = list(zip([sim_name] * len(y_names), y_names, y_units))
         df_sim.columns = pd.MultiIndex.from_tuples(
             multicols, names=["sim_names", "signal_names", "units"]
@@ -1956,7 +1963,6 @@ def validate_models(
         sampling_period: float,
         kind: Literal["in", "out"],
     ) -> list[Signal]:
-
         uy_label = "u" if kind == "in" else "y"
         signal_list = []
         for ii in range(dataset.shape[1]):
@@ -1975,7 +1981,6 @@ def validate_models(
         sampling_period: float,
         kind: Literal["in", "out"],
     ) -> list[Signal]:
-
         # Case 2D np.ndarray, convert to a list[Signal]
         if isinstance(data, np.ndarray):
             data_list = _dummy_signal_list(

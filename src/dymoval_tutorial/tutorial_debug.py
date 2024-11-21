@@ -2,7 +2,6 @@
 import matplotlib.pylab as plt
 import h5py
 from copy import deepcopy
-import numpy as np
 import dymoval as dmv
 import matplotlib
 from pathlib import Path

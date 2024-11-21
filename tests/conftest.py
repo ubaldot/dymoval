@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 
-import pytest
-import dymoval as dmv
-import numpy as np
 from copy import deepcopy
+
+import numpy as np
 import pandas as pd
+import pytest
+
+import dymoval as dmv
 
 # For more info on parametrized fixtures, look here:
 # https://www.youtube.com/watch?v=aQH7hyJn-No

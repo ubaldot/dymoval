@@ -1,18 +1,17 @@
 #!/bin/bash
 
-# Run flake8 and mypy
-flake8 ./src
-FLAKE8_EXIT_CODE=$?
-
 mypy ./src
 MYPY_EXIT_CODE=$?
 
-black --check .
-BLACK_EXIT_CODE=$?
+ruff check ./src
+RUFF_LINT_EXIT_CODE=$?
+
+ruff check format .
+RUFF_FORMAT_EXIT_CODE=$?
 
 # If either flake8 or mypy return an error, skip black and the commit process
-if [ $FLAKE8_EXIT_CODE -ne 0 ] || [ $MYPY_EXIT_CODE -ne 0 ] || [ $MYPY_EXIT_CODE -ne 0 ]; then
-  echo "flake8, mypy or black checks failed. Skipping black and commit."
+if [ $RUFF_LINT_EXIT_CODE -ne 0 ] || [ $RUFF_FORMAT_EXIT_CODE -ne 0 ] || [ $MYPY_EXIT_CODE -ne 0 ]; then
+  echo "mypy or ruff checks failed."
   exit 1
 fi
 # black .
