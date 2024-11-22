@@ -39,11 +39,11 @@ My equation:
 Dymoval only performs step 4. The model quality is evaluated
 according to the following criteria:
 
--  R-squared index: A good model should have this as large as possible.
--  Residuals auto-correlation: A good model should have this as close to zero
-   as possible.
--  Input-residuals cross-correlation: A good model should have this as close
-   to zero as possible.
+-  **R-squared** index: A good model should have this as large as possible.
+-  **Residuals auto-correlation**: A good model should have this as close to
+   white noise as possible.
+-  **Input-residuals cross-correlation**: A good model should have this as
+   close to white noise as possible.
 
 Just feed Dymoval with measurement data and simulated output, and you will get
 the aforementioned metrics evaluated for free.
@@ -56,7 +56,7 @@ R-squared match (which does not mean the R-squared can be very bad).
 Now that you understand the process, you can gain hands-on experience with the
 tutorial. If you want to learn more about model validation, how Dymoval
 relates to it, and how to address issues when the results are disappointing,
-feel free to check the some_theory section.
+feel free to check the :ref: `some_theory` section.
 
 **********
  Tutorial
@@ -72,62 +72,26 @@ typing the following lines in a Python console:
    dmv.open_tutorial()
 
 The :py:meth:`~dymoval.utils.open_tutorial()` function creates a
-`dymoval_tutorial` folder containing all the files needed to run the tutorial
-in your `home` folder. All you have to do is to run Jupyter notebook named
-`dymoval_tutorial.ipynb`. You need an app for opening `.ipynb` files.
+``~/dymoval_tutorial`` folder containing all the files needed to run the
+tutorial. All you have to do is to run Jupyter notebook named
+``dymoval_tutorial.ipynb``. You need an app for opening ``.ipynb`` files.
 
-The content of the `dymoval_tutorial` folder will be overwritten every time
+The content of the ``dymoval_tutorial`` folder will be overwritten every time
 this function is called.
 
-*****************
-CI/CD integration
-*****************
+********************************
+Enabling models CI/CD pipelines
+********************************
 
-*Dymoval* can be used for unit-testing your models and therefore can be used
-in development pipelines like those provided for example by e.g. Jenkins or
-GitLab.
+A traditional software development workflow consists of pushing software
+changes to a repository where an automation server (like Jenkins or GitLab)
+automatically assesses whether your changes can be integrated into the
+codebase by executing some tests.
 
-Unit-test
-=========
-
-The development of large models is typically done by breaking it down in
-smaller components.
-
-For example, if you are developing the model of a car, you may need to develop
-the model of the engine, the model of the tires, the model of the gearbox and
-then you integrate them.
-
-However, smaller components are models themselves and therefore they can be
-validated against some dataset through *Dymoval*. This means that you can use
-*Dymoval* for unit-testing single components.
-
-CI/CD integration
-=================
-
-A traditional software development workflow consists in pushing your software
-changes towards a repo where there is some source automation server (like
-Jenkins or GitLab) that automatically assess if your changes can be integrated
-in the codebase or not.
-
-Very often, the process of developing models goes along the same line: you
-typically have a *Version Control System (VCS)* to track your model changes...
-
-... but there are no automated mechanisms that test your model.
-
-Checking that *"everything still works"* is typically done manually and if
-your changes can be integrated or not is at reviewer discretion. Not robust,
-nor democratic.
-
-The ideal scenario would be to automatically test your model changes every
-time they are pushed towards the remote repo, as it happens in traditional
-software development. If on the one hand you are developing *models* - and
-not, loosely speaking, *code* - on the other hand, testing a model just means
-to *validate* it.
-
-Here is where *Dymoval* comes into play: you can exploit its API to write
-scripts that can be automatically executed by automation tools and you can
-automatically get an answer if your changes can be integrated or not depending
-if the validation metrics evaluation meet some criteria.
+*Dymoval* allows you to do the same with models. All you need is a good
+measurement dataset and a mechanism to run simulations on an automation
+server. Then, you can use the *Dymoval* API to validate the model changes and
+decide whether to merge or reject the proposed changes.
 
 ..
    vim: set ts=3 tw=78:

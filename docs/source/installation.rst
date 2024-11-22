@@ -16,7 +16,7 @@ or
 
 .. code::
 
-   conda install dymoval
+   conda install -c conda-forge dymoval
 
 everything should work fine.
 
