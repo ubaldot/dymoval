@@ -1,7 +1,7 @@
 # the pyproject.toml
 # mypy: show_error_codes
 
-"""Module containing everything related to datasets.
+"""Module containing everything related to measurements datasets.
 Here are defined special datatypes, classes and auxiliary functions.
 """
 
@@ -87,19 +87,17 @@ class Signal(TypedDict):
     """
 
     name: str  #: Signal name.
-    samples: (
-        np.ndarray
-    )  # TODO values confuse with values() which is a dict method.
+    samples: np.ndarray  #: Signal samples.
     # This is the reason why they are reported in the docstring.
-    signal_unit: str  #: Signal unit.
+    signal_unit: str  #: Signal samples unit.
     sampling_period: float  #: Signal sampling period.
-    time_unit: str  #: Signal sampling period.
+    time_unit: str  #: Signal time unit.
 
 
 @dataclass
 class Dataset:
     """The :py:class:`Dataset <dymoval.dataset.Dataset>` class stores
-    the candidate signals to be used as a dataset
+    measurements datasets
     and it provides methods for analyzing and manipulating them.
 
     A :py:class:`Signal <dymoval.dataset.Signal>` list shall be passed
@@ -113,7 +111,7 @@ class Dataset:
     Signals that cannot be resampled will be excluded from the
     :py:class:`Dataset <dymoval.dataset.Dataset>`
     and will be stored in the
-    :py:attr:`<~dymoval.dataset.Dataset.excluded_signals>`
+    :py:attr:`~dymoval.dataset.Dataset.excluded_signals`
     attribute.
 
     Furthermore, all the signals will be trimmed to have the
@@ -220,14 +218,14 @@ class Dataset:
         Signals to be included in the :py:class:`Dataset <dymoval.dataset.Dataset>` object.
     u_names :
         List of input signal names. Each signal name must be unique and must be
-        contained in the passed **signal_list** names.
+        contained in the :code:`signal_list` argument.
     y_names :
         List of input signal names. Each signal name must be unique and must be
-        contained in the passed **signal_list** names.
+        contained in the :code:`signal_list` argument.
     target_sampling_period :
         The passed signals will be re-sampled at this sampling period.
         If some signal could not be resampled, then its name will be added in the
-        :py:attr:`~dymoval.dataset.Dataset.excluded_signals` attr.
+        :py:attr:`~dymoval.dataset.Dataset.excluded_signals` attribute.
     tin :
         Initial time instant of the :py:class:`Dataset <dymoval.dataset.Dataset>`.
     tout :
@@ -235,15 +233,15 @@ class Dataset:
     full_time_interval :
         If *True*, the :py:class:`Dataset <dymoval.dataset.Dataset>`
         time interval will be equal to the longest
-        time interval among all of the signals included in the **signal_list**
-        parameter.
-        This is overriden if the parameters **tin** and **tout** are specified.
+        time interval among all of the signals included in the
+        :code:`signal_list` argument.
+        This is overriden if the arguments :code:`tin` and :code:`tout` are passed.
     overlap :
-        If *True* it will overlap the input and output signals plots
+        If :code:`True` it will overlap the input and output signals plots
         in the
         :py:class:`Dataset <dymoval.dataset.Dataset>`
         time interval graphical selection.
-        The units of the outputs are displayed on the secondary y-axis.
+        The units of the outputs are displayed on the secondary *y-axis*.
     verbosity:
         Display information depending on its level.
         Higher numbers correspond to higher verbosity.
@@ -273,11 +271,16 @@ class Dataset:
         # Here attributes are declared but they will be initialized
         # in the method _new_dataset_from_dataframe()
         self.name: str = "foo"
+        """Measurements dataset name."""
         self.dataset: pd.DataFrame = pd.DataFrame()
+        """Measurements dataset values."""
         self.coverage: pd.DataFrame = pd.DataFrame()
+        """Measurements dataset coverage."""
         self._nan_intervals: dict[str, list[np.ndarray]] = {}
         self.excluded_signals: list[str] = []
+        """Excluded signals during the re-sampling process."""
         self.sampling_period: float = 1.0
+        """Measurements dataset sampling period."""
 
         # ==============================
         # Initialization functions
@@ -444,7 +447,6 @@ class Dataset:
         # self.name
         # self.dataset
         # self.coverage
-        # self.information_level
         # self._nan_intervals
         # self.excluded_signals
         # self.sampling_period
@@ -495,7 +497,6 @@ class Dataset:
         # in class attributes (see sphinx.ext.autodoc)
         # Set easy-to-set attributes
         self.name = name  #: Dataset name.
-        self.information_level = 0.0  #: *Not implemented yet!*
         self.sampling_period = (
             df.index[1] - df.index[0]
         )  #: Dataset sampling period.
@@ -1131,7 +1132,7 @@ class Dataset:
         Trim the Dataset
         :py:class:`Dataset <dymoval.dataset.Dataset>` object.
 
-        If not *tin* or *tout* are passed, then the selection is
+        If not :code:`tin` or :code:`tout` are passed, then the selection is
         made graphically.
 
         Parameters
@@ -1147,7 +1148,7 @@ class Dataset:
             The higher the value, the higher is the verbosity.
         **kwargs:
             kwargs to be passed to the
-            :py:meth:`Dataset <dymoval.dataset.Dataset.plot>` method.
+            :py:meth:`Dataset.plot() <dymoval.dataset.Dataset.plot>` method.
 
         """
         # We have to trim the signals to have a meaningful dataset
@@ -1291,7 +1292,7 @@ class Dataset:
     def export_to_mat(self, filename: str) -> None:  # pragma: no cover
         # This function just uses scipy.io.savemat, not so much to test here
         """
-        Write the dataset in a *.mat* file.
+        Write the dataset in a :code:`.mat` file.
 
         Parameters
         ----------
@@ -1364,13 +1365,9 @@ class Dataset:
     ) -> matplotlib.figure.Figure:
         """Plot a signal against another signal in a plane (XY-plot).
 
-        The *signal_pairs* shall be passed as tuples.
-        If no *signal_pairs* is passed then the function will *zip* the input
+        The :code:`signal_pairs` shall be passed as tuples.
+        If no :code:`signal_pairs` is passed then the function will *zip* the input
         and output signals.
-
-        The method return a `matplotlib.figure.Figure`, so you can perform further
-        plot manipulations by resorting to the *matplotlib* API.
-
 
         Example
         -------
@@ -1469,25 +1466,21 @@ class Dataset:
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> matplotlib.figure.Figure:
-        """Plot the
+        """Plot the measurements
         :py:class:`Dataset <dymoval.dataset.Dataset>`.
 
         If two signals are passed as a  *tuple*, then they will be placed in the
         same subplot.
         For example, if *ds* is a :py:class:`Dataset <dymoval.dataset.Dataset>` object
         with signals *s1, s2, ... sn*, then
-        **ds.plot(("s1", "s2"), "s3", "s4")** will plot *s1* and *s2* on the same subplot
+        :code:`ds.plot(("s1", "s2"), "s3", "s4")` will plot *s1* and *s2* on the same subplot
         and it will plot *s3* and *s4* on separate subplots, thus displaying the
         total of three subplots.
 
 
         Possible values for the parameters describing the line used in the plot
-        (e.g. *linecolor_input* , *alpha_output*. etc).
-        are the same for the corresponding plot function in matplotlib.
-
-        The method return a `matplotlib.figure.Figure`, so you can perform further
-        plot manipulations by resorting to the *matplotlib* API.
-
+        (e.g. :code:`linecolor_input` , :code:`alpha_output`. etc).
+        are the same for the corresponding plot function in *matplotlib*.
 
         Note
         ----
@@ -1511,10 +1504,10 @@ class Dataset:
         *signals:
             Signals to be plotted.
         overlap:
-            If *True* overlap input the output signals plots
+            If :code:`True` overlap input the output signals plots
             pairwise.
             Eventual signals passed as argument will be discarded.
-            The units of the outputs are displayed on the secondary y-axis.
+            The units of the outputs are displayed on the secondary *y-axis*.
         linecolor_input:
             Line color of the input signals.
         linestyle_fg:
@@ -1644,10 +1637,6 @@ class Dataset:
         Plot the dataset
         :py:class:`Dataset <dymoval.dataset.Dataset>` coverage in histograms.
 
-        The method return a `matplotlib.figure.Figure`, so you can perform further
-        plot manipulations by resorting to the *matplotlib* API.
-
-
         Example
         -------
         >>> fig = ds.plot_coverage() # ds is a dymoval Dataset
@@ -1663,7 +1652,7 @@ class Dataset:
         *signals:
             The coverage of these signals will be plotted.
         nbins:
-            The number of bins in the x-axis.
+            The number of bins in the *x-axis*.
         linecolor_input:
             Line color for the input signals.
         linecolor_output:
@@ -1891,11 +1880,6 @@ class Dataset:
         If some signals have *NaN* values, then the FFT cannot be computed and
         an error is raised.
 
-
-        The method return a `matplotlib.figure.Figure`, so you can perform further
-        plot manipulations by resorting to the *matplotlib* API.
-
-
         Example
         -------
         >>> fig = ds.plot_spectrum() # ds is a dymoval Dataset
@@ -1913,15 +1897,15 @@ class Dataset:
         kind:
 
             - **amplitude** plot both the amplitude and phase spectrum.
-              If the signal has unit V, then the amplitude has unit *V*.
+              If the signal has unit *V*, then the amplitude has unit *V*.
               Angle is in degrees.
             - **power** plot the auto-power spectrum.
-              If the signal has unit V, then the amplitude has unit *V^2*.
+              If the signal has unit *V*, then the amplitude has unit *V^2*.
             - **psd** plot the power density spectrum.
-              If the signal has unit V and the time is *s*, then the amplitude has unit *V^2/Hz*.
+              If the signal has unit *V* and the time is *s*, then the amplitude has unit *V^2/Hz*.
         overlap:
-            If *True* it overlaps the input and the output signals plots.
-            The units of the outputs are displayed on the secondary y-axis.
+            If :code:`True` it overlaps the input and the output signals plots.
+            The units of the outputs are displayed on the secondary *y-axis*.
         linecolor_input:
             Line color of the input signals.
         linestyle_fg:
@@ -1935,7 +1919,7 @@ class Dataset:
         alpha_bg:
             Transparency value of background signal in case of overlapping plots.
         _grid:
-            Grid where the spectrum ploat will be placed *(Used only internally.)*
+            Grid where the spectrum plot will be placed *(Used only internally.)*
         layout:
             Figure layout.
         ax_height:
@@ -2458,7 +2442,7 @@ class Dataset:
 
     def low_pass_filter(
         self,
-        *signals_values: tuple[str, float],
+        *signals_cutoffs: tuple[str, float],
     ) -> Self:
         """
         Low-pass filter a list of specified signals.
@@ -2468,7 +2452,7 @@ class Dataset:
 
         Parameters
         ----------
-        *signals_values:
+        *signals_cutoffs:
             Tuples of the form *(signal_name, cutoff_frequency)*.
             The values of *signal_name* are low-pass
             filtered with a first-order low-pass filter with cutoff frequency
@@ -2492,7 +2476,7 @@ class Dataset:
             y_dict,
             u_list,
             y_list,
-        ) = self._validate_name_value_tuples(*signals_values)
+        ) = self._validate_name_value_tuples(*signals_cutoffs)
 
         u_names = list(u_dict.keys())
         y_names = list(y_dict.keys())
@@ -2557,7 +2541,7 @@ class Dataset:
         Note
         ----
         If you need to heavily manipulate your signals, it is suggested
-        to dump the Dataset into Signals through :py:meth:`~dymoval.dataset.dump_to_signals()`,
+        to dump the Dataset into Signals through :py:meth:`~dymoval.dataset.dump_to_signals`,
         manipulate them, and then create a brand new Dataset object.
 
 
@@ -2639,8 +2623,8 @@ class Dataset:
         """Replace *NaN:s* values in the
         :py:class:`Dataset <dymoval.dataset.Dataset>`.
 
-        It uses pandas *DataFrame.interpolate()* method, so that the **kwargs are directly
-        routed to such a method.
+        It uses pandas :code:`DataFrame.interpolate()` method, so that the
+        :code:`**kwargs*` are directly routed to such a method.
 
 
         Parameters
@@ -2830,11 +2814,11 @@ def validate_signals(*signals: Signal) -> None:
     A :py:class:`Signal <dymoval.dataset.Signal>` is a *TypedDict* with the
     following keys
 
-    1. name: str
-    2. values: 1D np.array
-    3. signal_unit: str
-    4. sampling_period: float
-    5. time_unit: str
+    1. name: :code:`str`
+    2. samples: 1D :code:`np.ndarray`
+    3. signal_unit: :code:`str`
+    4. sampling_period: :code:`float`
+    5. time_unit: :code:`str`
 
 
     Example
@@ -2953,7 +2937,7 @@ def validate_dataframe(
     The column names are tuples of strings of the form *(signal_name, signal_unit)*.
 
     It must be specified which signal(s) are the input through the *u_names* and
-    which signal(s) is the output through the  *y_names* parameters.
+    which signal(s) is the output through the :code:`y_names` argument.
 
     The candidate *DataFrame* shall meet the following requirements
 
@@ -3076,11 +3060,6 @@ def validate_dataframe(
 def plot_signals(*signals: Signal) -> matplotlib.figure.Figure:
     """Plot :py:class:`Signals <dymoval.dataset.Signal>`.
 
-
-    The method return a `matplotlib.figure.Figure`, so you can perform further
-    plot manipulations by resorting to the *matplotlib* API.
-
-
     Example
     -------
     >>> fig = dmv.plot_signals(s1,s2,s3) # s1, s2 and s3 are dymoval Signal objects.
@@ -3142,12 +3121,8 @@ def compare_datasets(
     ax_width: float = 4.445,
 ) -> matplotlib.figure.Figure:
     """
-    Compare different :py:class:`Datasets <dymoval.dataset.Dataset>` graphically
+    Compare different measurements :py:class:`Datasets <dymoval.dataset.Dataset>` graphically
     by overlapping them.
-
-    The method return a `matplotlib.figure.Figure`, so you can perform further
-    plot manipulations by resorting to the *matplotlib* API.
-
 
     Example
     -------

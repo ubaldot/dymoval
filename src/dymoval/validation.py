@@ -9,6 +9,7 @@ try:
 except ImportError:
     from typing_extensions import Self  # noqa
 
+from collections.abc import Sequence
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, Literal, NamedTuple
@@ -1228,7 +1229,7 @@ class ValidationSession:
             )
 
     def _simulation_validation(
-        self, sim_name: str, y_names: list[str], y_data: np.ndarray
+        self, sim_name: str, y_names: Sequence[str], y_data: np.ndarray
     ) -> None:
         if len(y_names) != len(set(y_names)):
             raise ValueError("Signals name must be unique.")
@@ -1852,7 +1853,7 @@ class ValidationSession:
     def append_simulation(
         self,
         sim_name: str,
-        y_names: list[str],
+        y_names: str | list[str],
         y_data: np.ndarray,
     ) -> Self:
         """
@@ -1907,7 +1908,6 @@ class ValidationSession:
     def drop_simulations(self, *sims: str) -> Self:
         """Drop simulation results from the validation session.
 
-
         Parameters
         ----------
         *sims :
@@ -1944,7 +1944,7 @@ class ValidationSession:
 
 
 def validate_models(
-    measured_in: np.ndarray | list[Signal],
+    measured_in: np.ndarray | Sequence[Signal],
     measured_out: np.ndarray | list[Signal],
     simulated_out: np.ndarray | list[np.ndarray],
     sampling_period: float | None = None,
@@ -1977,7 +1977,7 @@ def validate_models(
         return signal_list
 
     def _to_list_of_Signal(
-        data: np.ndarray | list[Signal],
+        data: np.ndarray | Sequence[Signal],
         sampling_period: float,
         kind: Literal["in", "out"],
     ) -> list[Signal]:

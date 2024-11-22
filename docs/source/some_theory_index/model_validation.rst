@@ -1,3 +1,5 @@
+.. _ModelValidationTheory:
+
 What is model validation?
 =========================
 

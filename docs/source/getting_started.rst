@@ -6,17 +6,18 @@
  Model validation in a nutshell
 ********************************
 
-Model validation's job is to evaluate the quality of your models. To do that,
-you need some measurement data and a model.
+Model validation's job is to evaluate the quality of your models.
 
 The process happens in four steps:
 
 #. **Plan** some test to execute on the real system. The goal is to
-   aggressively stimulate the real-world system with input signals that are
-   random as possible. You should try to hit every corner of the system,
+   stimulate the real-world system with input signals that are
+   random as possible. You should try to hit every corner of the system, by
+   feeding the system with as random input as possible (PRBS sequences, chirp
+   signals, etc.).
 
-#. **Collect** the measured inputs and outputs while actually executing the
-   tests planned in the previous step,
+#. **Collect** the measured inputs and outputs while executing the
+   tests planned in the previous step on the real system,
 
 #. **Simulate** your model with the same input that you used to stimulate the
    real system and log the simulated output,
@@ -27,9 +28,15 @@ The process happens in four steps:
 .. figure:: ./figures/ModelValidationDymoval.svg
    :scale: 50 %
 
-The model validation process.
+   The model validation process.
 
-Dymoval only performs step 4. The model quality evaluation is performed
+My equation:
+
+.. math::
+
+      \int_{t_0}^t e^{-A(t-\tau)}u(\tau)\,d\tau
+
+Dymoval only performs step 4. The model quality is evaluated
 according to the following criteria:
 
 -  R-squared index: A good model should have this as large as possible.
@@ -72,16 +79,16 @@ in your `home` folder. All you have to do is to run Jupyter notebook named
 The content of the `dymoval_tutorial` folder will be overwritten every time
 this function is called.
 
+*****************
 CI/CD integration
-=================
+*****************
 
 *Dymoval* can be used for unit-testing your models and therefore can be used
 in development pipelines like those provided for example by e.g. Jenkins or
 GitLab.
 
-###########
- Unit-test
-###########
+Unit-test
+=========
 
 The development of large models is typically done by breaking it down in
 smaller components.
@@ -94,9 +101,8 @@ However, smaller components are models themselves and therefore they can be
 validated against some dataset through *Dymoval*. This means that you can use
 *Dymoval* for unit-testing single components.
 
-###################
- CI/CD integration
-###################
+CI/CD integration
+=================
 
 A traditional software development workflow consists in pushing your software
 changes towards a repo where there is some source automation server (like
@@ -124,4 +130,4 @@ automatically get an answer if your changes can be integrated or not depending
 if the validation metrics evaluation meet some criteria.
 
 ..
-   vim: set ts=2 tw=78:
+   vim: set ts=3 tw=78:

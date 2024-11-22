@@ -2,15 +2,15 @@ Model Validation
 ================
 
 A :ref:`ValidationSession<ValidationSession>` object stores a :ref:`Dataset <Dataset>` object that serves as a basis for validate your models.
-Then, the user can append as many simulation results as he/she want to the same 
-:ref:`ValidationSession<ValidationSession>` object that automatically computes validation metrics 
-and store the results in the 
+Then, the user can append as many simulation results as he/she want to the same
+:ref:`ValidationSession<ValidationSession>` object that automatically computes validation metrics
+and store the results in the
 :py:attr:`~.ValidationSession.validation_results` attribute.
 
 .. warning::
-   It is **discouraged** to change a :ref:`Dataset <Dataset>` object once it is an attribute of a :ref:`ValidationSession<ValidationSession>` object. 
-   This because the validation results will be jeopardized. 
-   
+   It is **discouraged** to change a :ref:`Dataset <Dataset>` object once it is an attribute of a :ref:`ValidationSession<ValidationSession>` object.
+   This because the validation results will be jeopardized.
+
    If you want to change Dataset, then consider to create a new :ref:`ValidationSession<ValidationSession>` object.
 
 
@@ -31,10 +31,10 @@ ValidationSession class
 .. autosummary::
 
    ValidationSession.name
-   ValidationSession.Dataset
-   ValidationSession.auto_correlation
-   ValidationSession.cross_correlation
-   ValidationSession.validation_results
+   ValidationSession.dataset
+   ValidationSession.outcome
+   ValidationSession.simulations_names
+   ValidationSession.simulations_values
 
 .. rubric:: Methods
 .. autosummary::
@@ -43,14 +43,14 @@ ValidationSession class
    ValidationSession.drop_simulation
    ValidationSession.plot_simulations
    ValidationSession.plot_residuals
-   ValidationSession.simulations_names
    ValidationSession.simulation_signals_list
    ValidationSession.clear
+   ValidationSession.trim
+   ValidationSession.validation_values
 
 .. rubric:: Functions
 .. autosummary::
-   
-   acorr_norm
+
    rsquared
-   xcorr
-   xcorr_norm
+   compute_statistic
+   whiteness_level
