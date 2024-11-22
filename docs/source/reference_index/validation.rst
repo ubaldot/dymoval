@@ -1,5 +1,6 @@
+****************
 Model Validation
-================
+****************
 
 A :ref:`ValidationSession<ValidationSession>` object stores a :ref:`Dataset <Dataset>` object that serves as a basis for validate your models.
 Then, the user can append as many simulation results as he/she want to the same
@@ -13,11 +14,37 @@ and store the results in the
 
    If you want to change Dataset, then consider to create a new :ref:`ValidationSession<ValidationSession>` object.
 
+.. _XCorrelation:
+
+XCorrelation class
+==================
+
+.. currentmodule:: dymoval.validation
+
+.. rubric:: Constructor
+
+.. autosummary::
+
+   XCorrelation
+
+.. rubric:: Attributes
+.. autosummary::
+
+
+   XCorrelation.name
+   XCorrelation.kind
+   XCorrelation.R
+
+.. rubric:: Methods
+.. autosummary::
+
+   XCorrelation.estimate_whiteness
+   XCorrelation.plot
 
 .. _ValidationSession:
 
 ValidationSession class
------------------------
+=======================
 
 .. currentmodule:: dymoval.validation
 
@@ -40,7 +67,7 @@ ValidationSession class
 .. autosummary::
 
    ValidationSession.append_simulation
-   ValidationSession.drop_simulation
+   ValidationSession.drop_simulations
    ValidationSession.plot_simulations
    ValidationSession.plot_residuals
    ValidationSession.simulation_signals_list

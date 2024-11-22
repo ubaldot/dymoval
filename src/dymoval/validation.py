@@ -55,10 +55,14 @@ class _rxy(NamedTuple):
 class XCorrelation:
     # You have to manually write the type in the docstrings
     # and you have to exclude them in the :automodule:
-    """Cross-correlation of two MIMO signals  `X` and `Y`.
+    r"""Cross-correlation of two signals `X` and `Y`.
+
+    The signals can be MIMO and shall have dimension
+    :math: `N\times p` and :math: `N\times q`, respectively.
 
     If `X = Y` then it return the normalized auto-correlation of `X`.
-    You must pass ``X_Bandwidth``, ``Y_Bandwidth`` and ``sampling_period`` or
+    If you pass additional arguments, then either you pass
+    ``X_Bandwidth``, ``Y_Bandwidth`` and ``sampling_period`` or
     none of them.
 
     The cross-correlation functions are stored in the attribute `R` which is
@@ -66,7 +70,7 @@ class XCorrelation:
     is the cross-correlation function between the `i`-th signal of
     `X` and the `j`-th signal of `Y`. The cross-correlation functions
     are ``NamedTuple`` s with attributes
-    values (``np.ndarray``) and lags (``np.ndarray``).
+    ``values`` and ``lags``.
 
 
     Parameters
@@ -80,7 +84,8 @@ class XCorrelation:
         MIMO signal realizations expressed as `Nxq` 2-D array
         of `N` observations of `q` signals.
     nlags:
-        `pxq` array where the `(i, j)`-th element represents the number of lags
+        `pxq` array where the `(i, j)`-th element represents the number of
+        lags
         of the cross-correlation function associated to the `i`-th signal of
         `X` with the `j`-th signal of `Y`.
     X_bandwidths:
@@ -89,6 +94,7 @@ class XCorrelation:
         1-D array representing the bandwidths of each signal in `Y`.
     sampling_period:
         Sampling period of the signals X and Y.
+
 
     Example
     -------
@@ -102,12 +108,16 @@ class XCorrelation:
     # Cross-correlation between the first element of X (1D time-series) and
     # the third element of Y (1D time-series).
     >>> Rxy.R[0,2].lags
-        array([-9, -8, -7, -6, -5, -4, -3, -2, -1,  0,  1,  2,  3,  4,  5,  6,  7,
+        array([-9, -8, -7, -6, -5, -4, -3, -2, -1,  0,  1,  2,  3,  4,  5,  6,
+        7,
         8,  9])
     >>> Rxy.R[0,2].values
-        array([-0.06377225, -0.0083634 ,  0.14850791,  0.06379516, -0.16405862,
-               -0.24074438,  0.14147755,  0.06538316, -0.26679362,  0.14813509,
-                0.64887265,  0.22247482, -0.4785613 , -0.30908332,  0.12834458,
+        array([-0.06377225, -0.0083634 ,  0.14850791,  0.06379516,
+        -0.16405862,
+               -0.24074438,  0.14147755,  0.06538316, -0.26679362,
+               0.14813509,
+                0.64887265,  0.22247482, -0.4785613 , -0.30908332,
+                0.12834458,
                -0.08259541, -0.27451256,  0.25320947,  0.06828447])
     """
 
@@ -124,12 +134,13 @@ class XCorrelation:
         # =========================================
         # Attributes
         # =========================================
-        self.name = name
+        self.name: str = name
+        """XCorrelation object name."""
 
         # R is a matrix where each element is rij(\tau).
         # The range of \tau may change as it depends on the sampling_period
         # and the bandwidth of a given signal.
-        self.R = self._init_R(
+        self._R = self._init_R(
             X=X,
             Y=Y,
             nlags=nlags,
@@ -137,11 +148,12 @@ class XCorrelation:
             Y_bandwidths=Y_bandwidths,
             sampling_period=sampling_period,
         )
+        """XCorrelation tensor."""
 
         if np.array_equal(X, Y):
-            self.kind = "auto-correlation"
+            self._kind = "auto-correlation"
         else:
-            self.kind = "cross-correlation"
+            self._kind = "cross-correlation"
 
     def _init_R(
         self,
@@ -155,7 +167,8 @@ class XCorrelation:
         # The initialization consists in computing the following
         #  1. full x-correation
         #  2. downsample
-        #  3. trim based on the lags needed (you don't need N observations lags)
+        #  3. trim based on the lags needed (you don't need N observations
+        #     lags)
 
         # Downsampling happens only if user pass all the bandwidths and the
         # sampling_period. Trim happens anyway.
@@ -181,13 +194,15 @@ class XCorrelation:
         if isinstance(X_bandwidths, np.ndarray):
             if X_bandwidths.size != p:
                 raise IndexError(
-                    f"The number of elements of 'X_bandwidths' must be equal to {p}"
+                    "The number of elements of 'X_bandwidths' must be "
+                    f"equal to {p}"
                 )
 
         if isinstance(Y_bandwidths, np.ndarray):
             if Y_bandwidths.size != q:
                 raise IndexError(
-                    "The number of elements of 'Y_bandwidths' must be equal to {q}"
+                    "The number of elements of 'Y_bandwidths' must be "
+                    f"equal to {q}"
                 )
         # nlags
         if nlags is not None:
@@ -218,17 +233,24 @@ class XCorrelation:
 
                 # Classic correlation definition from Probability.
                 # Rxy_values = E[(X-mu_x)^T(Y-mu_y))]/(sigma_x*sigma_y),
-                # check normalized cross-correlation for stochastic processes on Wikipedia.
-                # Nevertheless, the cross-correlation is in-fact the same as E[].
+                # check normalized cross-correlation for stochastic processes
+                # on Wikipedia.
+                # Nevertheless, the cross-correlation is in-fact the same as
+                # E[].
                 # More specifically, the cross-correlation generate a sequence
-                # [E[XY(\tau=0))] E[XY(\tau=1))], ...,E[XY(\tau=N))]] and this is
-                # the reason why in the computation below we use signal.correlation.
+                # [E[XY(\tau=0))] E[XY(\tau=1))], ...,E[XY(\tau=N))]] and this
+                # is
+                # the reason why in the computation below we use
+                # signal.correlation.
                 #
-                # Another way of seeing it, is that to secure that the cross-correlation
-                # is always between -1 and 1, we "normalize" the observations X and Y
+                # Another way of seeing it, is that to secure that the
+                # cross-correlation
+                # is always between -1 and 1, we "normalize" the observations
+                # X and Y
                 # Google for "Standard score"
                 #
-                # At the end, for each pair (ii,jj) you have Rxy_values = r_{x_ii,y_jj}(\tau), therefore
+                # At the end, for each pair (ii,jj) you have Rxy_values =
+                # r_{x_ii,y_jj}(\tau), therefore
                 # for each (ii,jj) we compute a correlation.
                 values_full = signal.correlate(
                     (X[:, ii] - np.mean(X[:, ii])) / np.std(X[:, ii]),
@@ -269,7 +291,8 @@ class XCorrelation:
                         )
                     step = int(Fs // (2.0 * bandwidth_max))
                 else:
-                    # We downsample with step 1 (= no downsampling). TODO Could be
+                    # We downsample with step 1 (= no downsampling). TODO
+                    # Could be
                     # refactored
                     step = 1
 
@@ -310,14 +333,38 @@ class XCorrelation:
         repr_str = (
             f"name: {self.name}\n"
             f"type: {self.kind}\n"
-            f"R shape: {self.R.shape}\n"  # Shows the dimensions of the tensor
+            f"R shape: {self.R.shape}\n"
         )
 
         return repr_str
 
+    # ========== read-only attributes ====================
+    @property
+    def R(self) -> np.ndarray:
+        r"""Auto- or cross-correlation tensor.
+
+        It is a :math:`p \times q` matrix where the :math:`(i, j)`-th
+        element represent the auto- or cross-correlation function of the
+        :math:`i`-th component of the argument ``X`` and the
+        :math:`j`-th component of the argument ``Y``.
+
+
+        Each element of such a matrix is a ``NamedTuple`` object with
+        attributes ``values`` and ``lags``.
+        """
+        return self._R
+
+    @property
+    def kind(self) -> str:
+        """Kind of the XCorrelation object.
+
+        It can be `auto-correlation` or `cross-correlation`.
+        """
+        return self._kind
+
     def estimate_whiteness(
         self,
-        local_statistic: XCorr_Statistic_type = "quadratic",
+        local_statistic: XCorr_Statistic_type = "abs_mean",
         local_weights: (
             np.ndarray | None
         ) = None,  # shall be p*q matrix where each element is a 1-D array.
@@ -326,7 +373,8 @@ class XCorrelation:
     ) -> tuple[float, np.ndarray]:
         """Return the whiteness estimates based on the selected statistics.
 
-        Compute first the statistic for each `pxq` cross-correlation function,
+        Compute first the statistic for each element of the tensor
+        :py:attr:`~dymoval.validation.XCorrelation.R`, and
         then compute the statistic of the resulting `pxq` array.
 
         The statistics are computed through the function
@@ -335,11 +383,17 @@ class XCorrelation:
         Parameters
         ----------
         local_statistic:
-            Statistic type for each `(i,j)` cross-correlation function of `XCorrelation.R` array.
+            Statistic type for each `(i,j)` cross-correlation function of
+            `XCorrelation.R` array.
 
         local_weights:
-            Weights for each `(i, j)` element of `XCorrelation.R` array. It
-            shall be a `pxq` array where each element is a 1-D array.
+            Weights for each (i, j) element of the
+            :py:attr:`~dymoval.validation.XCorrelation.R` array. These weights
+            allow you to apply different weights to the values corresponding
+            to different lag. The weight array should be of shape `pxq`,
+            where each `(i, j)` element is a 1-D array whose length matches
+            the number of lags in
+            :py:attr:`~dymoval.validation.XCorrelation.R`[i, j].
 
         global_statistic:
             Statistic type for each element of the resulting `pxq` array
@@ -357,7 +411,8 @@ class XCorrelation:
         whiteness_estimate:
             The overall whiteness estimate.
         whiteness_matrix:
-            A `pxq` array where the `(i, j)`-th element is the statistic computed
+            A `pxq` array where the `(i, j)`-th element is the statistic
+            computed
             for the `(i, j)`-th cross-correlation function.
 
         Example
@@ -407,8 +462,10 @@ class XCorrelation:
                 for jj in range(q):
                     if len(local_weights[ii, jj]) != len(R[ii, jj].lags):
                         raise IndexError(
-                            "Number of lags and number of weights must be the same.\n"
-                            f"In index {ii, jj} you have {len(R[ii, jj].lags)} lags and "
+                            "Number of lags and number of weights "
+                            "must be the same.\n"
+                            f"In index {ii, jj} you have "
+                            f" {len(R[ii, jj].lags)} lags and "
                             f"{len(local_weights[ii, jj])} weights."
                         )
             # if num_weights is equal to num_lags go ahead
@@ -502,7 +559,8 @@ def compute_statistic(
 
     The samples can be weighted through the `weights` array.
 
-    If data.shape dimension is greater than 1 it will be flatten to a 1-D array.
+    If data.shape dimension is greater than 1 it will be flatten to a 1-D
+    array.
 
     The  return values are normalized such that the function always return
     values between 0 and 1.
@@ -579,10 +637,12 @@ def rsquared(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     Parameters
     ----------
     x:
-        First input signal. It must have shape `Nxp`, where `N` is the number of
+        First input signal. It must have shape `Nxp`, where `N` is the number
+        of
         observation and `p` the signal dimension.
     y:
-        Second input signal. It must have shape `Nxp`, where `N` is the number of
+        Second input signal. It must have shape `Nxp`, where `N` is the number
+        of
         observation and `p` the signal dimension.
     """
 
@@ -607,9 +667,9 @@ def whiteness_level(
     sampling_period: float | None = None,
     nlags: np.ndarray | None = None,
     local_statistic: XCorr_Statistic_type = "quadratic",
-    local_weights: (
-        np.ndarray | None
-    ) = None,  # shall be a p*q matrix where each element is a 1D-array (like the lags)
+    # shall be a p*q matrix where each element is a
+    # 1D-array (like the lags)
+    local_weights: np.ndarray | None = None,
     global_statistic: XCorr_Statistic_type = "max",
     global_weights: np.ndarray | None = None,
 ) -> tuple[float, np.ndarray]:
@@ -654,16 +714,20 @@ def whiteness_level(
 @dataclass
 class ValidationSession:
     # TODO: Save validation session.
-    """The *ValidationSession* class is used to validate models against a given dataset.
+    """The *ValidationSession* class is used to validate models against a
+    given dataset.
 
     A *ValidationSession* object is instantiated from a :ref:`Dataset` object.
     A validation session *name* shall be also provided.
 
-    Multiple simulation results can be appended to the same *ValidationSession* instance,
-    but for each ValidationSession instance only a :ref:`Dataset` object is considered.
+    Multiple simulation results can be appended to the same
+    *ValidationSession* instance,
+    but for each ValidationSession instance only a :ref:`Dataset` object is
+    considered.
 
     If the :ref:`Dataset` object changes,
     it is recommended to create a new *ValidationSession* instance.
+
     """
 
     def __init__(
@@ -677,7 +741,8 @@ class ValidationSession:
         ignore_input: bool = False,
         # r2
         r2_statistic: Any = "min",
-        # The following are input to XCorrelation.estimate_whiteness() method.
+        # The following are input to XCorrelation.estimate_whiteness()
+        # method.
         # input auto-correlation
         u_acorr_nlags: np.ndarray | None = None,
         u_acorr_local_statistic_type: XCorr_Statistic_type = "abs_mean",
@@ -697,16 +762,17 @@ class ValidationSession:
         ueps_xcorr_local_weights: np.ndarray | None = None,
         ueps_xcorr_global_weights: np.ndarray | None = None,
     ) -> None:
-        # Once you created a ValidationSession you should not change the validation dataset.
+        # Once you created a ValidationSession you should not change the
+        # validation dataset.
         # Create another ValidationSession with another validation dataset
-        # By using the constructors, you should have no types problems because the check is done there.
+        # By using the constructors, you should have no types problems because
+        # the check is done there.
 
         # =============================================
         # Class attributes
         # ============================================
 
         self._Dataset: Dataset = validation_dataset
-        """The reference :ref:`Dataset` object."""
 
         # Number of inputs
         self._p = len(
@@ -720,6 +786,8 @@ class ValidationSession:
 
         # Simulation based
         self.name: str = name  # The validation session name.
+        """Foo."""
+
         self._default_nlags = 41
 
         self._simulations_values: pd.DataFrame = pd.DataFrame(
@@ -770,7 +838,7 @@ class ValidationSession:
                 or u_acorr_nlags.shape[1] < self._p
             ):
                 raise IndexError(
-                    f"'u_acorr_nlags' shall be a {self._p}x{self._p} array."
+                    f"'u_acorr_nlags' shall be a {self._p}x{self._p} " "array."
                 )
             else:
                 self._u_acorr_nlags = u_acorr_nlags[0 : self._p, 0 : self._p]
@@ -825,7 +893,8 @@ class ValidationSession:
                 or eps_acorr_nlags.shape[1] < self._q
             ):
                 raise IndexError(
-                    f"'eps_acorr_nlags' shall be a {self._q}x{self._q} array."
+                    f"'eps_acorr_nlags' shall be a {self._q}x{self._q} "
+                    " array."
                 )
             else:
                 self._eps_acorr_nlags = eps_acorr_nlags[
@@ -856,7 +925,8 @@ class ValidationSession:
                 or ueps_xcorr_nlags.shape[1] < self._q
             ):
                 raise IndexError(
-                    f"'ueps_xcorr_nlags' shall be a {self._p}x{self._q} array."
+                    f"'ueps_xcorr_nlags' shall be a {self._p}x{self._q} "
+                    "array."
                 )
             else:
                 self._ueps_xcorr_nlags = ueps_xcorr_nlags[
@@ -879,10 +949,16 @@ class ValidationSession:
 
         # Initialize validation results DataFrame.
         idx = [
-            f"Input whiteness ({self._u_acorr_local_statistic_type}-{self._u_acorr_global_statistic_type})",
+            f"Input whiteness "
+            f"({self._u_acorr_local_statistic_type}-"
+            f"{self._u_acorr_global_statistic_type})",
             "R-Squared (%)",
-            f"Residuals whiteness ({self._eps_acorr_local_statistic_type}-{self._eps_acorr_global_statistic_type})",
-            f"Input-Res whiteness ({self._ueps_xcorr_local_statistic_type}-{self._ueps_xcorr_global_statistic_type})",
+            f"Residuals whiteness "
+            f"({self._eps_acorr_local_statistic_type}-"
+            f"{self._eps_acorr_global_statistic_type})",
+            f"Input-Res whiteness "
+            f"({self._ueps_xcorr_local_statistic_type}-"
+            f"{self._ueps_xcorr_global_statistic_type})",
         ]
         self._validation_results: pd.DataFrame = pd.DataFrame(
             index=idx, columns=[]
@@ -958,12 +1034,15 @@ class ValidationSession:
         else:
             inputs_acorr_str = (
                 f"Inputs auto-correlation\n"
-                f"Statistic: {self._u_acorr_local_statistic_type}-{self._u_acorr_global_statistic_type}\n"
+                f"Statistic: "
+                f"{self._u_acorr_local_statistic_type}-"
+                f"{self._u_acorr_global_statistic_type}\n"
                 + u_acorr_local_weights_str
                 + u_acorr_global_weights_str
                 + u_nlags_str
             )
-            Ruu_whiteness = f"{self._validation_results.index[0]}: {self._validation_thresholds['Ruu_whiteness']} \n"
+            Ruu_whiteness = f"{self._validation_results.index[0]}: "
+            "{self._validation_thresholds['Ruu_whiteness']} \n"
             validation_results = self._validation_results
 
         # eps_nlags
@@ -991,7 +1070,7 @@ class ValidationSession:
             )
         else:
             eps_acorr_global_weights_str = (
-                "global weights: Yes (see self._eps_acorr_global_weights)\n"
+                "global weights: Yes (see " "self._eps_acorr_global_weights)\n"
             )
 
         # ueps_nlags
@@ -1010,7 +1089,7 @@ class ValidationSession:
             )
         else:
             ueps_xcorr_local_weights_str = (
-                "local weights: Yes (see self._ueps_xcorr_local_weights)\n"
+                "local weights: Yes (see " "self._ueps_xcorr_local_weights)\n"
             )
 
         if self._ueps_xcorr_global_weights is None:
@@ -1019,7 +1098,8 @@ class ValidationSession:
             )
         else:
             ueps_xcorr_global_weights_str = (
-                "global weights: Yes (see self._ueps_xcorr_global_weights)\n"
+                "global weights: Yes (see "
+                "self._ueps_xcorr_global_weights)\n"
             )
 
         repr_str = (
@@ -1028,7 +1108,9 @@ class ValidationSession:
             + inputs_acorr_str
             + "\n"
             + f"Residuals auto-correlation:\n"
-            f"Statistic: {self._eps_acorr_local_statistic_type}-{self._eps_acorr_global_statistic_type}\n"
+            f"Statistic: "
+            f"{self._eps_acorr_local_statistic_type}-"
+            f"{self._eps_acorr_global_statistic_type}\n"
             + eps_acorr_local_weights_str
             + eps_acorr_global_weights_str
             + eps_nlags_str
@@ -1036,7 +1118,9 @@ class ValidationSession:
             +
             #
             f"Input-residuals cross-correlation:\n"
-            f"Statistic: {self._ueps_xcorr_local_statistic_type}-{self._ueps_xcorr_global_statistic_type}\n"
+            f"Statistic: "
+            f"{self._ueps_xcorr_local_statistic_type}-"
+            f"{self._ueps_xcorr_global_statistic_type}\n"
             + ueps_xcorr_local_weights_str
             + ueps_xcorr_global_weights_str
             + ueps_nlags_str
@@ -1046,9 +1130,12 @@ class ValidationSession:
             f"Validation results:\n-------------------\n"
             f"Thresholds: \n"
             f"{Ruu_whiteness}"
-            f"{self._validation_results.index[1]}: {self._validation_thresholds['r2']:.4f} \n"
-            f"{self._validation_results.index[2]}: {self._validation_thresholds['Ree_whiteness']:.4f} \n"
-            f"{self._validation_results.index[3]}: {self._validation_thresholds['Rue_whiteness']:.4f} \n"
+            f"{self._validation_results.index[1]}: "
+            f"{self._validation_thresholds['r2']:.4f} \n"
+            f"{self._validation_results.index[2]}: "
+            f"{self._validation_thresholds['Ree_whiteness']:.4f} \n"
+            f"{self._validation_results.index[3]}: "
+            f"{self._validation_thresholds['Rue_whiteness']:.4f} \n"
             "Actuals:\n"
             f"{validation_results}\n\n"
             f"{outcomes_head}\n"
@@ -1067,21 +1154,25 @@ class ValidationSession:
         return repr_str
 
     # ========== read-only attributes ====================
+
     @property
     def dataset(self) -> Dataset:
+        """The reference :ref:`Dataset` object."""
         return self._Dataset
 
     @property
     def simulations_values(self) -> pd.DataFrame:
+        """Simulated out values."""
         return self._simulations_values
 
     @property
     def simulations_names(self) -> list[str]:
-        """Return a list of names of the stored simulations."""
+        """Names of the stored simulations."""
         return list(self._simulations_values.columns.levels[0])
 
     @property
     def outcome(self) -> dict[str, str]:
+        """Validation outcome."""
         return self._outcome
 
     def _get_validation_thresholds_default(
@@ -1138,7 +1229,8 @@ class ValidationSession:
 
         if np.allclose(eps, 0.0):
             raise ValueError(
-                "Simulation outputs are identical to measured outputs. Are you cheating?"
+                "Simulation outputs are identical to measured outputs. "
+                "Are you cheating?"
             )
 
         # r2 value and r2 statistics
@@ -1225,7 +1317,8 @@ class ValidationSession:
         if not self.simulations_names:
             raise KeyError(
                 "The simulations list looks empty. "
-                "Check the available simulation names with 'simulations_names()'"
+                "Check the available simulation names with "
+                "'simulations_names()'"
             )
 
     def _simulation_validation(
@@ -1246,21 +1339,23 @@ class ValidationSession:
             set(self._Dataset.dataset["OUTPUT"].columns)
         ):
             raise IndexError(
-                "The number of outputs of your simulation must be equal to "
-                "the number of outputs in the dataset AND "
+                "The number of outputs of your simulation must be equal "
+                "to the number of outputs in the dataset AND "
                 "the name of each simulation output shall be unique."
             )
         if not isinstance(y_data, np.ndarray):
             raise ValueError(
-                "The type the input signal values must be a numpy ndarray."
+                "The type the input signal values must be a " "numpy ndarray."
             )
         if len(y_names) not in y_data.shape:
             raise IndexError(
-                "The number of labels and the number of signals must be the same."
+                "The number of labels and the number of signals "
+                "must be the same."
             )
         if len(y_data) != len(self._Dataset.dataset["OUTPUT"].values):
             raise IndexError(
-                "The length of the input signal must be equal to the length "
+                "The length of the input signal must be equal "
+                "to the length "
                 "of the other signals in the Dataset."
             )
 
@@ -1281,7 +1376,8 @@ class ValidationSession:
         such as the *linecolor_input* or the *alpha_output*,
         are the same for the corresponding *plot* function of *matplotlib*.
 
-        You are free to manipulate the returned figure as you want by using any
+        You are free to manipulate the returned figure as you want by using
+        any
         method of the class `matplotlib.figure.Figure`.
 
         Please, refer to *matplotlib* docs for more info.
@@ -1289,7 +1385,8 @@ class ValidationSession:
 
         Example
         -------
-        >>> fig = vs.plot_simulations() # ds is a dymoval ValidationSession object
+        >>> fig = vs.plot_simulations() # ds is a dymoval ValidationSession
+        object
         # The following are methods of the class `matplotlib.figure.Figure`
         >>> fig.set_size_inches(10,5)
         >>> fig.set_layout_engine("constrained")
@@ -1301,11 +1398,13 @@ class ValidationSession:
         list_sims:
             List of simulation names.
         dataset:
-            Specify whether the dataset shall be datasetped to the simulations results.
+            Specify whether the dataset shall be datasetped to the simulations
+            results.
 
             - **in**: dataset only the input signals of the dataset.
             - **out**: dataset only the output signals of the dataset.
-            - **both**: dataset both the input and the output signals of the dataset.
+            - **both**: dataset both the input and the output signals of the
+              dataset.
 
         layout:
             Figure layout.
@@ -1315,7 +1414,8 @@ class ValidationSession:
             Approximative width (inches) of each subplot.
         """
         # TODO: could be refactored
-        # It uses the left axis for the simulation results and the dataset output.
+        # It uses the left axis for the simulation results and the dataset
+        # output.
         # If the dataset input is overlapped, then we use the right axes.
         # However, if the number of inputs "p" is greater than the number of
         # outputs "q", we use the left axes of the remaining p-q axes since
@@ -1339,7 +1439,8 @@ class ValidationSession:
             if sim_not_found:
                 raise KeyError(
                     f"Simulation {sim_not_found} not found. "
-                    "Check the available simulations names with 'simulations_namess()'"
+                    "Check the available simulations names with "
+                    "'simulations_namess()'"
                 )
 
         # Now we start
@@ -1387,7 +1488,8 @@ class ValidationSession:
                     color=cmap(kk),
                     legend=True,
                     ylabel=f"({s[1]})",
-                    xlabel=f"{df_val.index.name[0]} ({df_val.index.name[1]})",
+                    xlabel=f"{df_val.index.name[0]} "
+                    "({df_val.index.name[1]})",
                     ax=axes,
                 )
             # At the end of the first iteration drop the dummmy axis
@@ -1407,7 +1509,8 @@ class ValidationSession:
                     grid=True,
                     legend=True,
                     color="gray",
-                    xlabel=f"{df_val.index.name[0]} ({df_val.index.name[1]})",
+                    xlabel=f"{df_val.index.name[0]} "
+                    f"({df_val.index.name[1]})",
                     ax=axes,
                 )
 
@@ -1460,7 +1563,8 @@ class ValidationSession:
                     color="gray",
                     linestyle="--",
                     ylabel=f"({s[1]})",
-                    xlabel=f"{df_val.index.name[0]} ({df_val.index.name[1]})",
+                    xlabel=f"{df_val.index.name[0]} "
+                    f"({df_val.index.name[1]})",
                     ax=axes_right,
                 )
 
@@ -1513,7 +1617,8 @@ class ValidationSession:
     ) -> Self:
         """
         Trim the Validation session
-        :py:class:`ValidationSession <dymoval.validation.ValidationSession>` object.
+        :py:class:`ValidationSession <dymoval.validation.ValidationSession>`
+        object.
 
         If not *tin* or *tout* are passed, then the selection is
         made graphically.
@@ -1542,7 +1647,8 @@ class ValidationSession:
             **kwargs: Any,
         ) -> tuple[float, float]:  # pragma: no cover
             # Select the time interval graphically
-            # OBS! This part cannot be automatically tested because the it require
+            # OBS! This part cannot be automatically tested because the it
+            # require
             # manual action from the user (resize window).
             # Hence, you must test this manually.
 
@@ -1559,7 +1665,8 @@ class ValidationSession:
                 selection["tin"] = max(selection["tin"], 0.0)
                 selection["tout"] = max(selection["tout"], 0.0)
                 print(
-                    f"Updated time interval: {selection['tin']} to {selection['tout']}"
+                    f"Updated time interval: {selection['tin']} to "
+                    f"{selection['tout']}"
                 )
 
             # Connect the event handler to the xlim_changed event
@@ -1618,12 +1725,15 @@ class ValidationSession:
 
         if verbosity != 0:
             print(
-                f"\n tin = {tin_sel}{vs._Dataset.dataset.index.name[1]}, tout = {tout_sel}{vs._Dataset.dataset.index.name[1]}"
+                f"\n tin = {tin_sel}{vs._Dataset.dataset.index.name[1]} ",
+                f" tout = {tout_sel}{vs._Dataset.dataset.index.name[1]}",
             )
 
         # Now you can trim the dataset and update all the
         # other time-related attributes
-        vs._Dataset.dataset = vs._Dataset.dataset.loc[tin_sel:tout_sel, :]  # type: ignore[misc]
+        vs._Dataset.dataset = (
+            vs._Dataset.dataset.loc[tin_sel:tout_sel, :]  # type: ignore[misc]
+        )
         vs._Dataset._nan_intervals = vs._Dataset._find_nan_intervals()
         vs._Dataset.coverage = vs._Dataset._find_dataset_coverage()
 
@@ -1672,7 +1782,8 @@ class ValidationSession:
             Approximative width (inches) of each subplot.
 
 
-        You are free to manipulate the returned figure as you want by using any
+        You are free to manipulate the returned figure as you want by using
+        any
         method of the class `matplotlib.figure.Figure`.
 
         Please, refer to *matplotlib* docs for more info.
@@ -1680,7 +1791,8 @@ class ValidationSession:
 
         Example
         -------
-        >>> fig = vs.plot_residuals() # vs is a dymoval ValidationSession object
+        >>> fig = vs.plot_residuals() # vs is a dymoval ValidationSession
+        object
         # The following are methods of the class `matplotlib.figure.Figure`
         >>> fig.set_size_inches(10,5)
         >>> fig.set_layout_engine("constrained")
@@ -1703,7 +1815,8 @@ class ValidationSession:
             if sim_not_found:
                 raise KeyError(
                     f"Simulation {sim_not_found} not found. "
-                    "Check the available simulations names with 'simulations_namess()'"
+                    "Check the available simulations names with "
+                    "'simulations_namess()'"
                 )
         Ruu = self._u_acorr_tensor
         Ree = self._eps_acorr_tensor
@@ -1859,10 +1972,12 @@ class ValidationSession:
         """
         Append simulation results.
         The results are stored in the
-        :py:attr:`<dymoval.validation.ValidationSession.simulations_values>` attribute.
+        :py:attr:`<dymoval.validation.ValidationSession.simulations_values>`
+        attribute.
 
         The validation statistics are automatically computed and stored in the
-        :py:attr:`<dymoval.validation.ValidationSession.validation_results>` attribute.
+        :py:attr:`<dymoval.validation.ValidationSession.validation_results>`
+        attribute.
 
         Parameters
         ----------
@@ -1910,15 +2025,9 @@ class ValidationSession:
 
         Parameters
         ----------
-        *sims :
+        *sims:
             Name of the simulations to be dropped.
         """
-        # Raises
-        # ------
-        # KeyError
-        #     If the simulations list is empty.
-        # ValueError
-        #     If the simulation name is not found.
 
         vs_temp = deepcopy(self)
         vs_temp._sim_list_validate()
@@ -1992,11 +2101,13 @@ def validate_models(
             isinstance(item, dict) and set(item.keys()) == set(SIGNAL_KEYS)
             for item in data
         ):
-            # elif isinstance(data, list) and all(isinstance(item, dict) and set(item.keys()) == set(SIGNAL_KEYS), for all items in data):
+            # elif isinstance(data, list) and all(isinstance(item, dict) and
+            # set(item.keys()) == set(SIGNAL_KEYS), for all items in data):
             data_list = data
         else:
             raise ValueError(
-                "'measured_in' and 'measured_out' must be 2D-arrays or list of Signals."
+                "'measured_in' and 'measured_out' must be 2D-arrays "
+                "or list of Signals."
             )
 
         return data_list

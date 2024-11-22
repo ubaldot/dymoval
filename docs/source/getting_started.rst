@@ -10,14 +10,13 @@ Model validation's job is to evaluate the quality of your models.
 
 The process happens in four steps:
 
-#. **Plan** some test to execute on the real system. The goal is to
-   stimulate the real-world system with input signals that are
-   random as possible. You should try to hit every corner of the system, by
-   feeding the system with as random input as possible (PRBS sequences, chirp
-   signals, etc.).
+#. **Plan** some test to execute on the real system. The goal is to stimulate
+   the real-world system with input signals that are random as possible. You
+   should try to hit every corner of the system, by feeding the system with as
+   random input as possible (PRBS sequences, chirp signals, etc.).
 
-#. **Collect** the measured inputs and outputs while executing the
-   tests planned in the previous step on the real system,
+#. **Collect** the measured inputs and outputs while executing the tests
+   planned in the previous step on the real system,
 
 #. **Simulate** your model with the same input that you used to stimulate the
    real system and log the simulated output,
@@ -34,10 +33,10 @@ My equation:
 
 .. math::
 
-      \int_{t_0}^t e^{-A(t-\tau)}u(\tau)\,d\tau
+   \int_{t_0}^t e^{-A(t-\tau)}u(\tau)\,d\tau
 
-Dymoval only performs step 4. The model quality is evaluated
-according to the following criteria:
+Dymoval only performs step 4. The model quality is evaluated according to the
+following criteria:
 
 -  **R-squared** index: A good model should have this as large as possible.
 -  **Residuals auto-correlation**: A good model should have this as close to
@@ -79,9 +78,9 @@ tutorial. All you have to do is to run Jupyter notebook named
 The content of the ``dymoval_tutorial`` folder will be overwritten every time
 this function is called.
 
-********************************
-Enabling models CI/CD pipelines
-********************************
+*********************************
+ Enabling models CI/CD pipelines
+*********************************
 
 A traditional software development workflow consists of pushing software
 changes to a repository where an automation server (like Jenkins or GitLab)

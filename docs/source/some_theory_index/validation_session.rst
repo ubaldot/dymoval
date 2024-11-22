@@ -4,7 +4,7 @@ Validate your model
 It is now time to validate your model.
 
 .. figure:: ../figures/ModelValidationDymoval.svg
-  :scale: 50 %
+   :scale: 50%
 
    The model validation process.
 
