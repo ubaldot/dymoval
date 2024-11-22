@@ -40,6 +40,8 @@ __all__ = [
     "XCorrelation",
     "rsquared",
     "whiteness_level",
+    "compute_statistic",
+    "validate_models",
     "ValidationSession",
 ]
 
@@ -341,15 +343,15 @@ class XCorrelation:
     # ========== read-only attributes ====================
     @property
     def R(self) -> np.ndarray:
-        r"""Auto- or cross-correlation tensor.
+        r"""Auto- or cross-correlation array.
 
-        It is a :math:`p \times q` matrix where the :math:`(i, j)`-th
+        It is a :math:`p \times q` array where the :math:`(i, j)`-th
         element represent the auto- or cross-correlation function of the
         :math:`i`-th component of the argument ``X`` and the
         :math:`j`-th component of the argument ``Y``.
 
 
-        Each element of such a matrix is a ``NamedTuple`` object with
+        Each element of such an array is a ``NamedTuple`` object with
         attributes ``values`` and ``lags``.
         """
         return self._R
@@ -371,39 +373,28 @@ class XCorrelation:
         global_statistic: XCorr_Statistic_type = "max",
         global_weights: np.ndarray | None = None,  # Shall be a p*q matrix
     ) -> tuple[float, np.ndarray]:
-        """Return the whiteness estimates based on the selected statistics.
+        """Return the whiteness estimate based on the selected statistics.
 
-        Compute first the statistic for each element of the tensor
-        :py:attr:`~dymoval.validation.XCorrelation.R`, and
-        then compute the statistic of the resulting `pxq` array.
-
-        The statistics are computed through the function
-        :py:meth:`~dymoval.validation.compute_statistic`.
 
         Parameters
         ----------
         local_statistic:
             Statistic type for each `(i,j)` cross-correlation function of
-            `XCorrelation.R` array.
+            :py:attr:`~dymoval.validation.XCorrelation.R` array.
 
         local_weights:
-            Weights for each (i, j) element of the
-            :py:attr:`~dymoval.validation.XCorrelation.R` array. These weights
-            allow you to apply different weights to the values corresponding
-            to different lag. The weight array should be of shape `pxq`,
-            where each `(i, j)` element is a 1-D array whose length matches
-            the number of lags in
-            :py:attr:`~dymoval.validation.XCorrelation.R`[i, j].
+            Weights associated with the value of each `(i, j)` element of
+            :py:attr:`~dymoval.validation.XCorrelation.R`.
+            It must have the same shape of
+            :py:attr:`~dymoval.validation.XCorrelation.R`.
 
         global_statistic:
-            Statistic type for each element of the resulting `pxq` array
-            obtained by computing the statistics for each `pxq`
-            cross-correlation functions.
+            Statistic used to estimate the whiteness of the flattened `pxq`
+            array after the whiteness of each element of
+            :py:attr:`~dymoval.validation.XCorrelation.R` is estimated.
 
         global_weights:
-            Weights for each element of the resulting `pxq` array
-            obtained by computing the statistics for each `pxq`
-            cross-correlation functions.
+            Weights associated with each element of the resulting `pxq` array.
             It shall be a `pxq` array.
 
         Returns
@@ -412,8 +403,8 @@ class XCorrelation:
             The overall whiteness estimate.
         whiteness_matrix:
             A `pxq` array where the `(i, j)`-th element is the statistic
-            computed
-            for the `(i, j)`-th cross-correlation function.
+            computed for the `(i, j)`-th cross-correlation function of
+            :py:attr:`~dymoval.validation.XCorrelation.R`.
 
         Example
         -------
@@ -510,7 +501,8 @@ class XCorrelation:
         return whiteness_estimate, whiteness_matrix
 
     def plot(self) -> matplotlib.figure.Figure:
-        """Plot the `pxq` cross-correlation functions."""
+        """Plot the `pxq` cross-correlation functions contained in
+        :py:attr:`~dymoval.validation.XCorrelation.R`."""
 
         p = self.R.shape[0]
         q = self.R.shape[1]
@@ -557,11 +549,10 @@ def compute_statistic(
 ) -> float:
     """Compute the statistic of a sequence of numbers.
 
-    The samples can be weighted through the `weights` array.
+    The samples can be weighted through the ``weights`` array.
 
-    If data.shape dimension is greater than 1 it will be flatten to a 1-D
-    array.
-
+    If ``data.shape`` dimension is greater than 1 then data will be flatten
+    to a 1-D array.
     The  return values are normalized such that the function always return
     values between 0 and 1.
     This measure the normalized distance from the origin in a Euclidean space
@@ -570,9 +561,16 @@ def compute_statistic(
     W = np.diag(1 / (data.size - lags))
     normalization_factor = np.max(weights)
 
-    Inf norm is not constrained between 0 and 1.
-
-
+    Parameters
+    ----------
+    data:
+        Array containing values for which a statistic shall be computed.
+    statistic:
+        Kind of statistic to be computed.
+    weights:
+        An array of weights associated with the values in `data`.
+        Each value in `data` contributes to the average according to its
+        associated weight.
     """
 
     if data.ndim > 1:
@@ -638,12 +636,10 @@ def rsquared(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     ----------
     x:
         First input signal. It must have shape `Nxp`, where `N` is the number
-        of
-        observation and `p` the signal dimension.
+        of observation and `p` is the signal dimension.
     y:
         Second input signal. It must have shape `Nxp`, where `N` is the number
-        of
-        observation and `p` the signal dimension.
+        of observation and `p` is the signal dimension.
     """
 
     if x.shape != y.shape:
@@ -666,24 +662,58 @@ def whiteness_level(
     data_bandwidths: np.ndarray | float | None = None,
     sampling_period: float | None = None,
     nlags: np.ndarray | None = None,
-    local_statistic: XCorr_Statistic_type = "quadratic",
+    local_statistic: XCorr_Statistic_type = "abs_mean",
     # shall be a p*q matrix where each element is a
     # 1D-array (like the lags)
     local_weights: np.ndarray | None = None,
     global_statistic: XCorr_Statistic_type = "max",
     global_weights: np.ndarray | None = None,
 ) -> tuple[float, np.ndarray]:
-    """Estimate the whiteness of the time-series `data`.
+    """Estimate the whiteness of the signal ``data``.
 
-    If data is a MIMO signal, then first the auto-correlation functions of
-    each pair of signal is computed. Then, for each auto-correlation function
-    a statistic is computed according to `local_statistic` value, thus
-    resulting in a `pxp` array. Finally, a statistic of the resulting array is
-    computed based on the values of `global_statistic` and `global_weights`.
+    If ``data`` is a multivariate signal, the whiteness is computed
+    in two steps:
 
-    See Also
-    --------
-    :py:meth:`~dymoval.validation.compute_statistic`
+    #. The cross-correlation function for each `(i, j)` pair of signal in
+       ``data`` is computed, and their whiteness of is computed and arranged
+       in a `pxq` array.
+
+    #. The resulting `pxq` array is flattened and the overall signal
+       whiteness is estimated.
+
+    It returns the values computed in points 1. and 2.
+
+    The whiteness is computed through
+    :py:meth:`~dymoval.validation.compute_statistic`.
+
+    Parameters
+    ----------
+    data:
+        Signal samples.
+    data_bandwidths:
+        Signal bandwidth. If the signal is multivariate, then this specify the
+        bandwidth of each of its component.
+    sampling_period:
+        Signal sampling period.
+    nlags:
+        Number of lags to be considered for the whiteness estimate
+        computation. If the signal is multivariate with `p` components, then
+        this must be a `pxp` array.
+    local_statistic:
+        Statistic to be used for estimate the whiteness of each `(i, j)`
+        cross-correlation function.
+    local_weights:
+        Weights to be used for the whiteness estimation of each `(i, j)`
+        cross-correlation function.
+        It shall have the same size of
+        :py:attr:`~dymoval.validation.XCorrelation.R`.
+
+    global_statistic:
+        Statistic to be used for estimate the whiteness of the resulting `pxq`
+        array.
+    global_weights:
+        Weight of each element of the resulting `pxq` array for estimating the
+        overall signal whiteness.
     """
 
     # Convert signals into XCorrelation tensors and compute the
@@ -786,7 +816,7 @@ class ValidationSession:
 
         # Simulation based
         self.name: str = name  # The validation session name.
-        """Foo."""
+        """ValidationSession object name."""
 
         self._default_nlags = 41
 
@@ -1172,7 +1202,10 @@ class ValidationSession:
 
     @property
     def outcome(self) -> dict[str, str]:
-        """Validation outcome."""
+        """Validation outcome.
+
+        For each simulation return validation outcome.
+        """
         return self._outcome
 
     def _get_validation_thresholds_default(
@@ -1190,6 +1223,14 @@ class ValidationSession:
         return validation_thresholds_default
 
     def validation_values(self, sim_name: str) -> Any:
+        """Return the computed statistics for the selected simulation.
+
+        Parameters
+        ----------
+        sim_name:
+            Simulation name.
+        """
+
         keys = [
             "Ruu_whiteness",
             "r2",
@@ -1373,12 +1414,11 @@ class ValidationSession:
         """Plot the stored simulation results.
 
         Possible values of the parameters describing the plot aesthetics,
-        such as the *linecolor_input* or the *alpha_output*,
-        are the same for the corresponding *plot* function of *matplotlib*.
+        such as the ``linecolor_input`` or the ``alpha_output``,
+        are the same for the corresponding ``matplotlib.axes.Axes.plot``.
 
         You are free to manipulate the returned figure as you want by using
-        any
-        method of the class `matplotlib.figure.Figure`.
+        any method of the class ``matplotlib.figure.Figure``.
 
         Please, refer to *matplotlib* docs for more info.
 
@@ -1620,7 +1660,7 @@ class ValidationSession:
         :py:class:`ValidationSession <dymoval.validation.ValidationSession>`
         object.
 
-        If not *tin* or *tout* are passed, then the selection is
+        If not ``tin`` or ``tout`` are passed, then the selection is
         made graphically.
 
         Parameters
@@ -1767,7 +1807,7 @@ class ValidationSession:
         matplotlib.figure.Figure,
         matplotlib.figure.Figure,
     ]:
-        """Plot the residuals.
+        """Plot the residuals auto- and cross-correlation functions.
 
         Parameters
         ----------
@@ -1940,23 +1980,21 @@ class ValidationSession:
 
     def simulation_signals_list(self, sim_name: str | list[str]) -> list[str]:
         """
-        Return the signal name list of a given simulation result.
+        Return the signal name list of a given simulation.
 
         Parameters
         ----------
         sim_name :
             Simulation name.
 
-        Raises
-        ------
-        KeyError
-            If the requested simulation is not in the simulation list.
         """
         self._sim_list_validate()
         return list(self._simulations_values[sim_name].columns)
 
     def clear(self) -> Self:
-        """Clear all the stored simulation results."""
+        """Remove all the stored simulation results in the current
+        ValidationSession object."""
+
         vs_temp = deepcopy(self)
         sim_names = vs_temp.simulations_names
         for x in sim_names:
@@ -1971,13 +2009,6 @@ class ValidationSession:
     ) -> Self:
         """
         Append simulation results.
-        The results are stored in the
-        :py:attr:`<dymoval.validation.ValidationSession.simulations_values>`
-        attribute.
-
-        The validation statistics are automatically computed and stored in the
-        :py:attr:`<dymoval.validation.ValidationSession.validation_results>`
-        attribute.
 
         Parameters
         ----------
@@ -1986,7 +2017,7 @@ class ValidationSession:
         y_label :
             Simulation output signal names.
         y_data :
-            Signal realizations expressed as `Nxq` 2D array of type *float*
+            Simulated out expressed as `Nxq` 2D ``np.ndarray``
             with `N` observations of `q` signals.
         """
         vs_temp = deepcopy(self)
@@ -2021,7 +2052,7 @@ class ValidationSession:
         return vs_temp
 
     def drop_simulations(self, *sims: str) -> Self:
-        """Drop simulation results from the validation session.
+        """Drop simulation results from the validation session object.
 
         Parameters
         ----------

@@ -30,7 +30,6 @@ XCorrelation class
 .. rubric:: Attributes
 .. autosummary::
 
-
    XCorrelation.name
    XCorrelation.kind
    XCorrelation.R
@@ -81,3 +80,4 @@ ValidationSession class
    rsquared
    compute_statistic
    whiteness_level
+   validate_models

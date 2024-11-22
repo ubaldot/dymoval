@@ -55,23 +55,23 @@ def difference_lists_of_str(
     B: str | list[str],
 ) -> list[str]:
     r"""
-    Return the strings contained in the list *A* but not in the list *B*.
+    Return the strings contained in the list ``A`` but not in the list ``B``.
 
-    In set formalism, this function returns a list representing the set difference
-    :math:`A \backslash (A \cap B)`.
+    In set formalism, this function returns a list representing the
+    set difference :math:`A \backslash (A \cap B)`.
     Note that the operation is not commutative.
 
     Parameters
     ----------
     A : list of str
-        List of strings A.
+        First list of strings.
     B : list of str
-        List of strings B.
+        Second list of strings.
 
     Returns
     -------
     list of str
-        The set difference of A and B.
+        The set difference of ``A`` and ``B``.
     """
 
     A = obj2list(A)
@@ -85,9 +85,9 @@ T = TypeVar("T")
 
 def obj2list(x: T | list[T]) -> list[T]:
     """
-    Convert *obj* of type T into *list[obj]* of type T.
+    Convert an object ``obj`` into ``list[obj]``.
 
-    If *obj* is already a list, then it return it as-is.
+    If ``obj`` is already a list, then it return it as-is.
 
     Parameters
     ----------
