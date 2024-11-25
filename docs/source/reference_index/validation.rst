@@ -60,7 +60,10 @@ ValidationSession class
    ValidationSession.dataset
    ValidationSession.outcome
    ValidationSession.simulations_names
-   ValidationSession.simulations_values
+   ValidationSession.validation_thresholds
+   ValidationSession.Ruu
+   ValidationSession.Ree
+   ValidationSession.Rue
 
 .. rubric:: Methods
 .. autosummary::
@@ -72,7 +75,6 @@ ValidationSession class
    ValidationSession.simulation_signals_list
    ValidationSession.clear
    ValidationSession.trim
-   ValidationSession.validation_values
 
 .. rubric:: Functions
 .. autosummary::

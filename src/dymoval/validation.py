@@ -63,8 +63,8 @@ class XCorrelation:
     :math: `N\times p` and :math: `N\times q`, respectively.
 
     If `X = Y` then it return the normalized auto-correlation of `X`.
-    If you pass additional arguments, then either you pass
-    ``X_Bandwidth``, ``Y_Bandwidth`` and ``sampling_period`` or
+    If additional arguments are passed, then either
+    ``X_Bandwidth``, ``Y_Bandwidth`` and ``sampling_period`` are passed or
     none of them.
 
     The cross-correlation functions are stored in the attribute `R` which is
@@ -86,17 +86,18 @@ class XCorrelation:
         MIMO signal realizations expressed as `Nxq` 2-D array
         of `N` observations of `q` signals.
     nlags:
-        `pxq` array where the `(i, j)`-th element represents the number of
-        lags
+        :math:`p \times q` array where the `(i, j)`-th element represents
+        the number of lags
         of the cross-correlation function associated to the `i`-th signal of
         `X` with the `j`-th signal of `Y`.
     X_bandwidths:
         1-D array representing the bandwidths of each signal in  `X`.
+        ``X_bandwidths[i]`` corresponds to the bandwidth of signal ``X[i]``.
     Y_bandwidths:
         1-D array representing the bandwidths of each signal in `Y`.
+        ``Y_bandwidths[i]`` corresponds to the bandwidth of signal ``Y[i]``.
     sampling_period:
-        Sampling period of the signals X and Y.
-
+        Sampling period of the signals ``X`` and ``Y``.
 
     Example
     -------
@@ -389,21 +390,22 @@ class XCorrelation:
             :py:attr:`~dymoval.validation.XCorrelation.R`.
 
         global_statistic:
-            Statistic used to estimate the whiteness of the flattened `pxq`
-            array after the whiteness of each element of
+            Statistic used to estimate the whiteness of the flattened
+            :math:`p \times q` array after the whiteness of each element of
             :py:attr:`~dymoval.validation.XCorrelation.R` is estimated.
 
         global_weights:
-            Weights associated with each element of the resulting `pxq` array.
-            It shall be a `pxq` array.
+            Weights associated with each element of the resulting
+            :math`p \times q` array.  It shall be a :math:`p \times q` array.
 
         Returns
         -------
         whiteness_estimate:
             The overall whiteness estimate.
         whiteness_matrix:
-            A `pxq` array where the `(i, j)`-th element is the statistic
-            computed for the `(i, j)`-th cross-correlation function of
+            A :math:`p \times q` array where the `(i, j)`-th
+            element is the statistic computed for the `(i, j)`-th
+            cross-correlation function of
             :py:attr:`~dymoval.validation.XCorrelation.R`.
 
         Example
@@ -501,7 +503,7 @@ class XCorrelation:
         return whiteness_estimate, whiteness_matrix
 
     def plot(self) -> matplotlib.figure.Figure:
-        """Plot the `pxq` cross-correlation functions contained in
+        """Plot the :math:`p \times q` cross-correlation functions contained in
         :py:attr:`~dymoval.validation.XCorrelation.R`."""
 
         p = self.R.shape[0]
@@ -547,30 +549,67 @@ def compute_statistic(
     statistic: XCorr_Statistic_type = "mean",
     weights: np.ndarray | None = None,
 ) -> float:
-    """Compute the statistic of a sequence of numbers.
+    r"""Compute the statistic of a sequence of numbers.
 
     The samples can be weighted through the ``weights`` array.
 
-    If ``data.shape`` dimension is greater than 1 then data will be flatten
+    If ``data.shape`` dimension is greater than 1 then ``data`` will be flatten
     to a 1-D array.
     The  return values are normalized such that the function always return
-    values between 0 and 1.
-    This measure the normalized distance from the origin in a Euclidean space
-    Define W based on the Ljung-Box statistic formula
-    lags = np.arange(1, data.size + 1)
-    W = np.diag(1 / (data.size - lags))
-    normalization_factor = np.max(weights)
+    values between 0 and 1, with the exclusion of the statistic ``quadratic``
+    that may return values greater than 1.0.
+
+    The statistic `Q` is computed as it follows. Let :math:`w_i` is the
+    `i`-th element of ``weights`` and :math:`x_i` is the `i`-th element
+    of ``data``.
+
+    **mean**
+    This is the classic weighted mean value, computed as:
+
+    .. math::
+        S = \frac{\sum_{i=1}^N w_ix_i}{\sum_{i=1}^N w_i}
+
+    **abs_mean**
+    Mean of absolute values, computed as:
+
+    .. math::
+        S = \frac{\sum_{i=1}^N w_i|x_i|}{\sum_{i=1}^N w_i}
+
+    **max**
+    Max of absolute values, computed as:
+
+    .. math::
+        S = max_i\{|x_i|\}
+
+    **std**
+    Standard deviation, computed as:
+
+    .. math::
+        S =\sqrt{\sum_{i=1}^N w_i(x_i - \bar x)^2}}
+
+    where :math:`\bar x` is the weighted mean value computed above.
+
+    **quadratic**
+    This is a generic quadratic form of the form:
+
+    .. math::
+        S = \frac{1}{N \|W\|_{\infty}}x^TWx
+        = \frac{\sum_{i=1}^N w_i|x_i|}{N\max_i \{|w_i|\}}
+
+
+    This is particular useful since many famous statistics, such as Ljung-Box,
+    Box-Pierce, Lagrange Multiplier, etc., can be rewritten in the above form
+    through an appropriate choice of the weights.
 
     Parameters
     ----------
     data:
-        Array containing values for which a statistic shall be computed.
+        Array containing values for which the ``statistic`` shall be computed.
     statistic:
         Kind of statistic to be computed.
     weights:
-        An array of weights associated with the values in `data`.
-        Each value in `data` contributes to the average according to its
-        associated weight.
+        An array of weights associated with the values in ``data``.
+        More precisely, ``weights[i]`` correspond to ``data[i]``.
     """
 
     if data.ndim > 1:
@@ -594,7 +633,7 @@ def compute_statistic(
 
         quadratic_form = data.T @ np.diag(weights) @ data
 
-        result = quadratic_form / (np.max(weights) * len(data))
+        result = quadratic_form / (np.max(np.abs(weights)) * len(data))
         # If the weights are all the same, then the metric reduces to |x|²/n,
         # which is similar to the abs_norm with all the weights equal to 1.
 
@@ -676,10 +715,10 @@ def whiteness_level(
 
     #. The cross-correlation function for each `(i, j)` pair of signal in
        ``data`` is computed, and their whiteness of is computed and arranged
-       in a `pxq` array.
+       in a :math:`p \\times q` array.
 
-    #. The resulting `pxq` array is flattened and the overall signal
-       whiteness is estimated.
+    #. The resulting :math:`p \\times q` array is flattened and the
+    overall signal whiteness is estimated.
 
     It returns the values computed in points 1. and 2.
 
@@ -709,11 +748,11 @@ def whiteness_level(
         :py:attr:`~dymoval.validation.XCorrelation.R`.
 
     global_statistic:
-        Statistic to be used for estimate the whiteness of the resulting `pxq`
-        array.
+        Statistic to be used for estimate the whiteness of the resulting
+        :math:`p \times q` array.
     global_weights:
-        Weight of each element of the resulting `pxq` array for estimating the
-        overall signal whiteness.
+        Weight of each element of the resulting :math:`p \times q` array
+        for estimating the overall signal whiteness.
     """
 
     # Convert signals into XCorrelation tensors and compute the
@@ -2018,7 +2057,7 @@ class ValidationSession:
         y_label :
             Simulation output signal names.
         y_data :
-            Simulated out expressed as `Nxq` 2D ``np.ndarray``
+            Simulated out expressed as `Nxq` ``np.ndarray``
             with `N` observations of `q` signals.
         """
         vs_temp = deepcopy(self)
