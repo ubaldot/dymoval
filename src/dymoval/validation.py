@@ -78,7 +78,7 @@ class XCorrelation:
     Parameters
     ----------
     name:
-        The XCorrelation name.
+        The XCorrelation object name.
     X:
         MIMO signal realizations expressed as `Nxp` 2-D array
         of `N` observations of `p` signals.
@@ -551,13 +551,13 @@ def compute_statistic(
 ) -> float:
     r"""Compute the statistic of a sequence of numbers.
 
-    The samples can be weighted through the ``weights`` array.
+    The elements of ``data`` can be weighted through the ``weights`` array.
 
     If ``data.shape`` dimension is greater than 1 then ``data`` will be flatten
     to a 1-D array.
     The  return values are normalized such that the function always return
     values between 0 and 1, with the exclusion of the statistic ``quadratic``
-    that may return values greater than 1.0.
+    that may return values greater than ``1.0``.
 
     The statistic `Q` is computed as it follows. Let :math:`w_i` is the
     `i`-th element of ``weights`` and :math:`x_i` is the `i`-th element
@@ -579,13 +579,13 @@ def compute_statistic(
     Max of absolute values, computed as:
 
     .. math::
-        S = max_i\{|x_i|\}
+        S = \max_i\{|x_i|\}
 
     **std**
     Standard deviation, computed as:
 
     .. math::
-        S =\sqrt{\sum_{i=1}^N w_i(x_i - \bar x)^2}}
+        S =\sqrt{\sum_{i=1}^N w_i(x_i - \bar x)^2}
 
     where :math:`\bar x` is the weighted mean value computed above.
 
@@ -674,11 +674,11 @@ def rsquared(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     Parameters
     ----------
     x:
-        First input signal. It must have shape `Nxp`, where `N` is the number
-        of observation and `p` is the signal dimension.
+        First input signal. It must have shape :math:`Nxp`, where :math:`N` is the number
+        of observation and :math:`p` is the signal dimension.
     y:
-        Second input signal. It must have shape `Nxp`, where `N` is the number
-        of observation and `p` is the signal dimension.
+        Second input signal. It must have shape :math:`Nxp`, where :math:`N` is the number
+        of observation and :math:`p` is the signal dimension.
     """
 
     if x.shape != y.shape:
@@ -713,7 +713,7 @@ def whiteness_level(
     If ``data`` is a multivariate signal, the whiteness is computed
     in two steps:
 
-    #. The cross-correlation function for each `(i, j)` pair of signal in
+    #. The cross-correlation function for each :math:`(i, j)` pair of signal in
        ``data`` is computed, and their whiteness of is computed and arranged
        in a :math:`p \\times q` array.
 
@@ -797,6 +797,40 @@ class ValidationSession:
     If the :ref:`Dataset` object changes,
     it is recommended to create a new *ValidationSession* instance.
 
+    Parameters
+    ----------
+    name:
+        The ``ValidationSession`` object name.
+    validation_dataset:
+        The :py:class:`~dymoval.dataset.Dataset` object to be used for
+        validation.
+    U_bandwidths:
+        1-D array representing the bandwidths of each signal in the input
+        :math:`U`.
+        ``U_bandwidths[i]`` corresponds to the bandwidth of signal ``U[i]``.
+    Y_bandwidths:
+        1-D array representing the bandwidths of each signal in the output
+        :math:`Y`.
+        ``Y_bandwidths[i]`` corresponds to the bandwidth of signal ``Y[i]``.
+    validation_thresolds:
+        Threshold used for validation. The ``dict`` keys shall be:
+
+        - ``"Ruu_whiteness""``
+
+        - ``r2``
+
+        -``"Ree_whiteness""``
+
+        -``"Rue_whiteness""``
+
+    ignore_input:
+        If ``True`` input auto-correlation is not considered in the
+        validation.
+    r2_statistic:
+        Statistic to be used for computing the global :math:`R^2` in case of
+        multiple output signals.
+    Ruu_nlags:
+        Number of lags for the input auto-correlation array :math:`R_{uu}`.
     """
 
     def __init__(
@@ -809,7 +843,7 @@ class ValidationSession:
         validation_thresholds: dict[str, float] | None = None,
         ignore_input: bool = False,
         # r2
-        r2_statistic: Any = "min",
+        r2_statistic: Literal['min', 'mean'] = "min",
         # The following are input to XCorrelation.estimate_whiteness()
         # method.
         # input auto-correlation
