@@ -52,20 +52,18 @@ class Test_ClassValidationNominal:
         vs = dmv.ValidationSession(
             name_vs,
             ds,
-            u_acorr_nlags=u_nlags_wrong_size,
-            eps_acorr_nlags=eps_nlags_wrong_size,
-            ueps_xcorr_nlags=ueps_nlags_wrong_size,
+            Ruu_nlags=u_nlags_wrong_size,
+            Ree_nlags=eps_nlags_wrong_size,
+            Rue_nlags=ueps_nlags_wrong_size,
         )
 
         expected_u_nlags = u_nlags_wrong_size[:p, :p]
         expected_eps_nlags = eps_nlags_wrong_size[:q, :q]
         expected_ueps_nlags = ueps_nlags_wrong_size[:p, :q]
 
-        np.testing.assert_array_equal(vs._u_acorr_nlags, expected_u_nlags)
-        np.testing.assert_array_equal(vs._eps_acorr_nlags, expected_eps_nlags)
-        np.testing.assert_array_equal(
-            vs._ueps_xcorr_nlags, expected_ueps_nlags
-        )
+        np.testing.assert_array_equal(vs._Ruu_nlags, expected_u_nlags)
+        np.testing.assert_array_equal(vs._Ree_nlags, expected_eps_nlags)
+        np.testing.assert_array_equal(vs._Rue_nlags, expected_ueps_nlags)
 
     def test_init_with_args_raise(self, good_dataframe: pd.DataFrame) -> None:
         # Nominal data
@@ -84,7 +82,7 @@ class Test_ClassValidationNominal:
                 _ = dmv.ValidationSession(
                     name_vs,
                     ds,
-                    eps_acorr_nlags=eps_nlags_wrong_size,
+                    Ree_nlags=eps_nlags_wrong_size,
                 )
 
             # Lags specified only for some inputs
@@ -93,7 +91,7 @@ class Test_ClassValidationNominal:
                 _ = dmv.ValidationSession(
                     name_vs,
                     ds,
-                    u_acorr_nlags=u_nlags_wrong_size,
+                    Ruu_nlags=u_nlags_wrong_size,
                 )
 
             # Lags specified only for some inputs
@@ -102,7 +100,7 @@ class Test_ClassValidationNominal:
                 _ = dmv.ValidationSession(
                     name_vs,
                     ds,
-                    ueps_xcorr_nlags=ueps_nlags_wrong_size,
+                    Rue_nlags=ueps_nlags_wrong_size,
                 )
 
     def test_random_walk(self, good_dataframe: pd.DataFrame) -> None:
@@ -135,9 +133,9 @@ class Test_ClassValidationNominal:
         assert sim1_name in vs.simulations_values.columns.get_level_values(
             "sim_names"
         )
-        assert sim1_name in vs._eps_acorr_tensor.keys()
-        assert sim1_name in vs._ueps_xcorr_tensor.keys()
-        assert sim1_name in vs._validation_results.columns
+        assert sim1_name in vs._Ree_tensor.keys()
+        assert sim1_name in vs._Rue_tensor.keys()
+        assert sim1_name in vs._validation_statistics.columns
 
         np.testing.assert_allclose(
             sim1_values, vs.simulations_values[sim1_name]
@@ -158,9 +156,9 @@ class Test_ClassValidationNominal:
         assert sim2_name in vs.simulations_values.columns.get_level_values(
             "sim_names"
         )
-        assert sim2_name in vs._eps_acorr_tensor.keys()
-        assert sim2_name in vs._ueps_xcorr_tensor.keys()
-        assert sim2_name in vs._validation_results.columns
+        assert sim2_name in vs._Ree_tensor.keys()
+        assert sim2_name in vs._Rue_tensor.keys()
+        assert sim2_name in vs._validation_statistics.columns
 
         np.testing.assert_allclose(
             sim2_values, vs.simulations_values[sim2_name]
@@ -191,9 +189,9 @@ class Test_ClassValidationNominal:
         assert sim1_name not in vs.simulations_values.columns.get_level_values(
             "sim_names"
         )
-        assert sim1_name not in vs._eps_acorr_tensor.keys()
-        assert sim1_name not in vs._ueps_xcorr_tensor.keys()
-        assert sim1_name not in vs._validation_results.columns
+        assert sim1_name not in vs._Ree_tensor.keys()
+        assert sim1_name not in vs._Rue_tensor.keys()
+        assert sim1_name not in vs._validation_statistics.columns
 
         # ============================================
         # Re-add sim and then clear.
@@ -203,9 +201,9 @@ class Test_ClassValidationNominal:
         vs = vs.clear()
 
         assert [] == list(vs.simulations_values.columns)
-        assert [] == list(vs._eps_acorr_tensor.keys())
-        assert [] == list(vs._ueps_xcorr_tensor.keys())
-        assert [] == list(vs._validation_results.columns)
+        assert [] == list(vs._Ree_tensor.keys())
+        assert [] == list(vs._Rue_tensor.keys())
+        assert [] == list(vs._validation_statistics.columns)
 
     def test_trim(self, good_dataframe: pd.DataFrame) -> None:
         df, u_names, y_names, _, y_units, fixture = good_dataframe
@@ -267,6 +265,132 @@ class Test_ClassValidationNominal:
         assert np.isclose(
             expected_tout, vs.simulations_values.index[-1], atol=ATOL
         )
+
+    def test_change_threshold(
+        self,
+        good_signals_no_nans: list[Signal],
+        tmp_path: str,
+    ) -> None:
+        (
+            signal_list,
+            u_names,
+            y_names,
+            u_units,
+            y_units,
+            fixture,
+        ) = good_signals_no_nans
+
+        # List of signals
+        dataset_in = [s for s in signal_list if s["name"] in u_names]
+        dataset_out = [s for s in signal_list if s["name"] in y_names]
+        # sim_gppd is a list of 1D array
+        small_perturbation = np.random.uniform(
+            low=0.0,
+            high=1e-4,
+            size=(dataset_out[0]["samples"].size, len(y_names)),
+        )
+        sim_good = np.array(
+            [
+                s["samples"] + w
+                for s, w in zip(dataset_out, small_perturbation.T)
+            ]
+        ).T
+
+        # Override if MISO or SISO
+        if fixture == "SISO" or fixture == "SIMO":
+            dataset_in = [dataset_in[0]]
+
+        if fixture == "MISO" or fixture == "SISO":
+            dataset_out = [dataset_out[0]]
+
+        #  act
+        vs = validate_models(
+            dataset_in,
+            dataset_out,
+            simulated_out=sim_good,
+        )
+
+        expected_outcome = ["PASS"]
+        assert list(vs.outcome.values()) == expected_outcome
+
+        # Change threshold now
+        impossible_threshold = {
+            "Ruu_whiteness": 0.0,
+            "r2": 110,
+            "Ree_whiteness": 0.0,
+            "Rue_whiteness": 0.0,
+        }
+        vs.validation_thresholds = impossible_threshold
+        expected_outcome = ["FAIL"]
+        assert list(vs.outcome.values()) == expected_outcome
+
+    def test_change_threshold_raise(
+        self,
+        good_signals_no_nans: list[Signal],
+        tmp_path: str,
+    ) -> None:
+        (
+            signal_list,
+            u_names,
+            y_names,
+            u_units,
+            y_units,
+            fixture,
+        ) = good_signals_no_nans
+
+        # List of signals
+        dataset_in = [s for s in signal_list if s["name"] in u_names]
+        dataset_out = [s for s in signal_list if s["name"] in y_names]
+        # sim_gppd is a list of 1D array
+        small_perturbation = np.random.uniform(
+            low=0.0,
+            high=1e-4,
+            size=(dataset_out[0]["samples"].size, len(y_names)),
+        )
+        sim_good = np.array(
+            [
+                s["samples"] + w
+                for s, w in zip(dataset_out, small_perturbation.T)
+            ]
+        ).T
+
+        # Override if MISO or SISO
+        if fixture == "SISO" or fixture == "SIMO":
+            dataset_in = [dataset_in[0]]
+
+        if fixture == "MISO" or fixture == "SISO":
+            dataset_out = [dataset_out[0]]
+
+        #  act
+        vs = validate_models(
+            dataset_in,
+            dataset_out,
+            simulated_out=sim_good,
+        )
+
+        expected_outcome = ["PASS"]
+        assert list(vs.outcome.values()) == expected_outcome
+
+        # Change threshold now
+        impossible_threshold = {
+            "Ruu_whitenesssssss": 0.0,
+            "r2": 110,
+            "Ree_whiteness": 0.0,
+            "Rue_whiteness": 0.0,
+        }
+        with pytest.raises(KeyError):
+            vs.validation_thresholds = impossible_threshold
+
+        # Change threshold now
+        impossible_threshold = {
+            "Ruu_whiteness": -1.0,
+            "r2": 110,
+            "Ree_whiteness": 0.0,
+            "Rue_whiteness": 0.0,
+        }
+
+        with pytest.raises(ValueError):
+            vs.validation_thresholds = impossible_threshold
 
     def test_get_sim_signal_list_and_statistics_raise(
         self, good_dataframe: pd.DataFrame

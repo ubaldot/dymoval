@@ -774,23 +774,23 @@ class ValidationSession:
         # The following are input to XCorrelation.estimate_whiteness()
         # method.
         # input auto-correlation
-        u_acorr_nlags: np.ndarray | None = None,
-        u_acorr_local_statistic_type: XCorr_Statistic_type = "abs_mean",
-        u_acorr_global_statistic_type: XCorr_Statistic_type = "max",
-        u_acorr_local_weights: np.ndarray | None = None,
-        u_acorr_global_weights: np.ndarray | None = None,
+        Ruu_nlags: np.ndarray | None = None,
+        Ruu_local_statistic_type: XCorr_Statistic_type = "abs_mean",
+        Ruu_global_statistic_type: XCorr_Statistic_type = "max",
+        Ruu_local_weights: np.ndarray | None = None,
+        Ruu_global_weights: np.ndarray | None = None,
         # residuals auto-correlation
-        eps_acorr_nlags: np.ndarray | None = None,
-        eps_acorr_local_statistic_type: XCorr_Statistic_type = "abs_mean",
-        eps_acorr_global_statistic_type: XCorr_Statistic_type = "max",
-        eps_acorr_local_weights: np.ndarray | None = None,
-        eps_acorr_global_weights: np.ndarray | None = None,
+        Ree_nlags: np.ndarray | None = None,
+        Ree_local_statistic_type: XCorr_Statistic_type = "abs_mean",
+        Ree_global_statistic_type: XCorr_Statistic_type = "max",
+        Ree_local_weights: np.ndarray | None = None,
+        Ree_global_weights: np.ndarray | None = None,
         # input-residuals cross-Correlation
-        ueps_xcorr_nlags: np.ndarray | None = None,
-        ueps_xcorr_local_statistic_type: XCorr_Statistic_type = "abs_mean",
-        ueps_xcorr_global_statistic_type: XCorr_Statistic_type = "max",
-        ueps_xcorr_local_weights: np.ndarray | None = None,
-        ueps_xcorr_global_weights: np.ndarray | None = None,
+        Rue_nlags: np.ndarray | None = None,
+        Rue_local_statistic_type: XCorr_Statistic_type = "abs_mean",
+        Rue_global_statistic_type: XCorr_Statistic_type = "max",
+        Rue_local_weights: np.ndarray | None = None,
+        Rue_global_weights: np.ndarray | None = None,
     ) -> None:
         # Once you created a ValidationSession you should not change the
         # validation dataset.
@@ -833,23 +833,23 @@ class ValidationSession:
         self._r2_statistic = r2_statistic
 
         # Input: Ruu
-        self._u_auto_correlation_tensors: XCorrelation
+        self._Ruu: XCorrelation
         """The auto-correlation tensors.
         This attribute is automatically set
         and it should be considered as a *read-only* attribute."""
 
         # Format: 'name_sim': Ree
-        self._eps_auto_correlation_tensors: dict[str, XCorrelation] = {}
-        self._eps_acorr_whiteness: dict[str, float] = {}
-        self._eps_acorr_whiteness_matrix: dict[str, np.ndarray] = {}
+        self._Ree: dict[str, XCorrelation] = {}
+        self._Ree_whiteness: dict[str, float] = {}
+        self._Ree_whiteness_matrix: dict[str, np.ndarray] = {}
         """The auto-correlation tensors.
         This attribute is automatically set
         and it should be considered as a *read-only* attribute."""
 
         # Format: 'name_sim': Rue
-        self._ueps_cross_correlation_tensors: dict[str, XCorrelation] = {}
-        self._ueps_xcorr_whiteness: dict[str, float] = {}
-        self._ueps_xcorr_whiteness_matrix: dict[str, np.ndarray] = {}
+        self._Rue: dict[str, XCorrelation] = {}
+        self._Rue_whiteness: dict[str, float] = {}
+        self._Rue_whiteness_matrix: dict[str, np.ndarray] = {}
         """The cross-correlation tensors.
         This attribute is automatically set
         and it should be considered as a *read-only* attribute."""
@@ -859,51 +859,46 @@ class ValidationSession:
 
         # Input nlags
         # Default 41 lags (20 negative and 20 positive)
-        self._u_acorr_nlags = np.full(
+        self._Ruu_nlags = np.full(
             (self._p, self._p), fill_value=self._default_nlags
         )
-        if u_acorr_nlags is not None:
-            if (
-                u_acorr_nlags.shape[0] < self._p
-                or u_acorr_nlags.shape[1] < self._p
-            ):
+        if Ruu_nlags is not None:
+            if Ruu_nlags.shape[0] < self._p or Ruu_nlags.shape[1] < self._p:
                 raise IndexError(
-                    f"'u_acorr_nlags' shall be a {self._p}x{self._p} " "array."
+                    f"'Ruu_nlags' shall be a {self._p}x{self._p} " "array."
                 )
             else:
-                self._u_acorr_nlags = u_acorr_nlags[0 : self._p, 0 : self._p]
-        elif u_acorr_local_weights is not None:
+                self._Ruu_nlags = Ruu_nlags[0 : self._p, 0 : self._p]
+        elif Ruu_local_weights is not None:
             # Iterate through the input array and count the number of lags
             for ii in range(self._p):
                 for jj in range(self._p):
-                    self._u_acorr_nlags[ii, jj] = len(
-                        u_acorr_local_weights[ii, jj]
-                    )
+                    self._Ruu_nlags[ii, jj] = len(Ruu_local_weights[ii, jj])
 
-        self._u_acorr_local_statistic_type = u_acorr_local_statistic_type
-        self._u_acorr_global_statistic_type = u_acorr_global_statistic_type
-        self._u_acorr_local_weights = u_acorr_local_weights
-        self._u_acorr_global_weights = u_acorr_global_weights
+        self._Ruu_local_statistic_type = Ruu_local_statistic_type
+        self._Ruu_global_statistic_type = Ruu_global_statistic_type
+        self._Ruu_local_weights = Ruu_local_weights
+        self._Ruu_global_weights = Ruu_global_weights
 
         Ruu = XCorrelation(
             "Ruu",
             X=self._Dataset.dataset["INPUT"].to_numpy(),
             Y=self._Dataset.dataset["INPUT"].to_numpy(),
-            nlags=self._u_acorr_nlags,
+            nlags=self._Ruu_nlags,
             X_bandwidths=self._U_bandwidths,
             Y_bandwidths=self._U_bandwidths,
             sampling_period=self._Dataset.dataset.index[1]
             - self._Dataset.dataset.index[0],
         )
 
-        self._u_acorr_tensor = Ruu
+        self._Ruu_tensor = Ruu
 
-        self._u_acorr_whiteness, self._u_acorr_whiteness_matrix = (
+        self._Ruu_whiteness, self._Ruu_whiteness_matrix = (
             Ruu.estimate_whiteness(
-                local_statistic=self._u_acorr_local_statistic_type,
-                local_weights=self._u_acorr_local_weights,
-                global_statistic=self._u_acorr_global_statistic_type,
-                global_weights=self._u_acorr_global_weights,
+                local_statistic=self._Ruu_local_statistic_type,
+                local_weights=self._Ruu_local_weights,
+                global_statistic=self._Ruu_global_statistic_type,
+                global_weights=self._Ruu_global_weights,
             )
         )
 
@@ -911,86 +906,68 @@ class ValidationSession:
         self._Y_bandwidths = Y_bandwidths
 
         # Residuals auto-correlation
-        self._eps_acorr_tensor: dict[str, XCorrelation] = {}
+        self._Ree_tensor: dict[str, XCorrelation] = {}
 
         # nlags
-        self._eps_acorr_nlags = np.full(
+        self._Ree_nlags = np.full(
             (self._q, self._q), fill_value=self._default_nlags
         )
-        if eps_acorr_nlags is not None:
-            if (
-                eps_acorr_nlags.shape[0] < self._q
-                or eps_acorr_nlags.shape[1] < self._q
-            ):
+        if Ree_nlags is not None:
+            if Ree_nlags.shape[0] < self._q or Ree_nlags.shape[1] < self._q:
                 raise IndexError(
-                    f"'eps_acorr_nlags' shall be a {self._q}x{self._q} "
-                    " array."
+                    f"'Ree_nlags' shall be a {self._q}x{self._q} " " array."
                 )
             else:
-                self._eps_acorr_nlags = eps_acorr_nlags[
-                    0 : self._q, 0 : self._q
-                ]
-        elif eps_acorr_local_weights is not None:
+                self._Ree_nlags = Ree_nlags[0 : self._q, 0 : self._q]
+        elif Ree_local_weights is not None:
             # Iterate through the input array and count the number of lags
             for ii in range(self._q):
                 for jj in range(self._q):
-                    self._eps_acorr_nlags[ii, jj] = len(
-                        eps_acorr_local_weights[ii, jj]
-                    )
+                    self._Ree_nlags[ii, jj] = len(Ree_local_weights[ii, jj])
 
-        self._eps_acorr_local_statistic_type = eps_acorr_local_statistic_type
-        self._eps_acorr_global_statistic_type = eps_acorr_global_statistic_type
-        self._eps_acorr_local_weights = eps_acorr_local_weights
-        self._eps_acorr_global_weights = eps_acorr_global_weights
+        self._Ree_local_statistic_type = Ree_local_statistic_type
+        self._Ree_global_statistic_type = Ree_global_statistic_type
+        self._Ree_local_weights = Ree_local_weights
+        self._Ree_global_weights = Ree_global_weights
 
         # Input-Residuals cross-correlation
-        self._ueps_xcorr_tensor: dict[str, XCorrelation] = {}
+        self._Rue_tensor: dict[str, XCorrelation] = {}
 
-        self._ueps_xcorr_nlags = np.full(
+        self._Rue_nlags = np.full(
             (self._p, self._q), fill_value=self._default_nlags
         )
-        if ueps_xcorr_nlags is not None:
-            if (
-                ueps_xcorr_nlags.shape[0] < self._p
-                or ueps_xcorr_nlags.shape[1] < self._q
-            ):
+        if Rue_nlags is not None:
+            if Rue_nlags.shape[0] < self._p or Rue_nlags.shape[1] < self._q:
                 raise IndexError(
-                    f"'ueps_xcorr_nlags' shall be a {self._p}x{self._q} "
-                    "array."
+                    f"'Rue_nlags' shall be a {self._p}x{self._q} " "array."
                 )
             else:
-                self._ueps_xcorr_nlags = ueps_xcorr_nlags[
-                    0 : self._p, 0 : self._q
-                ]
-        elif ueps_xcorr_local_weights is not None:
+                self._Rue_nlags = Rue_nlags[0 : self._p, 0 : self._q]
+        elif Rue_local_weights is not None:
             # Iterate through the input array and count the number of lags
             for ii in range(self._p):
                 for jj in range(self._q):
-                    self._ueps_xcorr_nlags[ii, jj] = len(
-                        ueps_xcorr_local_weights[ii, jj]
-                    )
+                    self._Rue_nlags[ii, jj] = len(Rue_local_weights[ii, jj])
 
-        self._ueps_xcorr_local_statistic_type = ueps_xcorr_local_statistic_type
-        self._ueps_xcorr_global_statistic_type = (
-            ueps_xcorr_global_statistic_type
-        )
-        self._ueps_xcorr_local_weights = ueps_xcorr_local_weights
-        self._ueps_xcorr_global_weights = ueps_xcorr_global_weights
+        self._Rue_local_statistic_type = Rue_local_statistic_type
+        self._Rue_global_statistic_type = Rue_global_statistic_type
+        self._Rue_local_weights = Rue_local_weights
+        self._Rue_global_weights = Rue_global_weights
 
         # Initialize validation results DataFrame.
         idx = [
             f"Input whiteness "
-            f"({self._u_acorr_local_statistic_type}-"
-            f"{self._u_acorr_global_statistic_type})",
+            f"({self._Ruu_local_statistic_type}-"
+            f"{self._Ruu_global_statistic_type})",
             "R-Squared (%)",
             f"Residuals whiteness "
-            f"({self._eps_acorr_local_statistic_type}-"
-            f"{self._eps_acorr_global_statistic_type})",
+            f"({self._Ree_local_statistic_type}-"
+            f"{self._Ree_global_statistic_type})",
             f"Input-Res whiteness "
-            f"({self._ueps_xcorr_local_statistic_type}-"
-            f"{self._ueps_xcorr_global_statistic_type})",
+            f"({self._Rue_local_statistic_type}-"
+            f"{self._Rue_global_statistic_type})",
         ]
-        self._validation_results: pd.DataFrame = pd.DataFrame(
+        self._validation_statistics: pd.DataFrame = pd.DataFrame(
             index=idx, columns=[]
         )
 
@@ -1030,106 +1007,97 @@ class ValidationSession:
                 outcomes_body += f"{self._outcome[k]}"
 
         # u acorr weights
-        if self._u_acorr_local_weights is None:
-            u_acorr_local_weights_str = (
-                f"local weights: {self._u_acorr_local_weights}\n"
+        if self._Ruu_local_weights is None:
+            Ruu_local_weights_str = (
+                f"local weights: {self._Ruu_local_weights}\n"
             )
         else:
-            u_acorr_local_weights_str = (
-                "local weights: Yes (see self._u_acorr_local_weights)\n"
+            Ruu_local_weights_str = (
+                "local weights: Yes (see self._Ruu_local_weights)\n"
             )
 
-        if self._u_acorr_global_weights is None:
-            u_acorr_global_weights_str = (
-                f"global weights: {self._u_acorr_global_weights}\n"
+        if self._Ruu_global_weights is None:
+            Ruu_global_weights_str = (
+                f"global weights: {self._Ruu_global_weights}\n"
             )
         else:
-            u_acorr_global_weights_str = (
-                "global weights: Yes (see self._u_acorr_global_weights)\n"
+            Ruu_global_weights_str = (
+                "global weights: Yes (see self._Ruu_global_weights)\n"
             )
 
         # u_nlags
-        if np.all(
-            self._u_acorr_nlags.flatten() == self._u_acorr_nlags.flatten()[0]
-        ):
-            u_nlags_str = f"num lags: {self._u_acorr_nlags[0, 0]}\n"
+        if np.all(self._Ruu_nlags.flatten() == self._Ruu_nlags.flatten()[0]):
+            u_nlags_str = f"num lags: {self._Ruu_nlags[0, 0]}\n"
         else:
-            u_nlags_str = f"num lags: \n{self._u_acorr_nlags}\n"
+            u_nlags_str = f"num lags: \n{self._Ruu_nlags}\n"
 
         # Ignore input
         if self._ignore_input:
             inputs_acorr_str = f"Input ignored: {self._ignore_input}\n"
             Ruu_whiteness = ""
-            validation_results = self._validation_results.iloc[2:, :]
+            validation_results = self._validation_statistics.iloc[2:, :]
         else:
             inputs_acorr_str = (
                 f"Inputs auto-correlation\n"
                 f"Statistic: "
-                f"{self._u_acorr_local_statistic_type}-"
-                f"{self._u_acorr_global_statistic_type}\n"
-                + u_acorr_local_weights_str
-                + u_acorr_global_weights_str
+                f"{self._Ruu_local_statistic_type}-"
+                f"{self._Ruu_global_statistic_type}\n"
+                + Ruu_local_weights_str
+                + Ruu_global_weights_str
                 + u_nlags_str
             )
-            Ruu_whiteness = f"{self._validation_results.index[0]}: "
+            Ruu_whiteness = f"{self._validation_statistics.index[0]}: "
             "{self._validation_thresholds['Ruu_whiteness']} \n"
-            validation_results = self._validation_results
+            validation_results = self._validation_statistics
 
         # eps_nlags
-        if np.all(
-            self._eps_acorr_nlags.flatten()
-            == self._eps_acorr_nlags.flatten()[0]
-        ):
-            eps_nlags_str = f"num lags: {self._eps_acorr_nlags[0, 0]}\n"
+        if np.all(self._Ree_nlags.flatten() == self._Ree_nlags.flatten()[0]):
+            eps_nlags_str = f"num lags: {self._Ree_nlags[0, 0]}\n"
         else:
-            eps_nlags_str = f"num lags: \n{self._eps_acorr_nlags}\n"
+            eps_nlags_str = f"num lags: \n{self._Ree_nlags}\n"
 
         # eps acorr weights
-        if self._eps_acorr_local_weights is None:
-            eps_acorr_local_weights_str = (
-                f"local weights: {self._eps_acorr_local_weights}\n"
+        if self._Ree_local_weights is None:
+            Ree_local_weights_str = (
+                f"local weights: {self._Ree_local_weights}\n"
             )
         else:
-            eps_acorr_local_weights_str = (
-                "local weights: Yes (see self._eps_acorr_local_weights)\n"
+            Ree_local_weights_str = (
+                "local weights: Yes (see self._Ree_local_weights)\n"
             )
 
-        if self._eps_acorr_global_weights is None:
-            eps_acorr_global_weights_str = (
-                f"global weights: {self._eps_acorr_global_weights}\n"
+        if self._Ree_global_weights is None:
+            Ree_global_weights_str = (
+                f"global weights: {self._Ree_global_weights}\n"
             )
         else:
-            eps_acorr_global_weights_str = (
-                "global weights: Yes (see " "self._eps_acorr_global_weights)\n"
+            Ree_global_weights_str = (
+                "global weights: Yes (see " "self._Ree_global_weights)\n"
             )
 
         # ueps_nlags
-        if np.all(
-            self._ueps_xcorr_nlags.flatten()
-            == self._ueps_xcorr_nlags.flatten()[0]
-        ):
-            ueps_nlags_str = f"num lags: {self._ueps_xcorr_nlags[0, 0]}\n"
+        if np.all(self._Rue_nlags.flatten() == self._Rue_nlags.flatten()[0]):
+            ueps_nlags_str = f"num lags: {self._Rue_nlags[0, 0]}\n"
         else:
-            ueps_nlags_str = f"num lags: \n{self._ueps_xcorr_nlags}\n"
+            ueps_nlags_str = f"num lags: \n{self._Rue_nlags}\n"
 
         # ueps xcorr weights
-        if self._ueps_xcorr_local_weights is None:
-            ueps_xcorr_local_weights_str = (
-                f"local weights: {self._ueps_xcorr_local_weights}\n"
+        if self._Rue_local_weights is None:
+            Rue_local_weights_str = (
+                f"local weights: {self._Rue_local_weights}\n"
             )
         else:
-            ueps_xcorr_local_weights_str = (
-                "local weights: Yes (see " "self._ueps_xcorr_local_weights)\n"
+            Rue_local_weights_str = (
+                "local weights: Yes (see " "self._Rue_local_weights)\n"
             )
 
-        if self._ueps_xcorr_global_weights is None:
-            ueps_xcorr_global_weights_str = (
-                f"global weights: {self._ueps_xcorr_global_weights}\n"
+        if self._Rue_global_weights is None:
+            Rue_global_weights_str = (
+                f"global weights: {self._Rue_global_weights}\n"
             )
         else:
-            ueps_xcorr_global_weights_str = (
-                "global weights: Yes (see "
-                "self._ueps_xcorr_global_weights)\n"
+            Rue_global_weights_str = (
+                "global weights: Yes (see " "self._Rue_global_weights)\n"
             )
 
         repr_str = (
@@ -1139,20 +1107,20 @@ class ValidationSession:
             + "\n"
             + f"Residuals auto-correlation:\n"
             f"Statistic: "
-            f"{self._eps_acorr_local_statistic_type}-"
-            f"{self._eps_acorr_global_statistic_type}\n"
-            + eps_acorr_local_weights_str
-            + eps_acorr_global_weights_str
+            f"{self._Ree_local_statistic_type}-"
+            f"{self._Ree_global_statistic_type}\n"
+            + Ree_local_weights_str
+            + Ree_global_weights_str
             + eps_nlags_str
             + "\n"
             +
             #
             f"Input-residuals cross-correlation:\n"
             f"Statistic: "
-            f"{self._ueps_xcorr_local_statistic_type}-"
-            f"{self._ueps_xcorr_global_statistic_type}\n"
-            + ueps_xcorr_local_weights_str
-            + ueps_xcorr_global_weights_str
+            f"{self._Rue_local_statistic_type}-"
+            f"{self._Rue_global_statistic_type}\n"
+            + Rue_local_weights_str
+            + Rue_global_weights_str
             + ueps_nlags_str
             + "\n"
             +
@@ -1161,11 +1129,11 @@ class ValidationSession:
             f"Thresholds: \n"
             f"{Ruu_whiteness}"
             f"{self._validation_thresholds['Ruu_whiteness']:.4f} \n"
-            f"{self._validation_results.index[1]}: "
+            f"{self._validation_statistics.index[1]}: "
             f"{self._validation_thresholds['r2']:.4f} \n"
-            f"{self._validation_results.index[2]}: "
+            f"{self._validation_statistics.index[2]}: "
             f"{self._validation_thresholds['Ree_whiteness']:.4f} \n"
-            f"{self._validation_results.index[3]}: "
+            f"{self._validation_statistics.index[3]}: "
             f"{self._validation_thresholds['Rue_whiteness']:.4f} \n\n"
             "Actuals:\n"
             f"{validation_results}\n\n"
@@ -1209,6 +1177,49 @@ class ValidationSession:
         """
         return self._outcome
 
+    @property
+    def Ree(self) -> dict[str, XCorrelation]:
+        """Residuals auto-correlation arrays."""
+        return self._Ree
+
+    @property
+    def Ruu(self) -> XCorrelation:
+        """Input auto-correlation arrays."""
+        return self._Ruu
+
+    @property
+    def Rue(self) -> dict[str, XCorrelation]:
+        """Input-residuals cross-correlation arrays."""
+        return self._Rue
+
+    @property
+    def validation_thresholds(self) -> dict[str, float]:
+        """Input-residuals cross-correlation arrays."""
+        return self._validation_thresholds
+
+    @validation_thresholds.setter
+    def validation_thresholds(self, val: dict[str, float]) -> None:
+        """Input-residuals cross-correlation arrays."""
+        allowed_keys = self._get_validation_thresholds_default(
+            ignore_input=False
+        ).keys()
+        for k, v in val.items():
+            if k not in allowed_keys:
+                raise KeyError(f"Keys must be {allowed_keys}.")
+            if v < 0.0:
+                raise ValueError("Thresholds must be positive.")
+
+        self._validation_thresholds = val
+
+        for sim_name in self.simulations_names:
+            self._append_validation_statistics(sim_name=sim_name)
+
+    @property
+    def validation_statistics(self) -> Any:
+        """Return the computed statistics for each simulation."""
+
+        return self._validation_statistics
+
     def _get_validation_thresholds_default(
         self, ignore_input: bool
     ) -> dict[str, float]:
@@ -1223,24 +1234,6 @@ class ValidationSession:
             del validation_thresholds_default["Ruu_whiteness"]
         return validation_thresholds_default
 
-    def validation_values(self, sim_name: str) -> Any:
-        """Return the computed statistics for the selected simulation.
-
-        Parameters
-        ----------
-        sim_name:
-            Simulation name.
-        """
-
-        keys = [
-            "Ruu_whiteness",
-            "r2",
-            "Ree_whiteness",
-            "Rue_whiteness",
-        ]
-        vals = self._validation_results[sim_name].to_numpy()
-        return dict(zip(keys, vals))
-
     def _compute_r2_statistic(
         self, r2_list: np.ndarray, statistic: R2_Statistic_type = "min"
     ) -> float:
@@ -1254,7 +1247,7 @@ class ValidationSession:
 
         return result
 
-    def _append_validation_results(
+    def _append_validation_statistics(
         self,
         sim_name: str,
     ) -> None:
@@ -1287,21 +1280,21 @@ class ValidationSession:
             eps,
             X_bandwidths=self._Y_bandwidths,
             Y_bandwidths=self._Y_bandwidths,
-            nlags=self._eps_acorr_nlags,
+            nlags=self._Ree_nlags,
             sampling_period=self._Dataset.dataset.index[1]
             - self._Dataset.dataset.index[0],
         )
 
-        self._eps_acorr_tensor[sim_name] = Ree
+        self._Ree_tensor[sim_name] = Ree
 
         (
-            self._eps_acorr_whiteness[sim_name],
-            self._eps_acorr_whiteness_matrix[sim_name],
+            self._Ree_whiteness[sim_name],
+            self._Ree_whiteness_matrix[sim_name],
         ) = Ree.estimate_whiteness(
-            local_statistic=self._eps_acorr_local_statistic_type,
-            local_weights=self._eps_acorr_local_weights,
-            global_statistic=self._eps_acorr_global_statistic_type,
-            global_weights=self._eps_acorr_global_weights,
+            local_statistic=self._Ree_local_statistic_type,
+            local_weights=self._Ree_local_weights,
+            global_statistic=self._Ree_global_statistic_type,
+            global_weights=self._Ree_global_weights,
         )
 
         # Input-residals cross-correlation
@@ -1311,36 +1304,43 @@ class ValidationSession:
             eps,
             X_bandwidths=self._Y_bandwidths,
             Y_bandwidths=self._Y_bandwidths,
-            nlags=self._ueps_xcorr_nlags,
+            nlags=self._Rue_nlags,
             sampling_period=self._Dataset.dataset.index[1]
             - self._Dataset.dataset.index[0],
         )
 
-        self._ueps_xcorr_tensor[sim_name] = Rue
+        self._Rue_tensor[sim_name] = Rue
 
         (
-            self._ueps_xcorr_whiteness[sim_name],
-            self._ueps_xcorr_whiteness_matrix[sim_name],
+            self._Rue_whiteness[sim_name],
+            self._Rue_whiteness_matrix[sim_name],
         ) = Rue.estimate_whiteness(
-            local_statistic=self._ueps_xcorr_local_statistic_type,
-            local_weights=self._ueps_xcorr_local_weights,
-            global_statistic=self._ueps_xcorr_global_statistic_type,
-            global_weights=self._ueps_xcorr_global_weights,
+            local_statistic=self._Rue_local_statistic_type,
+            local_weights=self._Rue_local_weights,
+            global_statistic=self._Rue_global_statistic_type,
+            global_weights=self._Rue_global_weights,
         )
 
         # Append numerical values:
-        self._validation_results[sim_name] = np.array(
+        self._validation_statistics[sim_name] = np.array(
             [
-                self._u_acorr_whiteness,
+                self._Ruu_whiteness,
                 self._r2[sim_name],
-                self._eps_acorr_whiteness[sim_name],
-                self._ueps_xcorr_whiteness[sim_name],
+                self._Ree_whiteness[sim_name],
+                self._Rue_whiteness[sim_name],
             ]
         )
 
         # Compute PASS/FAIL outcome
         local_outcome = []
-        validation_dict = self.validation_values(sim_name)
+
+        # Use shorter names for the dataframe, e.g. Ruu_whiteness instead of
+        # 'Ruu whiteness (abs-mean)'
+        df_new_indices = deepcopy(self._validation_statistics)
+        df_new_indices.index = self._validation_thresholds.keys()
+        validation_dict = df_new_indices[sim_name].to_dict()
+
+        # Start the comparison
         for k in self._validation_thresholds.keys():
             if k != "r2":
                 local_outcome.append(
@@ -1789,7 +1789,7 @@ class ValidationSession:
         vs.simulations_values.index = vs._Dataset.dataset.index
 
         for sim_name in vs.simulations_names:
-            vs._append_validation_results(sim_name)
+            vs._append_validation_statistics(sim_name)
 
         return vs
 
@@ -1859,9 +1859,9 @@ class ValidationSession:
                     "Check the available simulations names with "
                     "'simulations_namess()'"
                 )
-        Ruu = self._u_acorr_tensor
-        Ree = self._eps_acorr_tensor
-        Rue = self._ueps_xcorr_tensor
+        Ruu = self._Ruu_tensor
+        Ree = self._Ree_tensor
+        Rue = self._Rue_tensor
 
         # Get p
         k0 = list(Rue.keys())[0]
@@ -2048,7 +2048,7 @@ class ValidationSession:
         ).rename_axis(df_sim.columns.names, axis=1)
 
         # Update residuals auto-correlation and cross-correlation attributes
-        vs_temp._append_validation_results(sim_name)
+        vs_temp._append_validation_statistics(sim_name)
 
         return vs_temp
 
@@ -2074,11 +2074,11 @@ class ValidationSession:
                 vs_temp.simulations_values.columns.remove_unused_levels()
             )
 
-            vs_temp._eps_acorr_tensor.pop(sim_name)
-            vs_temp._ueps_xcorr_tensor.pop(sim_name)
+            vs_temp._Ree_tensor.pop(sim_name)
+            vs_temp._Rue_tensor.pop(sim_name)
 
-            vs_temp._validation_results = vs_temp._validation_results.drop(
-                sim_name, axis=1
+            vs_temp._validation_statistics = (
+                vs_temp._validation_statistics.drop(sim_name, axis=1)
             )
 
         return vs_temp
