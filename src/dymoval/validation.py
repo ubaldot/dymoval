@@ -843,7 +843,7 @@ class ValidationSession:
         validation_thresholds: dict[str, float] | None = None,
         ignore_input: bool = False,
         # r2
-        r2_statistic: Literal['min', 'mean'] = "min",
+        r2_statistic: Literal["min", "mean"] = "min",
         # The following are input to XCorrelation.estimate_whiteness()
         # method.
         # input auto-correlation

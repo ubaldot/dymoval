@@ -3,11 +3,10 @@
 <img src="https://github.com/VolvoGroup/dymoval
 /blob/main/docs/source/figures/DymovalLogo.svg"
 
-    data-canonical-src="https://github.com/VolvoGroup/dymoval
-    /blob/main/docs/source/figures/DymovalLogo.svg"
+data-canonical-src="https://github.com/VolvoGroup/dymoval
+/blob/main/docs/source/figures/DymovalLogo.svg"
 
-    width="800"
-    class="center"
+width="800" class="center"
 
 />
 
@@ -40,23 +39,18 @@ model quality evaluation, including r-squared fit, residuals norms, and
 coverage region.
 
 <div align="center"
-	<br>
-	<br>
+  <br>
+  <br>
 <img
-    src="https://github.com/VolvoGroup/dymoval
-    /blob/main/docs/source/figures/DymovalNutshell.svg"
+  src="https://github.com/VolvoGroup/dymoval
+      /blob/main/docs/source/figures/DymovalNutshell.svg"
 
-    data-canonical-src="[https://github.com/VolvoGroup/dymoval
-    /blob/main/docs/source/figures/DymovalNutshell.svg]
-    (https://github.com/VolvoGroup/dymoval
-    /blob/main/docs/source/DymovalNutshell.svg)"
+data-canonical-src="[https://github.com/VolvoGroup/dymoval
+/blob/main/docs/source/figures/DymovalNutshell.svg]
+(https://github.com/VolvoGroup/dymoval
+/blob/main/docs/source/DymovalNutshell.svg)"
 
-    width="600"
-    class="center"
-    />
-    <br>
-    <br>
-    <br>
+width="600" class="center" /> <br> <br> <br>
 
 </div>
 
@@ -72,8 +66,7 @@ intervals.
 Dymoval exists on both `pip` and `conda`, so you can choose between the
 following:
 
-    pip install dymoval
-    conda install -c conda-forge dymoval
+pip install dymoval conda install -c conda-forge dymoval
 
 ## Getting started
 
@@ -85,23 +78,23 @@ and $q$ is the number of outputs. Just call the following function:
 
 ```
 validate_models(
-        measured_in=u_meas,
-        measured_out=y_meas,
-        simulated_out=y_sim,
-        sampling_period = sampling_period
-    )
+    measured_in=u_meas,
+    measured_out=y_meas,
+    simulated_out=y_sim,
+    sampling_period = sampling_period
+)
 ```
 
 to get something like the following:
 
 ```
-    Input whiteness (abs_mean-max)      0.3532
-    R-Squared (%)                      65.9009
-    Residuals whiteness (abs_mean-max)  0.1087
-    Input-Res whiteness (abs_mean-max)  0.2053
+  Input whiteness (abs_mean-max)      0.3532
+  R-Squared (%)                      65.9009
+  Residuals whiteness (abs_mean-max)  0.1087
+  Input-Res whiteness (abs_mean-max)  0.2053
 
-             My_Model
-    Outcome: PASS
+           My_Model
+  Outcome: PASS
 ```
 
 Disappointed by the results?
@@ -113,8 +106,8 @@ missing data, and other factors that might affect the results. Take a look at
 the tutorial to learn how to address such issues:
 
 ```
-    import dymoval as dmv
-    dmv.open_tutorial()
+  import dymoval as dmv
+  dmv.open_tutorial()
 ```
 
 The above commands create a `dymoval_tutorial` folder containing all the files
