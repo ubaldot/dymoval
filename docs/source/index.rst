@@ -87,7 +87,7 @@ Index
 
   installation
   getting_started
-  some_theory
+  model_validation
   reference
   api
 

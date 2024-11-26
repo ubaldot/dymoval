@@ -62,6 +62,8 @@ observations sampled with period `sampled_period`, $p$ is the number of inputs
 and $q$ is the number of outputs. Just call the following function:
 
 ```
+from dymoval.validation import validate_models
+
 validate_models(
     measured_in=u_meas,
     measured_out=y_meas,
