@@ -1,13 +1,8 @@
 <div align="center">
 
-<img src="https://github.com/VolvoGroup/dymoval
-/blob/main/docs/source/figures/DymovalLogo.svg"
-
-data-canonical-src="https://github.com/VolvoGroup/dymoval
-/blob/main/docs/source/figures/DymovalLogo.svg"
-
+<img src="https://github.com/VolvoGroup/dymoval/blob/main/docs/source/figures/DymovalLogo.svg"
+data-canonical-src="https://github.com/VolvoGroup/dymoval/blob/main/docs/source/figures/DymovalLogo.svg"
 width="800" class="center"
-
 />
 
 </div>
@@ -42,13 +37,9 @@ coverage region.
   <br>
   <br>
 <img
-  src="https://github.com/VolvoGroup/dymoval
-      /blob/main/docs/source/figures/DymovalNutshell.svg"
+  src="https://github.com/VolvoGroup/dymoval/blob/main/docs/source/figures/DymovalNutshell.svg"
 
-data-canonical-src="[https://github.com/VolvoGroup/dymoval
-/blob/main/docs/source/figures/DymovalNutshell.svg]
-(https://github.com/VolvoGroup/dymoval
-/blob/main/docs/source/DymovalNutshell.svg)"
+data-canonical-src="[https://github.com/VolvoGroup/dymoval/blob/main/docs/source/figures/DymovalNutshell.svg](https://github.com/VolvoGroup/dymoval/blob/main/docs/source/DymovalNutshell.svg)"
 
 width="600" class="center" /> <br> <br> <br>
 
