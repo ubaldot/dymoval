@@ -4,15 +4,8 @@ Validate your model
 ===================
 
 It is now time to validate your model.
+To validate models do as bla bla bla or through ValidationSession
 
-.. figure:: ../figures/ModelValidationDymoval.svg
-   :scale: 50%
-
-   The model validation process.
-
-The validation process consists in comparing the output of your model with the
-measurements data when both the real system and the model are fed with the
-same input.
 
 Standard validation procedures evaluate the following quantities:
 
@@ -84,8 +77,6 @@ they can trust the model.
 The results are disappointing.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-How Dymoval computes the statistics?
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
 .. vim: set ts=2 tw=78:

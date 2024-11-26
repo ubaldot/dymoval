@@ -4,25 +4,24 @@
  More on Model Validation
 ##########################
 
-In this Section we attempt at providing more insights on model validation. But
-let's repeat again the overall validation process:
+The model validation process happens in four steps:
 
 #. **Design a Set of Experiments**: Define a set of experiments to be carried
    out on the target environment, also known as the :ref:`doe` (*DoE*). This
-   involves specifying the set of stimuli (*input*) to be given to the target
-   environment.
+   involves specifying the set of stimuli (*input*) to be applied on the
+   target environment.
 
-#. **Run Experiments on the Target Environment**: Execute the experiments
-   designed in step 1 on the target environment and log its response. The
-   combination of the input signals and the target environment's response is
-   referred to as the *measurement dataset* (or simply dataset). Due to
-   sensors may be noisy, sampled at different rate, log intermittently, etc.,
-   you may need to :ref:`clean-up your measurements dataset <create_dataset>`.
+#. **Collect Measurements**: Execute the experiments designed in step 1 on the
+   target environment and collect the response. The combination of the input
+   signals and the target environment's response is referred to as the
+   *measurement dataset* (or simply dataset). Due to sensors may be noisy,
+   sampled at different rate, log intermittently, etc., you may need to
+   :ref:`clean-up your measurements dataset <create_dataset>`.
 
-#. **Run the Same Experiments on Your Model**: Conduct the exact same
-   experiments defined in step 1 on your model and :ref:`log its response
-   <simulate_model>`. The response of your model is referred to as the
-   simulation results.
+#. **Generate Simulation Data**: Conduct the exact same experiments defined in
+   step 1 on your model and :ref:`log its response <simulate_model>` and
+   collect its response. Such a response is referred to as the simulation
+   results.
 
 #. **Evaluate the Results**: :ref:`Assess <validation_session>` how "close"
    the simulation results from step 3 are to the logged responses from step 2
@@ -35,20 +34,12 @@ let's repeat again the overall validation process:
    returns a pass/fail value but in general it returns the evaluation of some
    model quality metrics.
 
-If the results of step 4 are good, you can safely continue developing and
-testing in the virtual environment. Most likely, things will work in the
-target environment as well, but it is good practice to verify this
-periodically.
+If the results of step 4 are good, and you can safely continue developing and
+testing in the virtual environment.
 
-Keep in mind that *“all models are wrong, but some are useful.”* ;-)
+Let's see how steps 1-4 can be applied.
 
-However, it is worth noting that your model is valid only within the **region
-covered by the measurements**. If you plan to use your model with data outside
-the measurements coverage region, then you have no guarantees that things will
-work in the target environment as they did in the virtual environment.
-
-   **Example** Let's show how steps 1-4 can be applied through a simple
-   real-world example.
+   **Example**
 
    Assume that you are developing some cool autonomous driving algorithm that
    shall be deployed in a car, which represent your *target environment*.

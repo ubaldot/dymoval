@@ -2,41 +2,12 @@
  Getting Started
 #################
 
-********************************
- Model validation in a nutshell
-********************************
-
-Model validation's job is to evaluate the quality of your models.
-
-The process happens in four steps:
-
-#. **Plan** some test to execute on the real system. The goal is to stimulate
-   the real-world system with input signals that are random as possible. You
-   should try to hit every corner of the system.
-
-#. **Collect** the measured inputs and outputs of your real system,
-
-#. **Simulate** your model with the same input that you used to stimulate your
-   real system and log the simulated output,
-
-#. **Evaluate** your model quality through Dymoval by feeding it with measured
-   and simulated data.
-
-The following figure summarize the process:
-
-.. figure:: ./figures/ModelValidationDymoval.svg
-   :scale: 50 %
-
-   The model validation process.
-
-If the results of the last point are good, then your model is good to go.
-
-Operational speaking, suppose you want to validate a model and you have the
-simulated out ``y_sim`` the measured input ``u_meas``, and the measured out
-``y_meas`` arranged in :math:`N\times q`, :math:`N\times p` and :math:`N\times
-q` ``np.ndarray``, respectively, where :math:`N` is the number of observations
-sampled with period ``sampled_period``, :math:`p` is the number of inputs and
-:math:`q` is the number of outputs. Just call the following function:
+Suppose you want to validate a model and you have the simulated out ``y_sim``
+the measured input ``u_meas``, and the measured out ``y_meas`` arranged in
+:math:`N\times q`, :math:`N\times p` and :math:`N\times q` ``np.ndarray``,
+respectively, where :math:`N` is the number of observations sampled with
+period ``sampled_period``, :math:`p` is the number of inputs and :math:`q` is
+the number of outputs. Just call the following function:
 
 .. code::
 
@@ -61,10 +32,9 @@ to get something like the following:
             My_Model
    Outcome: PASS
 
-and are good to go. The model quality is evaluated according to the following
-criteria:
+The model quality is evaluated according to the following criteria:
 
--  **R-squared** index: A good model should have this as large as possible.
+-  :math:`\mathbf{R^2}`: A good model should have this as large as possible.
 
 -  **Residuals auto-correlation**: A good model should have this as close to
    white noise as possible (Residuals whiteness nearly equal to 0.0).
@@ -76,7 +46,7 @@ criteria:
 Nevertheless, given that "*all models are wrong, but some are useful,*" we
 cannot expect perfect figures. However, since we are interested in the dynamic
 behavior of our models, residuals are somewhat more important than the
-R-squared match (that does not mean the R-squared can be very bad!).
+:math:`R^2` match (that does not mean the R-squared can be very bad!).
 
 However, it is worth nothing that **it does not matter what simulation tool
 you use**. Dymoval only look at the simulated output values and make an
