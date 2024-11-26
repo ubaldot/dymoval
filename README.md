@@ -84,7 +84,7 @@ to get something like the following:
 
 Disappointed by the results?
 
-Don't worry—it might not be the model's fault.
+Don't worry, it might not be the model's fault.
 
 In fact, you could be dealing with noisy measurements, over-sampled signals,
 missing data, and other factors that might affect the results. Take a look at
