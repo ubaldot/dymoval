@@ -1,9 +1,11 @@
 <div align="center">
 
-<img src="https://github.com/VolvoGroup/dymoval/blob/main/docs/source/figures/DymovalLogo.svg"
+<img
+src="https://github.com/VolvoGroup/dymoval/blob/main/docs/source/figures/DymovalLogo.svg"
+
 data-canonical-src="https://github.com/VolvoGroup/dymoval/blob/main/docs/source/figures/DymovalLogo.svg"
-width="800" class="center"
-/>
+
+width="800" class="center" />
 
 </div>
 
