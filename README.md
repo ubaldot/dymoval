@@ -1,11 +1,6 @@
 <div align="center">
 
-<img
-src="https://github.com/VolvoGroup/dymoval/blob/main/docs/source/figures/DymovalLogo.svg"
-
-data-canonical-src="https://github.com/VolvoGroup/dymoval/blob/main/docs/source/figures/DymovalLogo.svg"
-
-width="800" class="center" />
+<img src="https://github.com/VolvoGroup/dymoval/blob/main/docs/source/figures/DymovalLogo.svg" data-canonical-src="[https://github.com/VolvoGroup/dymoval/blob/main/docs/source/figures/DymovalLogo.svg](https://github.com/VolvoGroup/dymoval/blob/main/docs/source/figures/DymovalLogo.svg)" width="800" class="center" />
 
 </div>
 
@@ -36,15 +31,12 @@ model quality evaluation, including r-squared fit, residuals norms, and
 coverage region.
 
 <div align="center"
-  <br>
-  <br>
-<img
-  src="https://github.com/VolvoGroup/dymoval/blob/main/docs/source/figures/DymovalNutshell.svg"
-
-data-canonical-src="[https://github.com/VolvoGroup/dymoval/blob/main/docs/source/figures/DymovalNutshell.svg](https://github.com/VolvoGroup/dymoval/blob/main/docs/source/DymovalNutshell.svg)"
-
-width="600" class="center" /> <br> <br> <br>
-
+	<br>
+	<br>
+<img src="https://github.com/VolvoGroup/dymoval/blob/main/docs/source/figures/DymovalNutshell.svg" data-canonical-src="[https://github.com/VolvoGroup/dymoval/blob/main/docs/source/figures/DymovalNutshell.svg](https://github.com/VolvoGroup/dymoval/blob/main/docs/source/DymovalNutshell.svg)" width="600" class="center"  />
+	<br>
+	<br>
+	<br>
 </div>
 
 If you are tracking your models changes in a CI/CD environment, then _Dymoval_
