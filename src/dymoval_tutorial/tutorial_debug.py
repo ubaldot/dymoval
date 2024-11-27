@@ -121,6 +121,12 @@ vs = dmv.validation.validate_models(
     Y_bandwidths=[cutoff, cutoff],
 )
 
+
+y_sim2 = deepcopy(y_sim)
+y_sim2[:, 0] = y_sim2[:, 0] * 0.82
+
+vs = vs.append_simulation("Sim_1", y_names=["out0", "out1"], y_data=y_sim2)
+
 vs_trimmed = vs.trim(1, 30)
 print(vs_trimmed)
 # vs.plot_residuals()

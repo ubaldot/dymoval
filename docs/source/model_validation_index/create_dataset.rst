@@ -58,9 +58,9 @@ is an output and a thermostat position is the *input* signal:
    # Generate random thermostat position
    thermostat_pos = np.concatenate((np.ones(20), np.zeros(40), np.ones(40)))
    # Create a dymoval Signal
-   thermostat_pos: Signal ={
+   thermostat_pos_values: Signal ={
            "name": "thermostat_position",
-           "samples": thermostat_pos,
+           "samples": thermostat_pos_values,
            "signal_unit": "",
            "sampling_period": 120,
            "time_unit": "s",
@@ -87,7 +87,7 @@ portion of measurements data that you want to use for validation purpose:
    you are using an interactive ``matplotlib`` backend like ``qtagg``.
    However, if you are not using an interactive backend, you can still trim
    your Dataset object by passing the arguments ``tin`` and ``tout`` to the
-   constructor or by passing them to the :ref:`~dymoval.dataset.Dataset.trim`
+   constructor or by passing them to the :py:meth:`~dymoval.dataset.Dataset.trim`
    method.
 
 It is worth mentioning that when dealing with measurement datasets, several
