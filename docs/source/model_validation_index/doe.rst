@@ -29,13 +29,15 @@ measurement datasets?
 Ideally, the best would be to stimulate the system at every frequencies. Very
 ideally with a white noise signal. A white noise signal could be mimic through
 a *Psuedo-Random-Binary-Sequence (PRBS)* which is extremely easy to implement
-on a digital platform. Alternatively, you could use a chirp signal or just
-manually drive it as randomly as possible.
+on a digital platform. Alternatively, you could use a chirp signal or you
+could just manually drive your real system as randomly as possible. Be sure to
+hit all the corner cases.
 
-Once done with our experiments, we can check how "white" was our input signal
-by analyzing its *auto-correlation* function. Dymoval has the
-:py:class:`~dymoval.validation.XCorrelation` which can be used for computing
-the auto-correlation function :math:`R_{uu}(\tau)` of a signal :math:`u(k)`.
+Say that we have done with our experiments.
+How to check if our signal was *white* enough? Well, we can analyze its
+*auto-correlation* function. Dymoval has the
+:py:class:`~dymoval.validation.XCorrelation` that can be used for this
+purpose.
 
 Assume that you have a signal ``u`` expressed as a :math:`N \times p`
 ``np.ndarray``, where :math:`N` is the number of samples and :math:`p` is the
@@ -92,8 +94,9 @@ and sampling period are supplied to the constructor of the
    Fisher Matrix?) on the information level contained in a given measurements
    dataset in within its coverage region.
 
-Coverage region
-===============
+*****************
+ Coverage region
+*****************
 
 It is worth noting that a measurements dataset covering a fairly large region
 won't necessarily imply *information richness.* This happens for example when

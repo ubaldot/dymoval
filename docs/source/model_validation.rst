@@ -96,7 +96,6 @@ The cost savings when using models are clear, but there is no free lunch. In
 fact, the challenge lies in the design of good models.
 
 .. toctree::
-   :numbered:
    :hidden:
 
    ./model_validation_index/doe
