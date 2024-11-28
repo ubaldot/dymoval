@@ -34,13 +34,14 @@ to get something like the following:
 
 The model quality is evaluated according to the following criteria:
 
--  :math:`\mathbf{R^2}`: A good model should have this value as large as possible.
-
--  **Residuals whiteness**: A good model should have this as close to 0.0 as possible
-   (max value is 1.0).
-
--  **Input-residuals cross-correlation**: A good model should have this as
-   close to 0.0 as possible (max value is 1.0).
+-  **Input whiteness (optional)**: A model has been as adequately stimulated
+   as this value is close to 0.0 (max value is 1.0).
+-  :math:`\mathbf{R^2}`: A good model should have this value as large as
+   possible.
+-  **Residuals whiteness**: A good model should have this as close to 0.0 as
+   possible (max value is 1.0).
+-  **Input-residuals whiteness**: A good model should have this as close to
+   0.0 as possible (max value is 1.0).
 
 Nevertheless, given that "*all models are wrong, but some are useful,*" we
 cannot expect perfect figures. However, since we are interested in the dynamic
@@ -48,7 +49,7 @@ behavior of our models, residuals are somewhat more important than the
 :math:`R^2` match (that does not mean the :math:`R^2` can be very bad!).
 
 However, it is worth nothing that **it does not matter what simulation tool
-you use**. Dymoval only look at the simulated output values and make an
+you use**. *Dymoval* only look at the simulated output values and make an
 evaluation versus the measurement data.
 
 Now that you understand the process, you can gain hands-on experience with the
