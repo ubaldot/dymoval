@@ -306,9 +306,7 @@ class XCorrelation:
                 step = max(1, min(step, nlags_full // nlags_min))
                 indices_downsampled = np.where(lags_full % step == 0)[0]
 
-                values_downsampled = R_full[ii, jj].values[
-                    indices_downsampled
-                ]
+                values_downsampled = R_full[ii, jj].values[indices_downsampled]
 
                 lags_downsampled = lags_full[indices_downsampled] // step
 
@@ -468,9 +466,7 @@ class XCorrelation:
 
         # fix global weights
         if global_weights is not None and global_weights.shape != (p, q):
-            raise IndexError(
-                f"'global_weights' must be a {p}x{q} np.ndarray."
-            )
+            raise IndexError(f"'global_weights' must be a {p}x{q} np.ndarray.")
         else:
             W_global = (
                 np.ones(p * q) if global_weights is None else global_weights
@@ -1392,9 +1388,7 @@ class ValidationSession:
         # r2 value and r2 statistics
         r2 = rsquared(y_values, y_sim_values)
         self._r2_list[sim_name] = r2
-        self._r2[sim_name] = self._compute_r2_statistic(
-            r2, self._r2_statistic
-        )
+        self._r2[sim_name] = self._compute_r2_statistic(r2, self._r2_statistic)
 
         # Residuals auto-correlation
         Ree = XCorrelation(
