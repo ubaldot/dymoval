@@ -34,8 +34,8 @@ to get something like the following:
 
 The model quality is evaluated according to the following criteria:
 
--  **Input whiteness (optional)**: A model has been as adequately stimulated
-   as this value is close to 0.0 (max value is 1.0).
+-  **Input whiteness (optional)**: A trustworthy model shall have this value
+   is close to 0.0 (max value is 1.0).
 -  :math:`\mathbf{R^2}`: A good model should have this value as large as
    possible.
 -  **Residuals whiteness**: A good model should have this as close to 0.0 as

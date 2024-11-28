@@ -17,10 +17,10 @@ To validate models you can just run the following:
        sampling_period = sampling_period
    )
 
-where ``y_sim`` is the simulated out, ``u_meas`` is the measured input,
-``y_meas`` is the measured out arranged in :math:`N\times q`, :math:`N\times
+where `y_sim` is the simulated out, `u_meas` is the measured input,
+`y_meas` is the measured out arranged in :math:`N\times q`, :math:`N\times
 p` and :math:`N\times q` arrays, respectively, where :math:`N` is the number
-of observations sampled with period ``sampled_period``, :math:`p` is the
+of observations sampled with period `sampled_period`, :math:`p` is the
 number of inputs and :math:`q` is the number of outputs.
 
 For more accurate results, the bandwidths of the involved signals can be
@@ -53,7 +53,6 @@ done automatically:
 
 The default validation procedure evaluates the following quantities:
 
-
 -  *Input whiteness (optional)*,
 -  :math:`R^2` fit of the measured and simulated outputs,
 -  *Residuals whiteness*,
@@ -70,9 +69,87 @@ You can finally visually inspect both the simulations results with the
 the residuals with the
 :py:meth:`~dymoval.validation.ValidationSession.plot_residuals` method.
 
-*********************
- What are residuals?
-*********************
+*******************************
+ How to interpret the results?
+*******************************
+
+The :math:`R^2` index tells us how well the simulation results fit the
+measurement data, whereas the residuals provide information about the dynamic
+behavior of our model. More precisely:
+
+-  If the input signal has a low whiteness value (i.e., as close to 0.0 as
+   possible), it means that during the lab tests, the system was adequately
+   stimulated, covering all aspects of the real system. This gives higher
+   trust to our model if the other validation metrics are good.
+
+-  If the residuals' whiteness is large, it indicates that some dynamics have
+   been poorly modeled, and therefore the model needs updates. In this case,
+   if the :math:`R^2` value is large, it only means that your model is fitting
+   well what has been modeled, but there are still underlying, non-modeled
+   dynamics. If the model is of the form :math:`\dot x = Ax + Bu`, then the
+   model between :math:`x` and :math:`\dot x`, namely the matrix :math:`A`,
+   shall be revised.
+
+-  If the input-residuals' whiteness level is large, it means that the
+   input-output model needs improvements. If our model is of the form
+   :math:`\dot x = Ax + Bu`, then the model between :math:`u` and :math:`\dot
+   x`, namely the matrix :math:`B`, shall be revised.
+
+For simulation models, which motivated the development of *dymoval*, we are
+more interested in the dynamic behavior of models than the point-wise fit of
+the data. Hence, even if the :math:`R^2` index is low, the model can still be
+very useful in a simulation setting, provided that the residuals are white
+enough.
+
+The default validation process offered by Dymoval consists of comparing these
+values with some adjustable thresholds. You can tune such thresholds depending
+on how stringent you want to be with your model, but you can also fetch raw
+data and build up the criteria you want.
+
+In any case, it is important that you deliver your model along with the
+validation results and the coverage region, so users know within which limits
+they can trust the model.
+
+********************************
+ The results are disappointing.
+********************************
+
+When the validation results are bad does not necessarily mean that the model
+is bad. It may be that the validation procedure needs some tweak. Here are few
+things to check:
+
+-  The measurements dataset has noisy measurements. In that case you want to
+   low-pass filter the dataset, but avoid to use tight cutoff frequencies
+   because that would smooth the signal too much, possibly resulting in high
+   ACF values. Also, it is worth nothing that the bandwidth of a signal
+   downstream a low-pass filter is not equal to the filter cutoff frequency.
+
+-  The signals may be over-sampled. Consider estimating the signals'
+   bandwidths and pass this information to *dymoval* functions.
+
+-  The input signal has some trend or some large mean values or offset, etc..
+   Consider removing possible trends, mean values, etc. from the input signals
+   used in the :ref:`Dataset <Dataset>` object contained in the
+   :ref:`ValidationSession <ValidationSession>` object. *You don't need to do
+   it in the output signals because eventual trends or mean values are
+   canceled out during the computation of the residuals*. However, to generate
+   the simulated data the input signal shall be as close as possible to the
+   input signal used in the test. Hence, you may consider **two distinct input
+   signals**: one for feeding the model and a manipulated version of it for
+   validation purpose that is included in the :ref:`ValidationSession
+   <ValidationSession>` object.
+
+-  *Stiff models*: *dymoval* can naturally cope with stiff models, but it is
+   very important to exploit bandwidths information. However, you can ignore
+   entries in the resulting validation matrix described in point 2. of the
+   next Section when performing an overall assessment if they represents
+   signal with significantly different bandwidths. This means that you should
+   extract information from the :ref:`ValidationSession <ValidationSession>`
+   object and build custom evaluation metrics.
+
+**********************************
+ Some theory: what are residuals?
+**********************************
 
 The residuals, denoted as :math:`\varepsilon`, are simply the error between
 the measured outputs and the simulated outputs, defined as :math:`\varepsilon
@@ -130,82 +207,4 @@ whiteness estimation of :math:`X` is performed in three steps:
    correspond to the *worst-case* whiteness estimate.
 
 It is possible to change the statistics used for estimate the whiteness, see
-:ref:`dymoval_api`.
-
-*************************************************************
- How to use the validation results for improving the models?
-*************************************************************
-
-The :math:`R^2` index tells us how well the simulation results fit the
-measurement data, whereas the residuals provide information about the dynamic
-behavior of our model. More precisely:
-
--  If the input signal has a low whiteness value (i.e., as close to 0.0 as
-   possible), it means that during the lab tests, the system was adequately
-   stimulated, covering all aspects of the real system. This gives higher
-   trust to our model if the other validation metrics are good.
-
--  If the residuals' whiteness is large, it indicates that some dynamics have
-   been poorly modeled, and therefore the model needs updates. In this case,
-   if the :math:`R^2` value is large, it only means that your model is fitting
-   well what has been modeled, but there are still underlying, non-modeled
-   dynamics. If the model is of the form :math:`\dot x = Ax + Bu`, then the
-   model between :math:`x` and :math:`\dot x`, namely the matrix :math:`A`,
-   shall be revised.
-
--  If the input-residuals' whiteness level is large, it means that the
-   input-output model needs improvements. If our model is of the form
-   :math:`\dot x = Ax + Bu`, then the model between :math:`u` and :math:`\dot
-   x`, namely the matrix :math:`B`, shall be revised.
-
-For simulation models, which motivated the development of *dymoval*, we are
-more interested in the dynamic behavior of models than the point-wise fit of
-the data. Hence, even if the R-squared index is low, the model can still be
-very useful in a simulation setting, provided that the residuals are white
-enough.
-
-The default validation process offered by Dymoval consists of comparing these
-values with some adjustable thresholds. You can tune such thresholds depending
-on how stringent you want to be with your model, but you can also fetch raw
-data and build up the criteria you want.
-
-In any case, it is important that you deliver your model along with the
-validation results and the coverage region, so users know within which limits
-they can trust the model.
-
-********************************
- The results are disappointing.
-********************************
-
-When the validation results are bad does not necessarily mean that the model
-is bad. It may be that the validation procedure needs some tweak. Here are few
-things to check:
-
--  The measurements dataset has noisy measurements. In that case you want to
-   low-pass filter the dataset, but avoid to use tight cutoff frequencies
-   because that would smooth the signal too much, possibly resulting in high
-   ACF values. Also, it is worth nothing that the bandwidth of a signal
-   downstream a low-pass filter is not equal to the filter cutoff frequency.
-
--  The signals may be over-sampled. Consider estimating the signals'
-   bandwidths and pass this information to *dymoval* functions.
-
--  The input signal has some trend or some large mean values or offset, etc..
-   Consider removing possible trends, mean values, etc. from the input signals
-   used in the :ref:`Dataset <Dataset>` object contained in the
-   :ref:`ValidationSession <ValidationSession>` object. *You don't need to do
-   it in the output signals because eventual trends or mean values are
-   canceled out during the computation of the residuals*. However, to generate
-   the simulated data the input signal shall be as close as possible to the
-   input signal used in the test. Hence, you may consider **two distinct input
-   signals**: one for feeding the model and a manipulated version of it for
-   validation purpose that is included in the :ref:`ValidationSession
-   <ValidationSession>` object.
-
--  *Stiff models*: *dymoval* can naturally cope with stiff models, but it is
-   very important to exploit bandwidths information. However, you can ignore
-   entries in the resulting validation matrix described in point 2. of the
-   next Section when performing an overall assessment if they represents
-   signal with significantly different bandwidths. This means that you should
-   extract information from the :ref:`ValidationSession <ValidationSession>`
-   object and build custom evaluation metrics.
+*dymoval* API.

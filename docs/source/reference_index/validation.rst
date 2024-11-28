@@ -2,17 +2,9 @@
 Model Validation
 ****************
 
-A :ref:`ValidationSession<ValidationSession>` object stores a :ref:`Dataset <Dataset>` object that serves as a basis for validate your models.
-Then, the user can append as many simulation results as he/she want to the same
-:ref:`ValidationSession<ValidationSession>` object that automatically computes validation metrics
-and store the results in the
-:py:attr:`~.ValidationSession.validation_results` attribute.
-
-.. warning::
-   It is **discouraged** to change a :ref:`Dataset <Dataset>` object once it is an attribute of a :ref:`ValidationSession<ValidationSession>` object.
-   This because the validation results will be jeopardized.
-
-   If you want to change Dataset, then consider to create a new :ref:`ValidationSession<ValidationSession>` object.
+Given the centrality of auto- and cross-correlation functions in model
+validation, *dymoval* provides a class :ref:`XCorrelation
+<XCorrelation>`. Furthermore, it also provides a :ref:`ValidationSession<ValidationSession>` to cope with simulation results.
 
 .. _XCorrelation:
 

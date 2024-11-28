@@ -9,23 +9,23 @@ The model validation process happens in four steps:
 #. **Design a Set of Experiments**: Define a set of experiments to be carried
    out on the target environment. This involves specifying the set of stimuli
    (*input*) to be applied on the target environment. Such a task is also
-   known as the :ref:`doe` (*DoE*).
+   known as the :ref:`doe`.
 
-#. **Execute** the experiments designed in step 1 on the
-   target environment and **collect** the response. The combination of the input
-   signals and the target environment's response is referred to as the
-   *measurement dataset* (or simply dataset). Due to sensors may be noisy,
-   sampled at different rate, log intermittently, etc., you may need to
-   :ref:`clean-up your measurements dataset <create_dataset>`.
+#. **Execute** the experiments planned in step 1. on the target environment
+   and **collect** the response. The combination of the input signals and the
+   system response is referred to as the *measurement dataset* (or simply
+   dataset). Due to sensors may be noisy, sampled at different rate, log
+   intermittently, etc., you may need to :ref:`clean-up your measurements
+   dataset <create_dataset>`.
 
 #. **Generate Simulation Data**: Conduct the exact same experiments defined in
-   step 1 on your model and :ref:`log its response <simulate_model>` and
+   step 1 on the model and :ref:`log its response <simulate_model>` and
    collect its response. Such a response is referred to as the simulation
    results.
 
 #. **Evaluate the Results**: :ref:`Assess <validation_session>` how "close"
-   the simulation results from step 3 are to the logged responses from step 2
-   using specific validation metrics.
+   the simulation results from step 3. are to the logged responses from step
+   2. using specific validation metrics.
 
 .. figure:: ./figures/ModelValidation.svg
    :scale: 50%
