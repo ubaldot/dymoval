@@ -60,19 +60,19 @@ class XCorrelation:
     r"""Cross-correlation of two signals `X` and `Y`.
 
     The signals can be MIMO and shall have dimension
-    :math: `N\times p` and :math: `N\times q`, respectively.
+    :math:`N\times p` and :math:`N\times q`, respectively.
 
     If `X = Y` then it return the normalized auto-correlation of `X`.
     If additional arguments are passed, then either
-    ``X_Bandwidth``, ``Y_Bandwidth`` and ``sampling_period`` are passed or
+    `X_Bandwidth`, `Y_Bandwidth` and `sampling_period` are passed or
     none of them.
 
     The cross-correlation functions are stored in the attribute `R` which is
     an array where the `(i, j)`-th element
     is the cross-correlation function between the `i`-th signal of
     `X` and the `j`-th signal of `Y`. The cross-correlation functions
-    are ``NamedTuple`` s with attributes
-    ``values`` and ``lags``.
+    are `NamedTuple` s with attributes
+    `values` and `lags`.
 
 
     Parameters
@@ -80,10 +80,10 @@ class XCorrelation:
     name:
         The XCorrelation object name.
     X:
-        MIMO signal realizations expressed as `Nxp` 2-D array
+        MIMO signal realizations expressed as :math:`N\times p` array
         of `N` observations of `p` signals.
     Y:
-        MIMO signal realizations expressed as `Nxq` 2-D array
+        MIMO signal realizations expressed as :math:`N\times q` array
         of `N` observations of `q` signals.
     nlags:
         :math:`p \times q` array where the `(i, j)`-th element represents
@@ -92,12 +92,12 @@ class XCorrelation:
         `X` with the `j`-th signal of `Y`.
     X_bandwidths:
         1-D array representing the bandwidths of each signal in  `X`.
-        ``X_bandwidths[i]`` corresponds to the bandwidth of signal ``X[i]``.
+        `X_bandwidths[i]` corresponds to the bandwidth of signal `X[i]`.
     Y_bandwidths:
         1-D array representing the bandwidths of each signal in `Y`.
-        ``Y_bandwidths[i]`` corresponds to the bandwidth of signal ``Y[i]``.
+        `Y_bandwidths[i]` corresponds to the bandwidth of signal `Y[i]`.
     sampling_period:
-        Sampling period of the signals ``X`` and ``Y``.
+        Sampling period of the signals `X` and `Y`.
 
     Example
     -------
@@ -306,7 +306,9 @@ class XCorrelation:
                 step = max(1, min(step, nlags_full // nlags_min))
                 indices_downsampled = np.where(lags_full % step == 0)[0]
 
-                values_downsampled = R_full[ii, jj].values[indices_downsampled]
+                values_downsampled = R_full[ii, jj].values[
+                    indices_downsampled
+                ]
 
                 lags_downsampled = lags_full[indices_downsampled] // step
 
@@ -348,12 +350,12 @@ class XCorrelation:
 
         It is a :math:`p \times q` array where the :math:`(i, j)`-th
         element represent the auto- or cross-correlation function of the
-        :math:`i`-th component of the argument ``X`` and the
-        :math:`j`-th component of the argument ``Y``.
+        :math:`i`-th component of the argument `X` and the
+        :math:`j`-th component of the argument `Y`.
 
 
-        Each element of such an array is a ``NamedTuple`` object with
-        attributes ``values`` and ``lags``.
+        Each element of such an array is a `NamedTuple` object with
+        attributes `values` and `lags`.
         """
         return self._R
 
@@ -361,7 +363,7 @@ class XCorrelation:
     def kind(self) -> str:
         """Kind of the XCorrelation object.
 
-        It can be `auto-correlation` or `cross-correlation`.
+        It can be `"auto-correlation"` or `"cross-correlation"`.
         """
         return self._kind
 
@@ -374,7 +376,7 @@ class XCorrelation:
         global_statistic: XCorr_Statistic_type = "max",
         global_weights: np.ndarray | None = None,  # Shall be a p*q matrix
     ) -> tuple[float, np.ndarray]:
-        """Return the whiteness estimate based on the selected statistics.
+        r"""Return the whiteness estimate based on the selected statistics.
 
 
         Parameters
@@ -396,7 +398,7 @@ class XCorrelation:
 
         global_weights:
             Weights associated with each element of the resulting
-            :math`p \times q` array.  It shall be a :math:`p \times q` array.
+            :math:`p \times q` array.  It shall be a :math:`p \times q` array.
 
         Returns
         -------
@@ -466,7 +468,9 @@ class XCorrelation:
 
         # fix global weights
         if global_weights is not None and global_weights.shape != (p, q):
-            raise IndexError(f"'global_weights' must be a {p}x{q} np.ndarray.")
+            raise IndexError(
+                f"'global_weights' must be a {p}x{q} np.ndarray."
+            )
         else:
             W_global = (
                 np.ones(p * q) if global_weights is None else global_weights
@@ -503,8 +507,8 @@ class XCorrelation:
         return whiteness_estimate, whiteness_matrix
 
     def plot(self) -> matplotlib.figure.Figure:
-        """Plot the :math:`p \times q` cross-correlation functions contained in
-        :py:attr:`~dymoval.validation.XCorrelation.R`."""
+        """Plot the :math:`p \times q` cross-correlation functions contained
+        in :py:attr:`~dymoval.validation.XCorrelation.R`."""
 
         p = self.R.shape[0]
         q = self.R.shape[1]
@@ -551,17 +555,17 @@ def compute_statistic(
 ) -> float:
     r"""Compute the statistic of a sequence of numbers.
 
-    The elements of ``data`` can be weighted through the ``weights`` array.
+    The elements of `data` can be weighted through the `weights` array.
 
-    If ``data.shape`` dimension is greater than 1 then ``data`` will be flatten
+    If `data.shape` dimension is greater than 1 then `data` will be flatten
     to a 1-D array.
     The  return values are normalized such that the function always return
-    values between 0 and 1, with the exclusion of the statistic ``quadratic``
-    that may return values greater than ``1.0``.
+    values between 0 and 1, with the exclusion of the statistic `quadratic`
+    that may return values greater than 1.0.
 
-    The statistic `Q` is computed as it follows. Let :math:`w_i` is the
-    `i`-th element of ``weights`` and :math:`x_i` is the `i`-th element
-    of ``data``.
+    The statistic `S` is computed as it follows. Let :math:`w_i` is the
+    `i`-th element of `weights` and :math:`x_i` is the `i`-th element
+    of `data`.
 
     **mean**
     This is the classic weighted mean value, computed as:
@@ -604,12 +608,12 @@ def compute_statistic(
     Parameters
     ----------
     data:
-        Array containing values for which the ``statistic`` shall be computed.
+        Array containing values for which the `statistic` shall be computed.
     statistic:
         Kind of statistic to be computed.
     weights:
-        An array of weights associated with the values in ``data``.
-        More precisely, ``weights[i]`` correspond to ``data[i]``.
+        An array of weights associated with the values in `data`.
+        More precisely, `weights[i]` correspond to `data[i]`.
     """
 
     if data.ndim > 1:
@@ -666,7 +670,7 @@ def compute_statistic(
 
 
 def rsquared(x: np.ndarray, y: np.ndarray) -> np.ndarray:
-    """
+    r"""
     Return the :math:`R^2` value of two signals.
 
     Signals can be MIMO.
@@ -674,10 +678,10 @@ def rsquared(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     Parameters
     ----------
     x:
-        First input signal. It must have shape :math:`Nxp`, where :math:`N` is the number
+        First input signal. It must have shape :math:`N\times p`, where :math:`N` is the number
         of observation and :math:`p` is the signal dimension.
     y:
-        Second input signal. It must have shape :math:`Nxp`, where :math:`N` is the number
+        Second input signal. It must have shape :math:`N\times p`, where :math:`N` is the number
         of observation and :math:`p` is the signal dimension.
     """
 
@@ -708,17 +712,17 @@ def whiteness_level(
     global_statistic: XCorr_Statistic_type = "max",
     global_weights: np.ndarray | None = None,
 ) -> tuple[float, np.ndarray]:
-    """Estimate the whiteness of the signal ``data``.
+    r"""Estimate the whiteness of the signal `data`.
 
-    If ``data`` is a multivariate signal, the whiteness is computed
-    in two steps:
+    If `data` is a multivariate signal of shape :math:`p \times p`, then the
+    whiteness is computed in two steps:
 
     #. The cross-correlation function for each :math:`(i, j)` pair of signal in
-       ``data`` is computed, and their whiteness of is computed and arranged
-       in a :math:`p \\times q` array.
+       `data` is computed, and their whiteness of is computed and arranged
+       in a :math:`p \times p` array.
 
-    #. The resulting :math:`p \\times q` array is flattened and the
-    overall signal whiteness is estimated.
+    #. The resulting :math:`p \times p` array is flattened and the
+       overall signal whiteness is estimated.
 
     It returns the values computed in points 1. and 2.
 
@@ -737,7 +741,7 @@ def whiteness_level(
     nlags:
         Number of lags to be considered for the whiteness estimate
         computation. If the signal is multivariate with `p` components, then
-        this must be a `pxp` array.
+        this must be a :math:`p\times p` array.
     local_statistic:
         Statistic to be used for estimate the whiteness of each `(i, j)`
         cross-correlation function.
@@ -783,7 +787,7 @@ def whiteness_level(
 @dataclass
 class ValidationSession:
     # TODO: Save validation session.
-    """The *ValidationSession* class is used to validate models against a
+    r"""The *ValidationSession* class is used to validate models against a
     given dataset.
 
     A *ValidationSession* object is instantiated from a :ref:`Dataset` object.
@@ -794,43 +798,87 @@ class ValidationSession:
     but for each ValidationSession instance only a :ref:`Dataset` object is
     considered.
 
-    If the :ref:`Dataset` object changes,
-    it is recommended to create a new *ValidationSession* instance.
-
     Parameters
     ----------
     name:
-        The ``ValidationSession`` object name.
+        The `ValidationSession` object name.
     validation_dataset:
         The :py:class:`~dymoval.dataset.Dataset` object to be used for
         validation.
     U_bandwidths:
-        1-D array representing the bandwidths of each signal in the input
-        :math:`U`.
-        ``U_bandwidths[i]`` corresponds to the bandwidth of signal ``U[i]``.
+        1-D array representing the bandwidths of each signal in the input U.
+        `U_bandwidths[i]` corresponds to the bandwidth of signal `U[i]`.
     Y_bandwidths:
-        1-D array representing the bandwidths of each signal in the output
-        :math:`Y`.
-        ``Y_bandwidths[i]`` corresponds to the bandwidth of signal ``Y[i]``.
+        1-D array representing the bandwidths of each signal in the output Y.
+        `Y_bandwidths[i]` corresponds to the bandwidth of signal `Y[i]`.
     validation_thresolds:
-        Threshold used for validation. The ``dict`` keys shall be:
+        Threshold used for validation. The `dict` keys shall be:
 
-        - ``"Ruu_whiteness""``
+        - `"Ruu_whiteness""`
 
-        - ``r2``
+        - `"r2"`
 
-        -``"Ree_whiteness""``
+        - `"Ree_whiteness""`
 
-        -``"Rue_whiteness""``
+        - `"Rue_whiteness""`
 
     ignore_input:
-        If ``True`` input auto-correlation is not considered in the
+        If `True` input auto-correlation is not considered in the
         validation.
     r2_statistic:
         Statistic to be used for computing the global :math:`R^2` in case of
         multiple output signals.
     Ruu_nlags:
-        Number of lags for the input auto-correlation array :math:`R_{uu}`.
+        Number of lags for the input auto-correlation array `Ruu`.
+    Ruu_local_statistic_type:
+        Statistic used for estimating the whiteness of each element of the
+        :py:class:`~dymoval.validation,XCorrelation` object associated to the
+        input signal.
+    Ruu_global_statistic_type:
+        Statistic used for estimating the overall whiteness of the resulting
+        :math:`p\times p` matrix after the whiteness of each element of `Ruu`
+        has been computed.
+    Ruu_local_weights:
+        Weights associated to each element of `Ruu`. It must be a
+        :math:`p\times p` array where each element is a 1-D array.
+    Ruu_local_weights:
+        Weights associated to the resulting matrix after the local statistics
+        for each element or `Ruu` have been computed. It must be a
+        :math:`p\times p` array.
+    Ree_nlags:
+        Number of lags for the residuals auto-correlation array `Ree`.
+    Ree_local_statistic_type:
+        Statistic used for estimating the whiteness of each element of the
+        :py:class:`~dymoval.validation,XCorrelation` object associated to the
+        residuals auto-correlation.
+    Ree_global_statistic_type:
+        Statistic used for estimating the overall whiteness of the resulting
+        :math:`p\times p` matrix after the whiteness of each element of `Ree`
+        has been computed.
+    Ree_local_weights:
+        Weights associated to each element of `Ree`. It must be a
+        :math:`q\times q` array where each element is a 1-D array.
+    Ree_local_weights:
+        Weights associated to the resulting matrix after the local statistics
+        for each element or `Ree` have been computed. It must be a
+        :math:`q\times q` array.
+    Rue_nlags:
+        Number of lags for the input-residuals cross-correlation array `Rue`.
+    Rue_local_statistic_type:
+        Statistic used for estimating the whiteness of each element of the
+        :py:class:`~dymoval.validation,XCorrelation` object associated to the
+        input-residuals cross-correlation.
+    Rue_global_statistic_type:
+        Statistic used for estimating the overall whiteness of the resulting
+        :math:`p\times q` matrix after the whiteness of each element of `Rue`
+        has been computed.
+    Rue_local_weights:
+        Weights associated to each element of `Rue`. It must be a
+        :math:`p\times q` array where each element is a 1-D array.
+    Rue_local_weights:
+        Weights associated to the resulting matrix after the local statistics
+        for each element or `Rue` have been computed. It must be a
+        :math:`p\times q` array.
     """
 
     def __init__(
@@ -1344,7 +1392,9 @@ class ValidationSession:
         # r2 value and r2 statistics
         r2 = rsquared(y_values, y_sim_values)
         self._r2_list[sim_name] = r2
-        self._r2[sim_name] = self._compute_r2_statistic(r2, self._r2_statistic)
+        self._r2[sim_name] = self._compute_r2_statistic(
+            r2, self._r2_statistic
+        )
 
         # Residuals auto-correlation
         Ree = XCorrelation(
@@ -1488,11 +1538,11 @@ class ValidationSession:
         """Plot the stored simulation results.
 
         Possible values of the parameters describing the plot aesthetics,
-        such as the ``linecolor_input`` or the ``alpha_output``,
-        are the same for the corresponding ``matplotlib.axes.Axes.plot``.
+        such as the `linecolor_input` or the `alpha_output`,
+        are the same for the corresponding `matplotlib.axes.Axes.plot`.
 
         You are free to manipulate the returned figure as you want by using
-        any method of the class ``matplotlib.figure.Figure``.
+        any method of the class `matplotlib.figure.Figure`.
 
         Please, refer to *matplotlib* docs for more info.
 
@@ -1512,12 +1562,11 @@ class ValidationSession:
         list_sims:
             List of simulation names.
         dataset:
-            Specify whether the dataset shall be datasetped to the simulations
-            results.
+            Specify whether the dataset shall be plotted.
 
-            - **in**: dataset only the input signals of the dataset.
-            - **out**: dataset only the output signals of the dataset.
-            - **both**: dataset both the input and the output signals of the
+            - *"in"*: dataset only the input signals of the dataset.
+            - *"out"*: dataset only the output signals of the dataset.
+            - *"both"*: dataset both the input and the output signals of the
               dataset.
 
         layout:
@@ -1734,7 +1783,7 @@ class ValidationSession:
         :py:class:`ValidationSession <dymoval.validation.ValidationSession>`
         object.
 
-        If not ``tin`` or ``tout`` are passed, then the selection is
+        If not `tin` or `tout` are passed, then the selection is
         made graphically.
 
         Parameters
@@ -1750,8 +1799,7 @@ class ValidationSession:
             The higher the value, the higher is the verbosity.
         **kwargs:
             kwargs to be passed to the
-            :py:meth:`ValidationSession
-            <dymoval.validation.ValidationSession.plot_simulations>` method.
+            :py:meth:`~dymoval.validation.ValidationSession.plot_simulations` method.
 
         """
         # This function is similar to Dataset.trim
@@ -2081,7 +2129,7 @@ class ValidationSession:
         y_names: str | list[str],
         y_data: np.ndarray,
     ) -> Self:
-        """
+        r"""
         Append simulation results.
 
         Parameters
@@ -2091,7 +2139,7 @@ class ValidationSession:
         y_label :
             Simulation output signal names.
         y_data :
-            Simulated out expressed as `Nxq` ``np.ndarray``
+            Simulated out expressed as :math:`N\times q` array
             with `N` observations of `q` signals.
         """
         vs_temp = deepcopy(self)
@@ -2164,12 +2212,28 @@ def validate_models(
     sampling_period: float | None = None,
     **kwargs: Any,
 ) -> ValidationSession:
-    """Validate models based on measured and simulated data.
+    r"""Validate models based on measured and simulated data.
 
-    sampling_period will retrieved from Signal id List[Signal], otherwise must
-    be explicitely passed.
-    # TODO retrieve information from Signals (sampling period, etc). Ignore
-    # input
+
+    Parameters
+    ----------
+    measured_in:
+        Real-world measurements data related to the input. If dtype is
+        `np.ndarray`, then the shape must be :math:`N\times p`, where `N` is
+        the number of observations and `p` is the number of inputs.
+    measured_out:
+        Real-world measurements data related to the output. If dtype is
+        `np.ndarray`, then the shape must be :math:`N\times q`, where `N` is
+        the number of observations and `q` is the number of outputs.
+    simulated_out:
+        Simulated output. The shape of the `np.ndarray` must be
+        :math:`N\times q`, where `N` is the
+        number of observations and `q` is the number of outputs.
+    sampling_period:
+        Signals sampling period.
+    **kwargs:
+        Keyword arguments passed to
+        :py:class:`~dymoval.validation.ValidationSession` constructor.
     """
 
     def _dummy_signal_list(

@@ -50,15 +50,16 @@ varying sampling intervals.
 Dymoval exists on both `pip` and `conda`, so you can choose between the
 following:
 
-pip install dymoval conda install -c conda-forge dymoval
+```
+pip install dymoval
+conda install -c conda-forge dymoval
+```
 
 ## Getting started
 
 Suppose you want to validate a model and you have the simulated out `y_sim`
-the measured input `u_meas`, and the measured out `y_meas` arranged in $Nxq$,
-$Nxp$ and $Nxq$ arrays, respectively, where $N$ is the number of observations
-sampled with period `sampled_period`, $p$ is the number of inputs and $q$ is
-the number of outputs. Just call the following function:
+the measured input `u_meas`, and the measured out `y_meas` time-series sampled
+with period `sampled_period`. Just call the following function:
 
 ```
 from dymoval.validation import validate_models

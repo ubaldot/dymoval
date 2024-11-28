@@ -55,7 +55,7 @@ def difference_lists_of_str(
     B: str | list[str],
 ) -> list[str]:
     r"""
-    Return the strings contained in the list ``A`` but not in the list ``B``.
+    Return the strings contained in the list `A` but not in the list `B`.
 
     In set formalism, this function returns a list representing the
     set difference :math:`A \backslash (A \cap B)`.
@@ -71,7 +71,7 @@ def difference_lists_of_str(
     Returns
     -------
     list of str
-        The set difference of ``A`` and ``B``.
+        The set difference of `A` and `B`.
     """
 
     A = obj2list(A)
@@ -85,9 +85,9 @@ T = TypeVar("T")
 
 def obj2list(x: T | list[T]) -> list[T]:
     """
-    Convert an object ``obj`` into ``list[obj]``.
+    Convert an object `obj` into `list[obj]`.
 
-    If ``obj`` is already a list, then it return it as-is.
+    If `obj` is already a list, then it return it as-is.
 
     Parameters
     ----------
@@ -111,8 +111,8 @@ def _get_tutorial_files(dymoval_tutorial_folder: Path) -> None:
 
 def open_tutorial() -> Any:
     """Create a dymoval_tutorial folder containing all the files needed to
-    run the tutorialin your `home` folder. All you have to do is to run Jupyter notebook named
-    :code: `dymoval_tutorial.ipynb`. You need an app for opening :code:`.ipynb` files.
+    run the tutorial in your `home` folder. All you have to do is to run Jupyter notebook named
+    `dymoval_tutorial.ipynb`. You need an app for opening `.ipynb` files.
 
     The content of the *dymoval_tutorial* folder will be overwritten every time this function is
     called.

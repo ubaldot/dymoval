@@ -43,6 +43,8 @@ The model quality is evaluated according to the following criteria:
 -  **Input-residuals whiteness**: A good model should have this as close to
    0.0 as possible (max value is 1.0).
 
+See :ref:`here <theory>` for more details how such metrics are computed.
+
 Nevertheless, given that "*all models are wrong, but some are useful,*" we
 cannot expect perfect figures. However, since we are interested in the dynamic
 behavior of our models, residuals are somewhat more important than the

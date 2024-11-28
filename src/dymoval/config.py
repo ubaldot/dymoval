@@ -55,6 +55,7 @@ ATOL: float = config["ATOL"]
 IS_INTERACTIVE: bool | None = config["IS_INTERACTIVE"]
 
 # Internal constants
+# TODO: with python => 3.13 add "type" to define TypeAlias
 Signal_type: TypeAlias = Literal["INPUT", "OUTPUT"]
 SIGNAL_KIND: list[Signal_type] = list(typing.get_args(Signal_type))
 
@@ -64,7 +65,9 @@ SPECTRUM_KIND: list[Spectrum_type] = list(typing.get_args(Spectrum_type))
 Allowed_keys_type: TypeAlias = Literal[
     "name", "samples", "signal_unit", "sampling_period", "time_unit"
 ]
-SIGNAL_KEYS: list[Allowed_keys_type] = list(typing.get_args(Allowed_keys_type))
+SIGNAL_KEYS: list[Allowed_keys_type] = list(
+    typing.get_args(Allowed_keys_type)
+)
 
 XCorr_Statistic_type: TypeAlias = Literal[
     "mean", "quadratic", "std", "max", "abs_mean"

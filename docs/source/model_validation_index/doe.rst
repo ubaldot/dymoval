@@ -102,12 +102,8 @@ variation in terms of similarity to white-noise, we also want to cover as much
 amplitude as possible during our experiments. Such an amplitude is referred as
 coverage region.
 
-However, it is worth noting that a measurements dataset covering a fairly
-large region won't necessarily imply *information richness.* This happens for
-example when you take a wide range of values but you stimulate your target
-environment only with constant inputs in within such a range. You would
-certainly have a measurements dataset with a fairly large covered region but
-it would contain little information.
+It is worth mentioning that *size* of the coverage region and *whiteness*
+within go hand in hand, as shown in the next example.
 
    **Example**
 

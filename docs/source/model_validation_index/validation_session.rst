@@ -17,11 +17,11 @@ To validate models you can just run the following:
        sampling_period = sampling_period
    )
 
-where `y_sim` is the simulated out, `u_meas` is the measured input,
-`y_meas` is the measured out arranged in :math:`N\times q`, :math:`N\times
-p` and :math:`N\times q` arrays, respectively, where :math:`N` is the number
-of observations sampled with period `sampled_period`, :math:`p` is the
-number of inputs and :math:`q` is the number of outputs.
+where `y_sim` is the simulated out, `u_meas` is the measured input, `y_meas`
+is the measured out arranged in :math:`N\times q`, :math:`N\times p` and
+:math:`N\times q` arrays, respectively, where :math:`N` is the number of
+observations sampled with period `sampled_period`, :math:`p` is the number of
+inputs and :math:`q` is the number of outputs.
 
 For more accurate results, the bandwidths of the involved signals can be
 passed to the *dymoval* functions.
@@ -110,9 +110,9 @@ In any case, it is important that you deliver your model along with the
 validation results and the coverage region, so users know within which limits
 they can trust the model.
 
-********************************
- The results are disappointing.
-********************************
+*******************************
+ The results are disappointing
+*******************************
 
 When the validation results are bad does not necessarily mean that the model
 is bad. It may be that the validation procedure needs some tweak. Here are few
@@ -122,7 +122,8 @@ things to check:
    low-pass filter the dataset, but avoid to use tight cutoff frequencies
    because that would smooth the signal too much, possibly resulting in high
    ACF values. Also, it is worth nothing that the bandwidth of a signal
-   downstream a low-pass filter is not equal to the filter cutoff frequency.
+   downstream a first-order low-pass filter is, in general, not equal to the
+   filter cutoff frequency.
 
 -  The signals may be over-sampled. Consider estimating the signals'
    bandwidths and pass this information to *dymoval* functions.
@@ -147,6 +148,8 @@ things to check:
    extract information from the :ref:`ValidationSession <ValidationSession>`
    object and build custom evaluation metrics.
 
+.. _theory:
+
 **********************************
  Some theory: what are residuals?
 **********************************
@@ -160,24 +163,24 @@ It is desirable for the residuals to be as `white` as possible.
 In general, to examine the whiteness of a signal :math:`x(t), t=1,\dots,N`, we
 study its similarity with some of its delayed copies. If such a similarity is
 small for a sufficiently high number of *lags*, then we can say that the
-signal :math:`x(t)` is somewhat *white*. The correlation values of the signal
-:math:`x(t)` with itself at different lags, is called *auto-correlation
-function (ACF)*. If instead of considering one signal we consider two signals
-:math:`x(t)` and :math:`y(t)`, then we obtain the *cross-correlation function
-(CCF)* :math:`r_{x,y}(k), k=-n_{lags}, \dots,n_{lags}` between :math:`x(t)`
-and :math:`y(t)`.
+signal :math:`x(t)` is somewhat *white*. The function :math:`r_{x,x}(k)` is
+called *auto-correlation function (ACF)* of the signal :math:`x(t)` and it
+represents how similar :math:`x(t)` is with delayed copies of itself at
+different lags :math:`k\in \mathbb Z`. If instead of considering one signal we
+consider two signals :math:`x(t)` and :math:`y(t)`, then we obtain the
+*cross-correlation function (CCF)* :math:`r_{x,y}(k)` between :math:`x(t)` and
+:math:`y(t)`.
 
-*Dymoval* consider *normalized* correlation functions, which means that the
-values of the *ACF*:s and *CCF*:s are always **between 0.0 and 1.0**.
+The next question is: to how many seconds one lag corresponds to?
 
-The `delay time` (or `lag time`) :math:`\tau` of the ACF of a signal :math:`X`
-is equal to :math:`\tau = T_s`, being :math:`T_s` the signal sampling period,
-or equal to :math:`\tau=1/2B_x`, where :math:`B_x` is the bandwidth of
-:math:`X`, if the value of :math:`B_x` is passed to *dymoval* API. It is not
-possible to take a larger lag time than :math:`\tau=1/2B_x` otherwise the
-Nyquist-Shannon criteria would be violated.
+The answer is given by the `delay time` (or `lag time`) :math:`\tau \in
+\mathbb{R}^+` which in *dymoval* is equal to :math:`\tau = T_s`, being
+:math:`T_s` the signal sampling period, or equal to :math:`\tau=1/2B_x`, where
+:math:`B_x` is the bandwidth of :math:`X`, if the value of :math:`B_x` is
+passed to *dymoval* API. It is not possible to take a larger lag time than
+:math:`\tau=1/2B_x` otherwise the Nyquist-Shannon criteria would be violated.
 
-In case of cross-correlation between two signals :math:`X` and :math:`Y` the
+In case of cross-correlation between two signals :math:`x` and :math:`y` the
 `lag time` :math:`\tau` is equal to the sampling period :math:`T_s` of the
 signals - that must be the same - or to :math:`\tau = \min(1/2B_x, 1/2B_y)` if
 information about the bandwidths are passed to the *dymoval* API.
@@ -190,12 +193,12 @@ whiteness estimation of :math:`X` is performed in three steps:
 
 #. That is, the `auto-/cross-correlation` functions :math:`r_{i,j}(k)` of each
    pair of components :math:`x_i, x_j \in X` for :math:`i,j = 1 \dots p` is
-   computed and arranged in :math:`p\times p` array. Each element of such an
-   array is a :py:class:`~dymoval.validation.XCorrelation` object.
+   computed and arranged in :math:`p\times p`
+   :py:class:`~dymoval.validation.XCorrelation` object.
 
 #. For each element :math:`r_{i,j}(k), i,j = 1 \dots p` of the
-   :py:class:`~dymoval.validation.XCorrelation` the whiteness is estimated by
-   computing a statistic of its realizations at different lags
+   :py:class:`~dymoval.validation.XCorrelation` object the whiteness is
+   estimated by computing a statistic of its realizations for
    :math:`k=-n_{lags}, \dots, n_{lags}`, being :math:`n_{lags} >0` the number
    of lags considered (20 by default). The default statistic is the *mean of
    the absolute value* of the realizations of the
@@ -206,5 +209,5 @@ whiteness estimation of :math:`X` is performed in three steps:
    default, *dymoval* take the :math:`\max` element of such an array, which
    correspond to the *worst-case* whiteness estimate.
 
-It is possible to change the statistics used for estimate the whiteness, see
-*dymoval* API.
+*Dymoval* consider **normalized** correlation functions, which means that the
+values of the *ACF*:s and *CCF*:s are always **between 0.0 and 1.0**.
