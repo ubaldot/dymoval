@@ -1,0 +1,26 @@
+name: conda_freeze
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - black
+  - control
+  - coverage
+  - filelock
+  - flake8
+  - furo
+  - grayskull
+  - h5py
+  - matplotlib
+  - mypy
+  - numpy
+  - pandas
+  - pathlib
+  - pip
+  - pytest
+  - scipy
+  - sphinx
+  - sphinx-autodoc-typehints
+  - sphinx-toolbox
+  - tomli
+prefix: /opt/homebrew/Caskroom/miniconda/base/envs/conda_freeze

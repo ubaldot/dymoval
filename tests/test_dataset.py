@@ -1,16 +1,29 @@
 # -*- coding: utf-8 -*-
 
 
-import dymoval as dmv
-import numpy as np
-from fixture_data import *  # noqa
-from dymoval.dataset import Signal
-from dymoval import NUM_DECIMALS
-from typing import Any
 import random
+from copy import deepcopy
+from typing import Any
+
 import matplotlib
+import numpy as np
+import pandas as pd
+import pytest
 from matplotlib import pyplot as plt
 
+import dymoval as dmv
+from dymoval.config import ATOL, Signal_type
+
+# from fixture_data import *  # noqa
+# from fixture_data import (
+#     good_signals as good_signals,
+#     good_signals_no_nans as good_signals_no_nans,
+#     good_dataframe as good_dataframe,
+#     sine_dataframe as sine_dataframe,
+#     constant_ones_dataframe as constant_ones_dataframe,
+# )
+from dymoval.dataset import Signal
+from dymoval.utils import obj2list
 
 # import warnings
 # show_kw = True
@@ -25,6 +38,356 @@ from matplotlib import pyplot as plt
 #
 
 
+class TestInitializerFromSignals:
+    # Check that the object Dataset is correctly built when the Signal format
+    # is good.
+    def test_nominal(self, good_signals: list[Signal]) -> None:
+        # Nominal data
+        (
+            signal_list,
+            input_signal_names,
+            output_signal_names,
+            input_signal_units,
+            output_signal_units,
+            fixture,
+        ) = good_signals
+
+        target_sampling_period = 0.1
+        ds = dmv.Dataset(
+            "potato",
+            signal_list,
+            input_signal_names,
+            output_signal_names,
+            target_sampling_period=target_sampling_period,
+            full_time_interval=True,
+            verbosity=1,
+        )
+        if fixture == "SISO":  # Convert string to list
+            input_signal_names = [input_signal_names]
+            output_signal_names = [output_signal_names]
+            input_signal_units = [input_signal_units]
+            output_signal_units = [output_signal_units]
+        if fixture == "MISO":
+            output_signal_names = [output_signal_names]
+            output_signal_units = [output_signal_units]
+        if fixture == "SIMO":  # Convert string to list
+            input_signal_names = [input_signal_names]
+            input_signal_units = [input_signal_units]
+        expected_input_names = input_signal_names
+        expected_output_names = output_signal_names
+        actual_input_names = ds.dataset["INPUT"].columns.get_level_values(
+            "names"
+        )
+        actual_output_names = ds.dataset["OUTPUT"].columns.get_level_values(
+            "names"
+        )
+        # Check that names are well placed
+        assert sorted(expected_input_names) == sorted(actual_input_names)
+        assert sorted(expected_output_names) == sorted(actual_output_names)
+
+        expected_input_units = input_signal_units
+        expected_output_units = output_signal_units
+        actual_input_units = ds.dataset["INPUT"].columns.get_level_values(
+            "units"
+        )
+        actual_output_units = ds.dataset["OUTPUT"].columns.get_level_values(
+            "units"
+        )
+        # Check that units are well placed
+        assert sorted(expected_input_units) == sorted(actual_input_units)
+        assert sorted(expected_output_units) == sorted(actual_output_units)
+
+        # Time index starts from 0.0
+        assert np.isclose(ds.dataset.index[0], 0.0, atol=ATOL)
+        assert ds.dataset.index.name == ("Time", "s")
+        # Check that time vector is periodic
+        assert all(
+            np.isclose(x, target_sampling_period, atol=ATOL)
+            for x in np.diff(ds.dataset.index)
+        )
+        assert np.isclose(
+            ds.dataset.index[1] - ds.dataset.index[0],
+            target_sampling_period,
+            atol=ATOL,
+        )
+        # Assert nan_intervals. Take only the first in/out names so you can
+        # also work with SISO.
+        # Input
+        expected_num_nans_u1 = 2  # From fixture
+        actual_num_nans_u1 = len(ds._nan_intervals["u1"])
+        assert actual_num_nans_u1 == expected_num_nans_u1
+
+        expected_nan1_time_interval = [0.5, 2.4]  # From fixture
+        expected_nan2_time_interval = [6.5, 8.4]  # From fixture
+        expected_nan_intervals = [
+            expected_nan1_time_interval,
+            expected_nan2_time_interval,
+        ]
+
+        for ii in range(0, expected_num_nans_u1):
+            assert np.isclose(
+                expected_nan_intervals[ii][0],
+                ds._nan_intervals["u1"][ii][0],
+                atol=ATOL,
+            )
+            assert np.isclose(
+                expected_nan_intervals[ii][1],
+                ds._nan_intervals["u1"][ii][-1],
+                atol=ATOL,
+            )
+        # Output
+        expected_num_nans_y1 = 1  # From fixture
+        actual_num_nans_y1 = len(ds._nan_intervals["y1"])
+        assert actual_num_nans_y1 == expected_num_nans_y1
+
+        expected_nan_interval = [5.0, 8.4]  # From fixture
+
+        assert np.isclose(
+            expected_nan_interval[0], ds._nan_intervals["y1"][0][0], atol=ATOL
+        )
+        assert np.isclose(
+            expected_nan_interval[1],
+            ds._nan_intervals["y1"][0][-1],
+            atol=ATOL,
+        )
+
+        # assert sampling period
+        assert np.isclose(
+            ds.sampling_period, target_sampling_period, atol=ATOL
+        )
+
+    def test_no_leftovers(self, good_signals: list[Signal]) -> None:
+        # Nominal data
+        (
+            signal_list,
+            input_signal_names,
+            output_signal_names,
+            input_signal_units,
+            output_signal_units,
+            fixture,
+        ) = good_signals
+
+        target_sampling_period = 0.001
+        with pytest.raises(IndexError):
+            _ = dmv.Dataset(
+                "potato",
+                signal_list,
+                input_signal_names,
+                output_signal_names,
+                target_sampling_period=target_sampling_period,
+                full_time_interval=True,
+            )
+
+
+class TestInitializerFromDataframe:
+    # Check that the object Dataset is correctly built when the Signal format
+    # is good.
+    def test_nominal(self, good_dataframe: pd.DataFrame) -> None:
+        # Nominal data
+        (
+            df_expected,
+            expected_input_names,
+            expected_output_names,
+            expected_input_units,
+            expected_output_units,
+            fixture,
+        ) = good_dataframe
+
+        print("df_expected cols = ", df_expected.columns)
+
+        sampling_period = 0.1  # from good_dataframe fixture
+        if fixture == "SISO":
+            expected_input_names = [expected_input_names]
+            expected_output_names = [expected_output_names]
+            expected_input_units = [expected_input_units]
+            expected_output_units = [expected_output_units]
+        if fixture == "MISO":
+            expected_output_names = [expected_output_names]
+            expected_output_units = [expected_output_units]
+        if fixture == "SIMO":
+            expected_input_names = [expected_input_names]
+            expected_input_units = [expected_input_units]
+
+        print("expected input names = ", expected_input_names)
+        # Act
+        ds = dmv.dataset.Dataset(
+            "potato",
+            df_expected,
+            expected_input_names,
+            expected_output_names,
+            full_time_interval=True,
+        )
+
+        # assert names
+        actual_input_names = ds.dataset["INPUT"].columns.get_level_values(
+            "names"
+        )
+        actual_output_names = ds.dataset["OUTPUT"].columns.get_level_values(
+            "names"
+        )
+        # Names are well placed
+        assert sorted(expected_input_names) == sorted(actual_input_names)
+        assert sorted(expected_output_names) == sorted(actual_output_names)
+
+        # Assert units
+        actual_input_units = ds.dataset["INPUT"].columns.get_level_values(
+            "units"
+        )
+        actual_output_units = ds.dataset["OUTPUT"].columns.get_level_values(
+            "units"
+        )
+        # Names are well placed
+        assert sorted(expected_input_units) == sorted(actual_input_units)
+        assert sorted(expected_output_units) == sorted(actual_output_units)
+
+        # assert sampling period
+        assert np.isclose(ds.sampling_period, sampling_period, atol=ATOL)
+
+    def test_large_dataframe(self, good_dataframe: pd.DataFrame) -> None:
+        # Nominal data
+        (
+            df_expected,
+            expected_input_names,
+            expected_output_names,
+            expected_input_units,
+            expected_output_units,
+            fixture,
+        ) = good_dataframe
+
+        print("df_expected cols = ", df_expected.columns)
+
+        # We only test MIMO case as it seems the most relevant
+        if fixture == "MIMO":
+            # Arrange
+            u_names_test = ["u3", "u1"]
+            y_names_test = "y2"
+
+            cols = [
+                ("u3", "m/s"),
+                ("u1", "kPa"),
+                ("y2", "m/s**2"),
+            ]
+            expected_vals = df_expected.loc[:, cols].to_numpy()
+
+            expected_cols = [
+                ("INPUT", "u3", "m/s"),
+                ("INPUT", "u1", "kPa"),
+                ("OUTPUT", "y2", "m/s**2"),
+            ]
+
+            # Act
+            ds = dmv.dataset.Dataset(
+                "potato",
+                df_expected,
+                u_names_test,
+                y_names_test,
+                full_time_interval=True,
+            )
+
+            # Assert if df has been filtered and ordered according to user needs
+            assert list(ds.dataset.columns) == expected_cols
+            assert np.allclose(expected_vals, ds.dataset.to_numpy(), atol=ATOL)
+
+    @pytest.mark.parametrize(
+        # Each test is ((tin,tout),(tin_expected,tout_expected))
+        "test_input, expected",
+        [
+            ((4, 8), (0.0, 4.0)),
+            ((3.2, 3.8), (0.0, 0.5)),
+            ((None, 5), (0.0, 5)),
+        ],
+    )
+    def test_nominal_tin_tout(
+        self,
+        good_dataframe: pd.DataFrame,
+        test_input: list[float],
+        expected: list[float],
+    ) -> None:
+        # Nominal data
+        (
+            df_expected,
+            expected_input_names,
+            expected_output_names,
+            _,
+            _,
+            _,
+        ) = good_dataframe
+        tin = test_input[0]
+        tout = test_input[1]
+        expected_tin = expected[0]
+        expected_tout = expected[1]
+        ds = dmv.dataset.Dataset(
+            "potato",
+            df_expected,
+            expected_input_names,
+            expected_output_names,
+            tin=tin,
+            tout=tout,
+        )
+        actual_tin = ds.dataset.index[0]
+        actual_tout = ds.dataset.index[-1]
+
+        # Names are well placed
+        assert np.isclose(actual_tin, expected_tin, atol=ATOL)
+        assert np.isclose(actual_tout, expected_tout, atol=ATOL)
+
+
+class TestInitializerWrongInputData:
+    # def test_nominal_missing_tout(self, good_dataframe: pd.DataFrame) -> None:
+    #     # Nominal data
+    #     df, u_names, y_names, _ = good_dataframe
+    #     tin = 0.5
+    #     with pytest.raises(Exception):
+    #         dmv.dataset.Dataset(
+    #             "potato",
+    #             df,
+    #             u_names,
+    #             y_names,
+    #             tin=tin,
+    #         )
+
+    def test_nominal_tin_ge_tout(self, good_dataframe: pd.DataFrame) -> None:
+        # Nominal data
+        df, u_names, y_names, _, _, _ = good_dataframe
+        # tin > tout
+        tin = 0.5
+        tout = 0.1
+        with pytest.raises(ValueError):
+            dmv.dataset.Dataset(
+                "potato", df, u_names, y_names, tin=tin, tout=tout
+            )
+
+    def test_nominal_wrong_type(self, good_dataframe: pd.DataFrame) -> None:
+        # Nominal data
+        df, u_names, y_names, _, _, _ = good_dataframe
+        # tin > tout
+        tin = 0.1
+        tout = 0.5
+        with pytest.raises(TypeError):
+            dmv.dataset.Dataset(
+                "potato", "string_type", u_names, y_names, tin=tin, tout=tout
+            )
+
+
+class TestOtherStuff:
+    def test__repr__(self, good_dataframe: pd.DataFrame) -> None:
+        # Nominal data
+        df, u_names, y_names, _, _, _ = good_dataframe
+        # tin > tout
+        tin = 0.1
+        tout = 0.5
+        ds = dmv.dataset.Dataset(
+            "potato",
+            df,
+            u_names,
+            y_names,
+            tin=tin,
+            tout=tout,
+        )
+
+        assert ds.__repr__() == str(ds.dataset)
+
+
 class Test_Dataset_nominal:
     def test_init(self, good_dataframe: pd.DataFrame) -> None:
         # Check if the passed dataset DataFrame is correctly stored as class attribute.
@@ -33,8 +396,8 @@ class Test_Dataset_nominal:
 
         # Expected value. Create a two-levels column from normal DataFrame
         df_expected = deepcopy(df)
-        u_names = dmv.str2list(u_names)
-        y_names = dmv.str2list(y_names)
+        u_names = obj2list(u_names)
+        y_names = obj2list(y_names)
         u_extended_labels = list(zip(["INPUT"] * len(u_names), u_names))
         y_extended_labels = list(zip(["OUTPUT"] * len(y_names), y_names))
         df_expected.columns = pd.MultiIndex.from_tuples(
@@ -214,7 +577,7 @@ class Test_Dataset_nominal:
 
         test_signal1: dmv.Signal = {
             "name": "test1",
-            "values": np.random.rand(120),
+            "samples": np.random.rand(120),
             "signal_unit": "m",
             "sampling_period": 0.1,
             "time_unit": "s",
@@ -225,15 +588,15 @@ class Test_Dataset_nominal:
 
         test_signal2: dmv.Signal = {
             "name": "test2",
-            "values": np.concatenate((np.random.rand(110), nans)),
+            "samples": np.concatenate((np.random.rand(110), nans)),
             "signal_unit": "s",
             "sampling_period": 0.1,
             "time_unit": "s",
         }
         expected_values = np.hstack(
             (
-                test_signal1["values"][:N].reshape(N, 1).round(NUM_DECIMALS),
-                test_signal2["values"][:N].reshape(N, 1).round(NUM_DECIMALS),
+                test_signal1["samples"][:N].reshape(N, 1),
+                test_signal2["samples"][:N].reshape(N, 1),
                 ds.dataset.loc[:, kind].head(N).to_numpy(),
             ),
         )
@@ -299,7 +662,7 @@ class Test_Dataset_nominal:
         # due to bad sampling period
         test_bad_signal: dmv.Signal = {
             "name": "bad_signal",
-            "values": np.random.rand(120),
+            "samples": np.random.rand(120),
             "signal_unit": "m",
             "sampling_period": np.pi,
             "time_unit": "s",
@@ -352,7 +715,9 @@ class Test_Dataset_nominal:
             ds.remove_signals("potato")
 
     def test_dump_to_signals(
-        self, good_signals_no_nans: list[Signal], tmp_path: str
+        self,
+        good_signals_no_nans: list[Signal],
+        tmp_path: str,
     ) -> None:
         # You should just get a plot.
         (
@@ -387,8 +752,8 @@ class Test_Dataset_nominal:
         for ii, val in enumerate(expected_inputs):
             assert expected_inputs[ii]["name"] == dumped_inputs[ii]["name"]
             assert np.allclose(
-                expected_inputs[ii]["values"],
-                dumped_inputs[ii]["values"],
+                expected_inputs[ii]["samples"],
+                dumped_inputs[ii]["samples"],
                 atol=ATOL,
             )
             assert (
@@ -409,8 +774,8 @@ class Test_Dataset_nominal:
         for ii, val in enumerate(expected_outputs):
             assert expected_outputs[ii]["name"] == dumped_outputs[ii]["name"]
             assert np.allclose(
-                expected_outputs[ii]["values"],
-                dumped_outputs[ii]["values"],
+                expected_outputs[ii]["samples"],
+                dumped_outputs[ii]["samples"],
                 atol=ATOL,
             )
             assert (
@@ -466,7 +831,9 @@ class Test_Dataset_nominal:
         df_actual = ds.dataset
         assert np.allclose(df_actual.to_numpy(), df.to_numpy(), atol=ATOL)
 
-    def test_remove_offset(self, constant_ones_dataframe: pd.DataFrame) -> None:
+    def test_remove_offset(
+        self, constant_ones_dataframe: pd.DataFrame
+    ) -> None:
         df, u_names, y_names, _, _, fixture = constant_ones_dataframe
 
         # Test values, i.e. offset to be removed from the specified signal.
@@ -701,17 +1068,9 @@ class Test_Dataset_nominal:
             y_units = [y_units]
 
         # Expected vectors
-        t_expected = df.index.to_numpy().round(NUM_DECIMALS)
-        u_expected = (
-            df.loc[:, list(zip(u_names, u_units))]
-            .to_numpy()
-            .round(NUM_DECIMALS)
-        )
-        y_expected = (
-            df.loc[:, list(zip(y_names, y_units))]
-            .to_numpy()
-            .round(NUM_DECIMALS)
-        )
+        t_expected = df.index.to_numpy()
+        u_expected = df.loc[:, list(zip(u_names, u_units))].to_numpy()
+        y_expected = df.loc[:, list(zip(y_names, y_units))].to_numpy()
 
         if fixture == "SISO" or fixture == "SIMO":
             u_expected = u_expected.flatten()
@@ -938,7 +1297,9 @@ class Test_Dataset_nominal:
         # Act.
         ds_actual = ds.apply(*test_values[fixture])
         print("actual_units", ds_actual.dataset.columns)
-        actual_units = list(ds_actual.dataset.columns.get_level_values("units"))
+        actual_units = list(
+            ds_actual.dataset.columns.get_level_values("units")
+        )
 
         # Assert
         assert np.allclose(ds_actual.dataset, df_expected, atol=ATOL)
@@ -946,6 +1307,31 @@ class Test_Dataset_nominal:
 
         # Assert that the internally stored dataset is not overwritten
         assert np.allclose(ds.dataset, df, atol=ATOL)
+
+    def test_trim(self, sine_dataframe: pd.DataFrame) -> None:
+        df, u_names, y_names, u_units, y_units, fixture = sine_dataframe
+        # Test both add an input or an output
+
+        # Expected value.
+        # If you remove a mean from a signal, then the mean of the reminder
+        # signal must be zero.
+        expected_tin = 0.0  # as per fixture
+        expected_tout = 4.0  # as per fixture
+
+        # Arrange
+        name_ds = "my_dataset"
+        ds = dmv.dataset.Dataset(
+            name_ds, df, u_names, y_names, full_time_interval=True
+        )
+
+        # act
+        ds = ds.trim(tin=1.0, tout=5.0)
+        actual_tin = ds.dataset.index[0]
+        actual_tout = ds.dataset.index[-1]
+
+        # Evaluate
+        assert np.isclose(expected_tin, actual_tin, atol=ATOL)
+        assert np.isclose(expected_tout, actual_tout, atol=ATOL)
 
 
 class Test_Dataset_raise:
@@ -1382,7 +1768,7 @@ class Test_Signal_validation:
         signal_list, _, _, _, _, _ = good_signals
 
         idx = random.randrange(0, len(signal_list))
-        signal_list[idx]["values"] = test_input
+        signal_list[idx]["samples"] = test_input
         with pytest.raises(expected):
             dmv.validate_signals(*signal_list)
 
@@ -1400,7 +1786,7 @@ class Test_Signal_validation:
 
         idx = random.randrange(0, len(signal_list))
         k_new = "potato"
-        signal_list[idx][k_new] = signal_list[idx].pop("values")
+        signal_list[idx][k_new] = signal_list[idx].pop("samples")
         with pytest.raises(KeyError):
             dmv.validate_signals(*signal_list)
 
@@ -1413,7 +1799,10 @@ class Test_Signal_validation:
         ],
     )
     def test_wrong_sampling_period(
-        self, good_signals: list[Signal], test_input: Any, expected: Any
+        self,
+        good_signals: list[Signal],
+        test_input: Any,
+        expected: Any,
     ) -> None:
         # Nominal values
         signal_list, _, _, _, _, _ = good_signals
@@ -1490,7 +1879,9 @@ class Test_validate_dataframe:
 
 
 class Test_fix_sampling_periods:
-    def test_excluded_signals_no_args(self, good_signals: list[Signal]) -> None:
+    def test_excluded_signals_no_args(
+        self, good_signals: list[Signal]
+    ) -> None:
         # Nominal values
         (
             signal_list,
@@ -1526,7 +1917,9 @@ class Test_fix_sampling_periods:
             expected_excluded = []
 
         expected_resampled = [
-            s["name"] for s in signal_list if s["name"] not in expected_excluded
+            s["name"]
+            for s in signal_list
+            if s["name"] not in expected_excluded
         ]
 
         # Assert. Check that all signals are either re-sampled or excluded.
@@ -1577,7 +1970,9 @@ class Test_fix_sampling_periods:
             expected_excluded = []
 
         expected_resampled = [
-            s["name"] for s in signal_list if s["name"] not in expected_excluded
+            s["name"]
+            for s in signal_list
+            if s["name"] not in expected_excluded
         ]
 
         # Assert. Check that all signals are either re-sampled or excluded.

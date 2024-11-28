@@ -1,0 +1,22 @@
+#!/bin/bash
+
+mypy ./src
+MYPY_EXIT_CODE=$?
+
+ruff check ./src
+RUFF_LINT_EXIT_CODE=$?
+
+ruff format --check .
+RUFF_FORMAT_EXIT_CODE=$?
+
+# If either flake8 or mypy return an error, skip black and the commit process
+if [ $RUFF_LINT_EXIT_CODE -ne 0 ] || [ $RUFF_FORMAT_EXIT_CODE -ne 0 ] || [ $MYPY_EXIT_CODE -ne 0 ]; then
+  echo "mypy or ruff checks failed."
+  exit 1
+fi
+# ruff format .
+# git add -u
+
+# if ! git diff-index --quiet HEAD; then
+#   git commit --no-verify  --amend --no-edit
+# fi

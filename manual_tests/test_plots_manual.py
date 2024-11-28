@@ -10,9 +10,10 @@ import dymoval as dmv
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib
 
-
-plt.ion()
+plt.ioff()
+matplotlib.use("qtagg")
 
 # ===========================================================================
 # Arange: SELECT THE FIXTURE TYPE
@@ -23,14 +24,26 @@ fixture_type = "MIMO"
 
 # Set test data
 nan_thing = np.empty(200)
-nan_thing[:] = np.NaN
+nan_thing[:] = np.nan
 
 input_signal_names = ["u1", "u2", "u3"]
 input_sampling_periods = [0.01, 0.1, 0.1]
 input_signal_values = [
-    np.hstack((np.random.rand(50), nan_thing, np.random.rand(400), nan_thing)),
     np.hstack(
-        (np.random.rand(20), nan_thing[0:5], np.random.rand(30), nan_thing)
+        (
+            10 * np.random.rand(50),
+            nan_thing,
+            5 * np.random.rand(400),
+            nan_thing,
+        )
+    ),
+    np.hstack(
+        (
+            15 * np.random.rand(20),
+            nan_thing[0:5],
+            30 * np.random.rand(30),
+            nan_thing,
+        )
     ),
     np.hstack((np.random.rand(80), nan_thing, np.random.rand(100))),
 ]
@@ -52,15 +65,9 @@ output_signal_names = ["y1", "y2", "y3", "y4"]
 output_sampling_periods = [0.1, 0.1, 0.1, 0.1]
 output_signal_values = [
     np.hstack((np.random.rand(50), nan_thing, np.random.rand(100), nan_thing)),
-    np.hstack(
-        (np.random.rand(100), nan_thing[0:50], np.random.rand(150), nan_thing)
-    ),
-    np.hstack(
-        (np.random.rand(10), nan_thing[0:105], np.random.rand(50), nan_thing)
-    ),
-    np.hstack(
-        (np.random.rand(20), nan_thing[0:85], np.random.rand(60), nan_thing)
-    ),
+    np.hstack((np.random.rand(100), nan_thing[0:50], np.random.rand(150), nan_thing)),
+    np.hstack((np.random.rand(10), nan_thing[0:105], np.random.rand(50), nan_thing)),
+    np.hstack((np.random.rand(20), nan_thing[0:85], np.random.rand(60), nan_thing)),
 ]
 
 output_signal_units = ["m/s", "deg", "°C", "kPa"]
@@ -83,17 +90,17 @@ if fixture_type == "SISO":
     # Slice signal list
     # Pick u1 and y1
     signal_list = [signal_list[0], signal_list[first_output_idx]]
-    input_signal_names = dmv.str2list(input_signal_names[0])
-    output_signal_names = dmv.str2list(output_signal_names[0])
+    input_signal_names = dmv.obj2list(input_signal_names[0])
+    output_signal_names = dmv.obj2list(output_signal_names[0])
 if fixture_type == "MISO":
     signal_list = [
         *signal_list[:first_output_idx],
         signal_list[first_output_idx],
     ]
-    output_signal_names = dmv.str2list(output_signal_names[0])
+    output_signal_names = dmv.obj2list(output_signal_names[0])
 if fixture_type == "SIMO":
     signal_list = [signal_list[0], *signal_list[first_output_idx:]]
-    input_signal_names = dmv.str2list(input_signal_names[0])
+    input_signal_names = dmv.obj2list(input_signal_names[0])
 # %%
 # ===========================================================================
 # Act: Dataset plots test
@@ -108,8 +115,14 @@ ds = dmv.Dataset(
     overlap=True,
 )
 
+
+# %%
+
+ds.plot()
+plt.pause(1)
+
 # This shall raise because there are NaNs
-ds.plot_spectrum()
+# ds.plot_spectrum()
 
 
 # %%
@@ -117,12 +130,12 @@ ds = ds.remove_NaNs()
 
 ds.plot()
 
-# Test some colors, etc.
+# %% Test some colors, etc. OBS! 4 plots!
 ds.plot(
-    line_color_input="r",
-    linestyle_input=":",
-    line_color_output="c",
-    alpha_output=0.5,
+    linecolor_input="r",
+    linestyle_fg=":",
+    linecolor_output="c",
+    alpha_bg=0.5,
     overlap=True,
 )
 
@@ -136,16 +149,12 @@ if fixture_type == "MIMO" or fixture_type == "MISO":
 else:
     ds.plot("u1", "y1")
 
-# %% Save
-ds.plot(save_as="c:/vas/github/dymoval/dataset_plot")
-
-
 # ===========================================================================
 # Act: plot_coverage test
 # ===========================================================================
-# %% Coverage
+# %% Coverage. OBS 5 plots!
 ds.plot_coverage()
-ds.plot_coverage(line_color_input="r", line_color_output="c", alpha_output=0.5)
+ds.plot_coverage(linecolor_input="r", linecolor_output="c", alpha=0.5)
 
 # Conditional plot
 if fixture_type == "MIMO" or fixture_type == "MISO":
@@ -156,30 +165,24 @@ if fixture_type == "MIMO" or fixture_type == "MISO":
 else:
     ds.plot_coverage("u1", "y1")
 
-
-# %% Save again
-ds.plot_coverage(save_as="./coverage_test")
-
-
+# %%
 # ===========================================================================
 # Act: plot_spectrum test
 # ===========================================================================
 ds.plot_spectrum()
-ds.plot_spectrum(line_color_input="r", line_color_output="c", alpha_output=0.5)
+ds.plot_spectrum(linecolor_input="r", linecolor_output="c", alpha_fg=0.5)
 
 # %%
 ds.plot_spectrum(kind="psd")
-ds.plot_spectrum(
-    kind="psd", line_color_input="r", line_color_output="c", alpha_output=0.5
-)
+ds.plot_spectrum(kind="psd", linecolor_input="r", linecolor_output="c", alpha_fg=0.5)
 
 # %%
 ds.plot_spectrum(kind="amplitude")
 ds.plot_spectrum(
     kind="amplitude",
-    line_color_input="r",
-    line_color_output="c",
-    alpha_output=0.5,
+    linecolor_input="r",
+    linecolor_output="c",
+    alpha_fg=0.5,
 )
 
 # %%
@@ -196,32 +199,34 @@ else:
 # ===========================================================================
 # Act: ValidatonSession plots test
 # ===========================================================================
-# Get a ValidationSession
+# %% Get a ValidationSession
 vs = dmv.ValidationSession("my_validation", ds)
 
 # %% Pretend that you ran two simulations of a model with two different settings.
 sim1_name = "Model 1"
 sim1_labels = ["my_y1", "my_y2", "my_y3", "my_y4"]
 if fixture_type == "SISO" or fixture_type == "MISO":
-    sim1_labels = dmv.str2list("my_y1")
+    sim1_labels = dmv.obj2list("my_y1")
 sim1_values = vs.Dataset.dataset["OUTPUT"].values + np.random.rand(
     len(vs.Dataset.dataset["OUTPUT"].values), 1
 )
 
-
 sim2_name = "Model 2"
 sim2_labels = ["your_y1", "your_y2", "your_y3", "your_y4"]
 if fixture_type == "SISO" or fixture_type == "MISO":
-    sim2_labels = dmv.str2list("your_y1")
+    sim2_labels = dmv.obj2list("your_y1")
 sim2_values = vs.Dataset.dataset["OUTPUT"].values + np.random.rand(
     len(vs.Dataset.dataset["OUTPUT"].values), 1
 )
 
-vs.append_simulation(sim1_name, sim1_labels, sim1_values)
-vs.append_simulation(sim2_name, sim2_labels, sim2_values)
+# %%
+vs = vs.append_simulation(sim1_name, sim1_labels, sim1_values)
+vs = vs.append_simulation(sim2_name, sim2_labels, sim2_values)
+
+# %%
 
 vs.plot_simulations(["Model 1", "Model 2"])
-vs.plot_simulations("Model 1", save_as="./sim_test")
+vs.plot_simulations("Model 1")
 vs.plot_simulations(dataset="only_out")
 vs.plot_simulations(dataset="all")
 vs.plot_simulations()

@@ -25,11 +25,11 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5.2.0
         with:
-            python-version: '3.11'
+            python-version: '3.12'
 
       - name: Install dependencies (pip)
         run: |
-          python -m pip install -r pip_freeze_py311.txt
+          python -m pip install -r pip_freeze_3_12_6.txt
           python -m pip install pytest
           python -m pip install .
 
@@ -48,13 +48,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Minoconda
+      - name: Setup Miniconda
         uses: conda-incubator/setup-miniconda@v3
         with:
-          python-version: "3.11"
+          python-version: "3.12"
           channels: conda-forge
           channel-priority: true
-          environment-file: ./conda_freeze_py311.yml
+          environment-file: ./conda_freeze_3_12_6.yml
           miniforge-version: latest
 
       - name: Install dymoval through pip

@@ -1,17 +1,33 @@
 """Config file."""
 
 import pathlib
-from typing import Literal
+import shutil
 import typing
+from typing import Any, Literal, TypeAlias
 
-# Constants exposed to the user
-config = {
-    "NUM_DECIMALS": 4,
+# Initialize the latex_installed variable
+is_latex_installed = False
+
+
+def check_latex_installed() -> bool:
+    """Check if LaTeX is installed."""
+    return shutil.which("pdflatex") is not None
+
+
+# Set the variable based on the check
+is_latex_installed = check_latex_installed()
+
+# Constants exposed to the user: Defaults
+config: dict[str, Any] = {
     "COLORMAP": "tab10",
-}  # Defaults
-mapping_dict = {
-    "num_decimals": "NUM_DECIMALS",
+    "ATOL": 1e-9,
+    "IS_INTERACTIVE": None,
+}
+
+mapping_dict: dict[str, str] = {
     "color_map": "COLORMAP",
+    "float_tolerance": "ATOL",
+    "is_interactive": "IS_INTERACTIVE",
 }
 
 # TODO If you remove python 3.10 remove the dependency (also from pyproject) from tomli as tomlib is
@@ -32,18 +48,32 @@ except FileNotFoundError:  # pragma: no cover
     pass
 
 
-locals().update(config)
+# locals().update(config)
 
-ATOL = 10**-NUM_DECIMALS  # noqa
+COLORMAP: Any = config["COLORMAP"]
+ATOL: float = config["ATOL"]
+IS_INTERACTIVE: bool | None = config["IS_INTERACTIVE"]
 
 # Internal constants
-Signal_type = Literal["INPUT", "OUTPUT"]
+Signal_type: TypeAlias = Literal["INPUT", "OUTPUT"]
 SIGNAL_KIND: list[Signal_type] = list(typing.get_args(Signal_type))
 
-Spectrum_type = Literal["amplitude", "power", "psd"]
+Spectrum_type: TypeAlias = Literal["amplitude", "power", "psd"]
 SPECTRUM_KIND: list[Spectrum_type] = list(typing.get_args(Spectrum_type))
 
-Allowed_keys_type = Literal[
-    "name", "values", "signal_unit", "sampling_period", "time_unit"
+Allowed_keys_type: TypeAlias = Literal[
+    "name", "samples", "signal_unit", "sampling_period", "time_unit"
 ]
 SIGNAL_KEYS: list[Allowed_keys_type] = list(typing.get_args(Allowed_keys_type))
+
+XCorr_Statistic_type: TypeAlias = Literal[
+    "mean", "quadratic", "std", "max", "abs_mean"
+]
+XCORR_STATISTIC_TYPE: list[XCorr_Statistic_type] = list(
+    typing.get_args(XCorr_Statistic_type)
+)
+
+R2_Statistic_type: TypeAlias = Literal["mean", "min"]
+R2_STATISTIC_TYPE: list[R2_Statistic_type] = list(
+    typing.get_args(R2_Statistic_type)
+)
