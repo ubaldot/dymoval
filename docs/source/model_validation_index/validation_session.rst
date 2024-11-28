@@ -17,6 +17,15 @@ To validate models you can just run the following:
        sampling_period = sampling_period
    )
 
+where ``y_sim`` is the simulated out, ``u_meas`` is the measured input,
+``y_meas`` is the measured out arranged in :math:`N\times q`, :math:`N\times
+p` and :math:`N\times q` arrays, respectively, where :math:`N` is the number
+of observations sampled with period ``sampled_period``, :math:`p` is the
+number of inputs and :math:`q` is the number of outputs.
+
+For more accurate results, the bandwidths of the involved signals can be
+passed to the *dymoval* functions.
+
 The function :py:meth:`~dymoval.validation.validate_models` return a
 :py:class:`~dymoval.validation.ValidationSession` object that store the
 validation outcome.
@@ -42,57 +51,28 @@ done automatically:
             Sim_0  Sim_1
    Outcome: PASS   FAIL
 
-Dymoval validation procedure evaluates the following quantities:
+The default validation procedure evaluates the following quantities:
 
--  R-square fit of the measured and simulated outputs,
--  Residuals whiteness,
--  Input-Residuals whiteness,
+-  :math:`R^2` fit of the measured and simulated outputs,
+-  *Residuals whiteness*,
+-  *Input-Residuals whiteness*,
 
-and compare them with some thresholds.
+and compare them with some thresholds. If each individual quantity pass the
+test, then the overall test is passed. It is however possible to access all
+the validation information for defining custom evaluation criteria in a fairly
+easy manner since it is possible to extract any kind on information from
+:py:class:`~dymoval.validation.ValidationSession` objects.
 
-Assuming that The whiteness is computed in 3 steps:
-
-#. The auto- and cross- correlation for each pair of component is computed.
-   This results in a 2D array where each element is a XCorrelation object
-
-#. For each XCorrlation element the whiteness is computed (default statistic
-   is abs_mean), resulting in a qxq array, where each element is a float
-   number
-
-#. The resulting array is flattened and a statistic is computed on it (default
-   ``max`` which is the "worst-case" element)
-
-*********************
- What are residuals?
-*********************
-
-The residuals, denoted as :math:`\varepsilon`, are simply the error between
-the measured outputs and the simulated outputs, defined as :math:`\varepsilon
-= y_{\mathrm{measured}} - y_{\mathrm{simulated}}`. During residuals analysis,
-we examine whether there is any correlation of the residuals with their
-delayed copies. The value of the residuals with respect to different lags is
-also called the auto-correlation function (ACF), in case you want to look it
-up.
-
-It is desirable for the residuals to be as white as possible, meaning that
-their auto-correlation values are as close to 0.0 as possible for all lags. If
-this is not the case, it indicates that there are underlying dynamics that
-have not been modeled.
-
-You can visually inspect both the simulations results with the
+You can finally visually inspect both the simulations results with the
 :py:meth:`~dymoval.validation.ValidationSession.plot_simulations` method and
 the residuals with the
 :py:meth:`~dymoval.validation.ValidationSession.plot_residuals` method.
-
-The **coverage region** can be shown through the
-:py:meth:`~dymoval.dataset.Dataset.plot_coverage()` of the stored
-:ref:`Dataset <Dataset>`.
 
 *******************************
  How to interpret the results?
 *******************************
 
-The R-squared index tells us how well the simulation results fit the
+The :math:`R^2` index tells us how well the simulation results fit the
 measurement data, whereas the residuals provide information about the dynamic
 behavior of our model. More precisely:
 
@@ -103,20 +83,22 @@ behavior of our model. More precisely:
 
 -  If the residuals' whiteness is large, it indicates that some dynamics have
    been poorly modeled, and therefore the model needs updates. In this case,
-   if the R-squared is large, it only means that your model is fitting well
-   what has been modeled, but there are still many aspects not modeled. If our
-   model is of the form :math:`\dot x = Ax + Bu`, then the model between
-   :math:`x` and :math:`\dot x` shall be revised.
+   if the :math:`R^2` value is large, it only means that your model is fitting
+   well what has been modeled, but there are still underlying, non-modeled
+   dynamics. If the model is of the form :math:`\dot x = Ax + Bu`, then the
+   model between :math:`x` and :math:`\dot x`, namely the matrix :math:`A`,
+   shall be revised.
 
 -  If the input-residuals' whiteness level is large, it means that the
    input-output model needs improvements. If our model is of the form
    :math:`\dot x = Ax + Bu`, then the model between :math:`u` and :math:`\dot
-   x` shall be revised.
+   x`, namely the matrix :math:`B`, shall be revised.
 
-For simulation models, which motivated the development of Dymoval, we are more
-interested in the dynamic behavior of models than the point-wise fit of the
-data. Hence, even if the R-squared index is low, the model can still be very
-useful in a simulation setting, provided that the residuals are white enough.
+For simulation models, which motivated the development of *dymoval*, we are
+more interested in the dynamic behavior of models than the point-wise fit of
+the data. Hence, even if the R-squared index is low, the model can still be
+very useful in a simulation setting, provided that the residuals are white
+enough.
 
 The default validation process offered by Dymoval consists of comparing these
 values with some adjustable thresholds. You can tune such thresholds depending
@@ -130,3 +112,62 @@ they can trust the model.
 ********************************
  The results are disappointing.
 ********************************
+
+What are residuals and how their whiteness is estimated?
+========================================================
+
+The residuals, denoted as :math:`\varepsilon`, are simply the error between
+the measured outputs and the simulated outputs, defined as :math:`\varepsilon
+= y_{\mathrm{measured}} - y_{\mathrm{simulated}}`.
+
+It is desirable for the residuals to be as `white` as possible.
+
+In general, to examine the whiteness of a signal :math:`x(t)`, we study its
+similarity with some of its delayed copies. If such a similarity is small for
+a sufficiently high number of *lags*, then we can say that the signal
+:math:`x(t)` is somewhat *white*. The correlation values of the signal
+:math:`x(t)` with itself at different lags, is called *auto-correlation
+function (ACF)*. If instead of considering one signal we consider two signals
+:math:`x(t)` and :math:`y(t)`, then we obtain the *cross-correlation function
+(CCF)* :math:`r_{x,y}(k)` between :math:`x(t)` and :math:`y(t)`.
+
+*Dymoval* consider *normalized* correlation functions, which means that the
+values of the *ACF*:s and *CCF*:s are always **between 0.0 and 1.0**.
+
+The `delay time` (or `lag time`) :math:`\tau` of the ACF of a signal :math:`X`
+is equal to :math:`\tau = T_s`, being :math:`T_s` the signal sampling period,
+or equal to :math:`\tau=1/2B_x`, where :math:`B_x` is the bandwidth of
+:math:`X`, if the value of :math:`B_x` is passed to *dymoval* API. It is not
+possible to take a larger lag time than :math:`\tau=1/2B_x` otherwise the
+Nyquist-Shannon criteria would be violated.
+
+In case of cross-correlation between two signals :math:`X` and :math:`Y` the
+`lag time` :math:`\tau` is equal to the sampling period :math:`T_s` of the
+signals - that must be the same - or to :math:`\tau = \min(1/2B_x, 1/2B_y)` if
+information about the bandwidths are passed to the *dymoval* API.
+
+*Dymval* also performs whiteness analysis of **multivariate signals** as it
+follows.
+
+Let :math:`X` a signal of dimension :math:`p` with :math:`N` observations. The
+whiteness estimation of :math:`X` is performed in three steps:
+
+#. That is, the `auto-/cross-correlation` functions :math:`r_{i,j}(k)` of each
+   pair of components :math:`x_i, x_j \in X` for :math:`i,j = 1 \dots p` is
+   computed and arranged in :math:`p\times p` array. Each element of such an
+   array is a :py:class:`~dymoval.validation.XCorrelation` object.
+
+#. For each element :math:`r_{i,j}(k), i,j = 1 \dots p` of the
+   :py:class:`~dymoval.validation.XCorrelation` the whiteness is estimated by
+   computing a statistic of its realizations at different lags
+   :math:`k=-n_{lags}, \dots, n_{lags}`, being :math:`n_{lags} >0` the number
+   of lags considered (20 by default). The default statistic is the *mean of
+   the absolute value* of the realizations of the
+   :py:class:`~dymoval.validation.XCorrelation` function. The results are
+   arranged in a :math:`p\times p` array where each element is `float`.
+
+#. Another statistic is finally computed on the resulting flattened array. By
+   default, *dymoval* take the :math:`\max` element of such an array, which
+   correspond to the *worst-case* whiteness estimate.
+
+It is possible to change the statistics used for estimate the whiteness, see :ref:`dymoval_api`.

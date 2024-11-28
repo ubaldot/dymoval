@@ -5,11 +5,10 @@
 #############################
 
 When running experiments, it is important to stimulate the target environment
-in a way that we can extract as much information as possible from it.
+in a way that we extract as much information as possible from it.
 
 Good experiments shall stress the target environment as much as possible under
-different conditions. This is important because a model is as trustworthy as
-the measurements dataset used for validating it is *informative*.
+different conditions to get a sufficiently *informative* measurement dataset.
 
    **Example**
 
@@ -23,25 +22,23 @@ the measurements dataset used for validating it is *informative*.
    over, then it would be hard to disagree on that the collected measurements
    dataset is poorly informative.
 
-How can you design experiments that produce sufficiently informative
-measurement datasets?
+Ideally, the best approach would be to stimulate the system at every
+frequency. Ideally, such a stimulus should be a white noise signal. In
+practice, a white noise signal can be mimicked through a
+**Pseudo-Random-Binary-Sequence (PRBS)**, which is extremely easy to implement
+on digital platforms. Alternatively, you could use a chirp signal, or you
+could just manually drive your real system as randomly as possible. Regardless
+of the approach you choose, the goal is to hit as many corners as possible.
 
-Ideally, the best would be to stimulate the system at every frequencies. Very
-ideally with a white noise signal. A white noise signal could be mimic through
-a *Psuedo-Random-Binary-Sequence (PRBS)* which is extremely easy to implement
-on a digital platform. Alternatively, you could use a chirp signal or you
-could just manually drive your real system as randomly as possible. Be sure to
-hit all the corner cases.
+Next, let's say that we have completed your experiments. To assess the quality
+of the experiments, we can simply check how similar the input signal was to
+white noise. This is done by analyzing the **auto-correlation** function of
+our input signal. Dymoval has the :py:class:`~dymoval.validation.XCorrelation`
+class that can be used for this purpose.
 
-Say that we have done with our experiments.
-How to check if our signal was *white* enough? Well, we can analyze its
-*auto-correlation* function. Dymoval has the
-:py:class:`~dymoval.validation.XCorrelation` that can be used for this
-purpose.
-
-Assume that you have a signal ``u`` expressed as a :math:`N \times p`
-``np.ndarray``, where :math:`N` is the number of samples and :math:`p` is the
-dimension of the signal.
+Assume that you have a signal ``u`` expressed as a :math:`N \times p` array,
+where :math:`N` is the number of samples and :math:`p` is the dimension of the
+signal.
 
 You can create and analyze the auto-correlation function of the signal ``u``
 with the following:
@@ -74,18 +71,20 @@ metrics, see :py:meth:`~dymoval.validation.compute_statistics`.
  Over-sampled signals
 **********************
 
-If the signal under examination is overs-ampled, the whiteness results may be
-inaccurate. This occurs because consecutive measurements are naturally
-correlated when a sensor samples too quickly, leading to higher values in the
-auto-correlation function.
+If the signal under examination is over-sampled, then the whiteness results
+may be inaccurate. This occurs because consecutive measurements are naturally
+correlated when a sensor pick samples too quickly, leading to higher values in
+the auto-correlation function. In this case you are analyzing how measurements
+are correlated whereas we are interested in the overall signal
+auto-correlation.
 
-However, by knowing the signal’s bandwidth and its sampling period, we can
-determine whether a signal is over-sampled. If it is, we can adjust the lag
-time of the auto-correlation function to be :math:`lag\_time = 1/(2B)`, where
-:math:`B` is the signal bandwidth. This adjustment ensures that we are
-analyzing the auto-correlation of the actual signal rather than consecutive
-measurements. Dymoval handles this automatically, provided that the bandwidth
-and sampling period are supplied to the constructor of the
+To accommodate this issue, *dymoval* down-sample the auto-correlation function
+to the limit given by Shannon-Nyquist criteria. That is, *dymoval* compute the
+auto-correlation of signals by considering a lag time :math:`lag\_time =
+1/(2B)`, where :math:`B` is the signal bandwidth. This adjustment ensures that
+we are analyzing the auto-correlation of the actual signal rather than
+consecutive measurements. Dymoval handles this automatically, provided that
+the bandwidth and sampling period are supplied to the constructor of the
 :py:class:`~dymoval.validation.XCorrelation` class.
 
 .. note::
@@ -98,12 +97,17 @@ and sampling period are supplied to the constructor of the
  Coverage region
 *****************
 
-It is worth noting that a measurements dataset covering a fairly large region
-won't necessarily imply *information richness.* This happens for example when
-you take a wide range of values but you stimulate your target environment only
-with constant inputs in within such a range. You would certainly have a
-measurements dataset with a fairly large covered region but it would contain
-little information.
+Other than having an informative measurement dataset in terms of signal
+variation in terms of similarity to white-noise, we also want to cover as much
+amplitude as possible during our experiments. Such an amplitude is referred as
+coverage region.
+
+However, it is worth noting that a measurements dataset covering a fairly
+large region won't necessarily imply *information richness.* This happens for
+example when you take a wide range of values but you stimulate your target
+environment only with constant inputs in within such a range. You would
+certainly have a measurements dataset with a fairly large covered region but
+it would contain little information.
 
    **Example**
 

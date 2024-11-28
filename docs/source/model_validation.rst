@@ -7,12 +7,12 @@
 The model validation process happens in four steps:
 
 #. **Design a Set of Experiments**: Define a set of experiments to be carried
-   out on the target environment, also known as the :ref:`doe` (*DoE*). This
-   involves specifying the set of stimuli (*input*) to be applied on the
-   target environment.
+   out on the target environment. This involves specifying the set of stimuli
+   (*input*) to be applied on the target environment. Such a task is also
+   known as the :ref:`doe` (*DoE*).
 
-#. **Collect Measurements**: Execute the experiments designed in step 1 on the
-   target environment and collect the response. The combination of the input
+#. **Execute** the experiments designed in step 1 on the
+   target environment and **collect** the response. The combination of the input
    signals and the target environment's response is referred to as the
    *measurement dataset* (or simply dataset). Due to sensors may be noisy,
    sampled at different rate, log intermittently, etc., you may need to
@@ -34,8 +34,8 @@ The model validation process happens in four steps:
    returns a pass/fail value but in general it returns the evaluation of some
    model quality metrics.
 
-If the results of step 4 are good, and you can safely continue developing and
-testing in the virtual environment.
+If the results of step 4. are good, then you can trust what your model says
+within is validation region.
 
 Let's see how steps 1-4 can be applied.
 

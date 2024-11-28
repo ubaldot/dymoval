@@ -4,7 +4,7 @@
 
 Suppose you want to validate a model and you have the simulated out ``y_sim``
 the measured input ``u_meas``, and the measured out ``y_meas`` arranged in
-:math:`N\times q`, :math:`N\times p` and :math:`N\times q` ``np.ndarray``,
+:math:`N\times q`, :math:`N\times p` and :math:`N\times q` arrays,
 respectively, where :math:`N` is the number of observations sampled with
 period ``sampled_period``, :math:`p` is the number of inputs and :math:`q` is
 the number of outputs. Just call the following function:
@@ -34,26 +34,25 @@ to get something like the following:
 
 The model quality is evaluated according to the following criteria:
 
--  :math:`\mathbf{R^2}`: A good model should have this as large as possible.
+-  :math:`\mathbf{R^2}`: A good model should have this value as large as possible.
 
--  **Residuals auto-correlation**: A good model should have this as close to
-   white noise as possible (Residuals whiteness nearly equal to 0.0).
+-  **Residuals whiteness**: A good model should have this as close to 0.0 as possible
+   (max value is 1.0).
 
 -  **Input-residuals cross-correlation**: A good model should have this as
-   close to white noise as possible (Input-residuals whiteness nearly equal to
-   0.0).
+   close to 0.0 as possible (max value is 1.0).
 
 Nevertheless, given that "*all models are wrong, but some are useful,*" we
 cannot expect perfect figures. However, since we are interested in the dynamic
 behavior of our models, residuals are somewhat more important than the
-:math:`R^2` match (that does not mean the R-squared can be very bad!).
+:math:`R^2` match (that does not mean the :math:`R^2` can be very bad!).
 
 However, it is worth nothing that **it does not matter what simulation tool
 you use**. Dymoval only look at the simulated output values and make an
 evaluation versus the measurement data.
 
 Now that you understand the process, you can gain hands-on experience with the
-tutorial. If you want to learn more about model validation, how Dymoval
+tutorial. If you want to learn more about model validation, how *dymoval*
 relates to it, and how to address issues when the results are disappointing,
 feel free to check the :ref:`model_validation` section.
 

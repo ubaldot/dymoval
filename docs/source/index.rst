@@ -1,45 +1,49 @@
-.. dymoval documentation master file, created by
-  sphinx-quickstart on Wed Aug 31 12:11:21 2022.
-  You can adapt this file completely to your liking, but it should at least
-  contain the root `toctree` directive.
+..
+   dymoval documentation master file, created by
+   sphinx-quickstart on Wed Aug 31 12:11:21 2022.
+   You can adapt this file completely to your liking, but it should at least
+   contain the root `toctree` directive.
 
-Dymoval (Dynamic Model Validation)
-====================================
+####################################
+ Dymoval (Dynamic Model Validation)
+####################################
 
-What is it?
------------
+*************
+ What is it?
+*************
 
-*Dymoval* is a Python package for *analyzing measurement data* (aka
-*datasets*) and *validating models*.
+*Dymoval* is a Python package for *analyzing measurement data* and *validating
+models*.
 
-*Dymoval* validates models against user-provided measurements data regardless
-of
-the model format (*DNN, transfer function, ODE,* etc.) and the tool
-used for developing it (*Simulink, Modelica,* etc.).
-If your development process is done in a CI/CD environment, *Dymoval*'s
-functions can be easily included in a development pipeline to test your
-changes.
+*Dymoval* validates models based only on *measurements* and *simulated data*,
+and it is completely independent of the used modeling tool. This means that it
+does not matter if a model has been developed with Simulink, Modelica, etc.,
+*dymoval* will only look at the produced data from the model.
 
-*Dymoval* further provides a number of functions for measurements data
-analysis and
-manipulation.
+If you are tracking your models changes in a CI/CD environment, then *dymoval*
+API can be easily used to run tests in Jenkins or GitHub Actions pipelines as
+it enables unit-testing on models.
 
-Although it is a very helpful in engineering, its usage may come handy in
-other application domains as well.
+Finally, *dymoval* provides a number of functions for for handling
+measurements data, addressing common issues such as noise, missing data, and
+varying sampling intervals.
 
-What is not.
-------------
-*Dymoval* **is not** a tool for developing models.
-You have to develop your models with the tool you prefer.
+**************
+ What is not.
+**************
 
-It is not a tool for *System Identification* either (but we don't exclude it can
-happen in the future ;-)).
+*Dymoval* **is not** a tool for developing models. You have to develop your
+models with the tool you prefer.
+
+It is not a tool for *System Identification* either (but we don't exclude it
+can happen in the future ;-)).
 
 *Dymoval* only checks if your models are good or not but you have to develop
 your models by yourself in the environment that you prefer.
 
-Why dymoval?
-------------
+**************
+ Why dymoval?
+**************
 
 Simulation results frequently deviate significantly from real-world
 measurements, leading to a growing skepticism towards simulation models.
@@ -54,49 +58,53 @@ data, which often comes with challenges such as noise, missing data, and
 varying sampling intervals. This ensures that your models are not only
 validated but also capable of accurately reflecting real-world conditions.
 
-
-Main Features
--------------
+***************
+ Main Features
+***************
 
 Measurements analysis and manipulation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-- Time and frequency analysis
-- Easy plotting
-- Missing data handling
-- Linear filtering
-- Means and offsets removal
-- Re-sampling
-- Physical units
+======================================
+
+-  Time and frequency analysis
+-  Easy plotting
+-  Missing data handling
+-  Linear filtering
+-  Means and offsets removal
+-  Re-sampling
+-  Physical units
 
 Model validation
-^^^^^^^^^^^^^^^^
-- Validation metrics:
-- R-square fit
-- Residuals auto-correlation statistics
-- Input-Residuals cross-correlation statistics
-- Coverage region
-- MIMO models
-- Independence of the modeling tool used.
-- API suitable for model unit-tests
+================
 
+-  Validation metrics:
+-  R-square fit
+-  Residuals auto-correlation statistics
+-  Input-Residuals cross-correlation statistics
+-  Coverage region
+-  MIMO models
+-  Independence of the modeling tool used.
+-  API suitable for model unit-tests
 
-Index
------
+*******
+ Index
+*******
+
 .. toctree::
-  :maxdepth: 2
+   :maxdepth: 2
 
-  installation
-  getting_started
-  model_validation
-  reference
-  api
+   installation
+   getting_started
+   model_validation
+   reference
+   api
 
+####################
+ Indices and tables
+####################
 
-Indices and tables
-==================
+-  :ref:`genindex`
+-  :ref:`modindex`
+-  :ref:`search`
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
-
-.. vim: set ts=2 tw=78:
+..
+   vim: set ts=2 tw=78:

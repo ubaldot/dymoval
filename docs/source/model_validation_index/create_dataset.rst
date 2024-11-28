@@ -21,7 +21,7 @@ attributes:
 -  sampling period,
 -  time unit.
 
-and a :ref:`Signal <signal>` object store exactly this information and can be
+A :ref:`Signal <signal>` object store exactly this information and can be
 created as it follows:
 
 .. code::
@@ -40,14 +40,14 @@ created as it follows:
            "time_unit": "s",
            }
 
-As a first step to using Dymoval, each logged signal must be cast into a
-Dymoval :ref:`Signal <signal>`. Once this is done, a list of such
+As a first step when using *dymoval*, each logged signal must be cast into a
+*dymoval* :ref:`Signal <signal>`. Once this is done, a list of such
 :ref:`Signals <signal>` can be used to create a :ref:`Dataset <Dataset>`
 object. This represents the measurement dataset against which the simulated
 outputs will be evaluated.
 
 To create a :ref:`Dataset <dataset>` object, we need at least one input and
-one output, therefore we assume that the room temperature of the example below
+one output, therefore we assume that the room temperature of the previous example
 is an output and a thermostat position is the *input* signal:
 
 .. code::
@@ -75,7 +75,7 @@ You should get a figure like the following:
 .. figure:: ../figures/CreateDataset.png
    :scale: 100%
 
-At this point you can graphically trim the time-axis to select only a desired
+At this point you can graphically *trim* the time-axis to select only a desired
 portion of measurements data that you want to use for validation purpose:
 
 .. figure:: ../figures/CreateDatasetTrimmed.png
@@ -102,12 +102,9 @@ problems arise:
 -  Logs are often affected by other issues such as noisy measurements, missing
    data, and so on.
 
-Dymoval provides a number of functions for dealing with :ref:`Dataset
+*Dymoval* provides a number of functions for dealing with :ref:`Dataset
 <Dataset>` objects, including re-sampling, plotting, frequency analysis,
 filtering, and more.
 
 Once you have created and adjusted a measurement :ref:`Dataset <Dataset>`
 object, you are ready to simulate your model.
-
-..
-   vim: set ts=2 tw=78:

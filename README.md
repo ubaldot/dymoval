@@ -20,15 +20,13 @@
 
 ## What is it?
 
-**Dymoval** (**Dy**namic **Mo**del **Val**idation) is a Python package for
-analyzing _measurements data_ and validate _models_.
+_Dymoval_ is a Python package for _analyzing measurement data_ and _validating
+models_.
 
-Whether your model is a Deep Neural Network, an ODE, or something more
-complex, and regardless of whether you use Modelica or Simulink as your
-modeling tool, Dymoval has you covered. Simply provide Dymoval with
-measurements and model-generated data, and it will deliver a comprehensive
-model quality evaluation, including r-squared fit, residuals norms, and
-coverage region.
+_Dymoval_ validates models based only on _measurements_ and _simulated data_,
+and it is completely independent of the used modeling tool. That means that it
+does not matter if a model has been developed with Simulink, Modelica, etc.,
+_dymoval_ will only look at the produced data from the model.
 
 <div align="center"
 	<br>
@@ -39,12 +37,13 @@ coverage region.
 	<br>
 </div>
 
-If you are tracking your models changes in a CI/CD environment, then _Dymoval_
-API can be easily used to run tests in Jenkins or GitHub Actions pipelines.
+If you are tracking your models changes in a CI/CD environment, then _dymoval_
+API can be easily used to run tests in Jenkins or GitHub Actions pipelines as
+it enables unit-testing on models.
 
-Dymoval also provides essential functions for handling measurement data,
-addressing common issues such as noise, missing data, and varying sampling
-intervals.
+Finally, _dymoval_ provides a number of functions for for handling
+measurements data, addressing common issues such as noise, missing data, and
+varying sampling intervals.
 
 ## Installation
 
@@ -57,9 +56,9 @@ pip install dymoval conda install -c conda-forge dymoval
 
 Suppose you want to validate a model and you have the simulated out `y_sim`
 the measured input `u_meas`, and the measured out `y_meas` arranged in $Nxq$,
-$Nxp$ and $Nxq$ `np.ndarray`, respectively, where $N$ is the number of
-observations sampled with period `sampled_period`, $p$ is the number of inputs
-and $q$ is the number of outputs. Just call the following function:
+$Nxp$ and $Nxq$ arrays, respectively, where $N$ is the number of observations
+sampled with period `sampled_period`, $p$ is the number of inputs and $q$ is
+the number of outputs. Just call the following function:
 
 ```
 from dymoval.validation import validate_models
@@ -84,13 +83,14 @@ to get something like the following:
   Outcome: PASS
 ```
 
-Disappointed by the results?
+Congrats! Your model passed the test!
 
-Don't worry, it might not be the model's fault.
+But what if the test didn't pass? Don't worry, it might not be the model's
+fault.
 
-In fact, you could be dealing with noisy measurements, over-sampled signals,
-missing data, and other factors that might affect the results. Take a look at
-the tutorial to learn how to address such issues:
+For example, you could be dealing with noisy measurements, over-sampled
+signals, missing data, and other factors that might affect the results. Take a
+look at the tutorial to learn how to address such issues:
 
 ```
   import dymoval as dmv

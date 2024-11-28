@@ -68,9 +68,9 @@ few parameter that you can set.
     :type: bool | None
     :default: None
 
-    The dymoval plot functions end with ``fig.show()`` in interactive
+    The `dymoval` plot functions end with ``fig.show()`` in interactive
     environments such as ``IPython``, and with ``plt.show()`` for non-interactive
-    environments. If 'is_interactive` is `None`, then dymoval attempts to
+    environments. If `is_interactive` is `None`, then dymoval attempts to
     detect your environment automatically. Otherwise, you can force the
     behavior through this configuration parameter.
 
@@ -87,6 +87,6 @@ A ``~/.dymoval/config.toml`` could for example include the following content
 
 Plots
 =====
-Dymoval shall be able to recognize if you are working or not in an interactive
-environment. It is however suggested to disable the matplotlib interactivity
-with `plt.ioff()` if working with `IPython`.
+`Dymoval` shall be able to recognize if you are working or not in an interactive
+environment. It is however suggested to disable the `matplotlib` interactivity
+with ``plt.ioff()`` if working with `IPython`.
