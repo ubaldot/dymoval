@@ -1,4 +1,4 @@
-name: dymoval_dev
+# name: dymoval_dev
 
 channels:
   - conda-forge

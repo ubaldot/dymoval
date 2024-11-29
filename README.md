@@ -52,7 +52,7 @@ following:
 
 ```
 pip install dymoval
-conda install -c conda-forge dymoval
+conda install conda-forge::dymoval
 ```
 
 ## Getting started
