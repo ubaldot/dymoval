@@ -58,8 +58,8 @@ conda install conda-forge::dymoval
 ## Getting started
 
 Suppose that you want to validate a model and you have the simulated out
-time-series`y_sim` and the corresponding real-world measurements `y_meas`
-along with the input time-series `u_meas`, and let `sampled_period` the
+time-series`y_sim` along with the corresponding real-world measurements
+`y_meas` and the input time-series `u_meas`, and let `sampled_period` the
 sampling period of these signals. Then, just call the following function:
 
 ```
