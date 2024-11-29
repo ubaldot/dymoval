@@ -57,9 +57,10 @@ conda install conda-forge::dymoval
 
 ## Getting started
 
-Suppose you want to validate a model and you have the simulated out `y_sim`
-the measured input `u_meas`, and the measured out `y_meas` time-series sampled
-with period `sampled_period`. Just call the following function:
+Suppose that you want to validate a model and you have the simulated out
+time-series`y_sim` and the corresponding real-world measurements `y_meas`
+along with the input time-series `u_meas`, and let `sampled_period` the
+sampling period of these signals. Then, just call the following function:
 
 ```
 from dymoval.validation import validate_models
@@ -110,24 +111,24 @@ the [docs](https://ubaldot.github.io/dymoval/).
 
 **Model validation**
 
-- Validation metrics:
-  - R-square fit
-  - Residuals auto-correlation statistics
-  - Input-Residuals cross-correlation statistics
-- Coverage region
-- MIMO models
-- Independence of the modeling tool used.
-- API suitable for model unit-tests
+* Validation metrics:
+  * R-square fit
+  * Residuals auto-correlation statistics
+  * Input-Residuals cross-correlation statistics
+* Coverage region
+* MIMO models
+* Independence of the modeling tool used.
+* API suitable for model unit-tests
 
 **Measurement data analysis and manipulation**
 
-- Time and frequency analysis
-- Easy plotting
-- Missing data handling
-- Linear filtering
-- Means and offsets removal
-- Re-sampling
-- Physical units
+* Time and frequency analysis
+* Easy plotting
+* Missing data handling
+* Linear filtering
+* Means and offsets removal
+* Re-sampling
+* Physical units
 
 ## License
 
