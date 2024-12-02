@@ -1,0 +1,520 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Reference Manual" href="../reference.html" /><link rel="prev" title="Simulate your model" href="simulate_model.html" />
+
+    <!-- Generated with Sphinx 8.1.3 and Furo 2024.08.06 -->
+        <title>Validate your model - dymoval 0.9.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=354aac6f" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=302659d7" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f8f8f8;
+  --color-code-foreground: black;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">dymoval 0.9.0 documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo" src="../_static/DymovalLogo_Layer 2_Small.svg" alt="Logo"/>
+  </div>
+  
+  <span class="sidebar-brand-text">dymoval 0.9.0 documentation</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation &amp; configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started.html">Getting Started</a></li>
+<li class="toctree-l1 current has-children"><a class="reference internal" href="../model_validation.html">More on Model Validation</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><div class="visually-hidden">Toggle navigation of More on Model Validation</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="doe.html">Design of Experiments (DoE)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="create_dataset.html">Create, analyze and manipulate a dataset</a></li>
+<li class="toctree-l2"><a class="reference internal" href="simulate_model.html">Simulate your model</a></li>
+<li class="toctree-l2 current current-page"><a class="current reference internal" href="#">Validate your model</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../reference.html">Reference Manual</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><div class="visually-hidden">Toggle navigation of Reference Manual</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../reference_index/dataset.html">Measurements handling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference_index/validation.html">Model Validation</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../api.html">Dymoval’s api</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><div class="visually-hidden">Toggle navigation of Dymoval’s api</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api_index/api.html">dymoval.dataset module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api_index/api.html#module-dymoval.validation">dymoval.validation module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api_index/api.html#module-dymoval.utils">dymoval.utils module</a></li>
+</ul>
+</li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="../_sources/model_validation_index/validation_session.rst.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="validate-your-model">
+<span id="validation-session"></span><h1>Validate your model<a class="headerlink" href="#validate-your-model" title="Link to this heading">¶</a></h1>
+<p>To validate models you can just run the following:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">dymoval.validation</span> <span class="kn">import</span> <span class="n">validate_models</span>
+
+<span class="n">vs</span> <span class="o">=</span> <span class="n">validate_models</span><span class="p">(</span>
+    <span class="n">measured_in</span><span class="o">=</span><span class="n">u_meas</span><span class="p">,</span>
+    <span class="n">measured_out</span><span class="o">=</span><span class="n">y_meas</span><span class="p">,</span>
+    <span class="n">simulated_out</span><span class="o">=</span><span class="n">y_sim</span><span class="p">,</span>
+    <span class="n">sampling_period</span> <span class="o">=</span> <span class="n">sampling_period</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>where <cite>y_sim</cite> is the simulated out, <cite>u_meas</cite> is the measured input, <cite>y_meas</cite>
+is the measured out arranged in <span class="math notranslate nohighlight">\(N\times q\)</span>, <span class="math notranslate nohighlight">\(N\times p\)</span> and
+<span class="math notranslate nohighlight">\(N\times q\)</span> arrays, respectively, where <span class="math notranslate nohighlight">\(N\)</span> is the number of
+observations sampled with period <cite>sampled_period</cite>, <span class="math notranslate nohighlight">\(p\)</span> is the number of
+inputs and <span class="math notranslate nohighlight">\(q\)</span> is the number of outputs.</p>
+<p>For more accurate results, the bandwidths of the involved signals can be
+passed to the <em>dymoval</em> functions.</p>
+<p>The function <a class="reference internal" href="../api_index/api.html#dymoval.validation.validate_models" title="dymoval.validation.validate_models"><code class="xref py py-meth docutils literal notranslate"><span class="pre">validate_models()</span></code></a> return a
+<a class="reference internal" href="../api_index/api.html#dymoval.validation.ValidationSession" title="dymoval.validation.ValidationSession"><code class="xref py py-class docutils literal notranslate"><span class="pre">ValidationSession</span></code></a> object that store the
+validation outcome.</p>
+<p>If you have other simulated data coming from other models or from the same
+model with different settings, then you can append them to the same
+<a class="reference internal" href="../api_index/api.html#dymoval.validation.ValidationSession" title="dymoval.validation.ValidationSession"><code class="xref py py-class docutils literal notranslate"><span class="pre">ValidationSession</span></code></a> object. The evaluation is
+done automatically:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># vs is a ValidationSession object</span>
+<span class="n">vs</span> <span class="o">=</span> <span class="n">vs</span><span class="o">.</span><span class="n">append_simulation</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s1">&#39;Sim_1&#39;</span><span class="p">,</span> <span class="n">y_names</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;out0&#39;</span><span class="p">,</span> <span class="s1">&#39;out1&#39;</span><span class="p">],</span> <span class="n">y_data</span><span class="o">=</span><span class="n">y_sim2</span><span class="p">)</span>
+<span class="n">vs</span>
+
+<span class="n">Actuals</span><span class="p">:</span>
+                                        <span class="n">Sim_0</span>       <span class="n">Sim_1</span>
+<span class="n">Input</span> <span class="n">whiteness</span> <span class="p">(</span><span class="n">abs_mean</span><span class="o">-</span><span class="nb">max</span><span class="p">)</span>       <span class="mf">0.367134</span>    <span class="mf">0.367134</span>
+<span class="n">R</span><span class="o">-</span><span class="n">Squared</span> <span class="p">(</span><span class="o">%</span><span class="p">)</span>                       <span class="mf">69.538448</span> <span class="o">-</span><span class="mf">173.163879</span>
+<span class="n">Residuals</span> <span class="n">whiteness</span> <span class="p">(</span><span class="n">abs_mean</span><span class="o">-</span><span class="nb">max</span><span class="p">)</span>   <span class="mf">0.116023</span>    <span class="mf">0.146618</span>
+<span class="n">Input</span><span class="o">-</span><span class="n">Res</span> <span class="n">whiteness</span> <span class="p">(</span><span class="n">abs_mean</span><span class="o">-</span><span class="nb">max</span><span class="p">)</span>   <span class="mf">0.189000</span>    <span class="mf">0.263764</span>
+
+         <span class="n">Sim_0</span>  <span class="n">Sim_1</span>
+<span class="n">Outcome</span><span class="p">:</span> <span class="n">PASS</span>   <span class="n">FAIL</span>
+</pre></div>
+</div>
+<p>The default validation procedure evaluates the following quantities:</p>
+<ul class="simple">
+<li><p><em>Input whiteness (optional)</em>,</p></li>
+<li><p><span class="math notranslate nohighlight">\(R^2\)</span> fit of the measured and simulated outputs,</p></li>
+<li><p><em>Residuals whiteness</em>,</p></li>
+<li><p><em>Input-Residuals whiteness</em>,</p></li>
+</ul>
+<p>and compare them with some thresholds. If each individual quantity pass the
+test, then the overall test is passed. It is however possible to access all
+the validation information for defining custom evaluation criteria in a fairly
+easy manner since it is possible to extract any kind on information from
+<a class="reference internal" href="../api_index/api.html#dymoval.validation.ValidationSession" title="dymoval.validation.ValidationSession"><code class="xref py py-class docutils literal notranslate"><span class="pre">ValidationSession</span></code></a> objects.</p>
+<p>You can finally visually inspect both the simulations results with the
+<a class="reference internal" href="../api_index/api.html#dymoval.validation.ValidationSession.plot_simulations" title="dymoval.validation.ValidationSession.plot_simulations"><code class="xref py py-meth docutils literal notranslate"><span class="pre">plot_simulations()</span></code></a> method and
+the residuals with the
+<a class="reference internal" href="../api_index/api.html#dymoval.validation.ValidationSession.plot_residuals" title="dymoval.validation.ValidationSession.plot_residuals"><code class="xref py py-meth docutils literal notranslate"><span class="pre">plot_residuals()</span></code></a> method.</p>
+<section id="how-to-interpret-the-results">
+<h2>How to interpret the results?<a class="headerlink" href="#how-to-interpret-the-results" title="Link to this heading">¶</a></h2>
+<p>The <span class="math notranslate nohighlight">\(R^2\)</span> index tells us how well the simulation results fit the
+measurement data, whereas the residuals provide information about the dynamic
+behavior of our model. More precisely:</p>
+<ul class="simple">
+<li><p>If the input signal has a low whiteness value (i.e., as close to 0.0 as
+possible), it means that during the lab tests, the system was adequately
+stimulated, covering all aspects of the real system. This gives higher
+trust to our model if the other validation metrics are good.</p></li>
+<li><p>If the residuals’ whiteness is large, it indicates that some dynamics have
+been poorly modeled, and therefore the model needs updates. In this case,
+if the <span class="math notranslate nohighlight">\(R^2\)</span> value is large, it only means that your model is fitting
+well what has been modeled, but there are still underlying, non-modeled
+dynamics. If the model is of the form <span class="math notranslate nohighlight">\(\dot x = Ax + Bu\)</span>, then the
+model between <span class="math notranslate nohighlight">\(x\)</span> and <span class="math notranslate nohighlight">\(\dot x\)</span>, namely the matrix <span class="math notranslate nohighlight">\(A\)</span>,
+shall be revised.</p></li>
+<li><p>If the input-residuals’ whiteness level is large, it means that the
+input-output model needs improvements. If our model is of the form
+<span class="math notranslate nohighlight">\(\dot x = Ax + Bu\)</span>, then the model between <span class="math notranslate nohighlight">\(u\)</span> and <span class="math notranslate nohighlight">\(\dot
+x\)</span>, namely the matrix <span class="math notranslate nohighlight">\(B\)</span>, shall be revised.</p></li>
+</ul>
+<p>For simulation models, which motivated the development of <em>dymoval</em>, we are
+more interested in the dynamic behavior of models than the point-wise fit of
+the data. Hence, even if the <span class="math notranslate nohighlight">\(R^2\)</span> index is low, the model can still be
+very useful in a simulation setting, provided that the residuals are white
+enough.</p>
+<p>The default validation process offered by Dymoval consists of comparing these
+values with some adjustable thresholds. You can tune such thresholds depending
+on how stringent you want to be with your model, but you can also fetch raw
+data and build up the criteria you want.</p>
+<p>In any case, it is important that you deliver your model along with the
+validation results and the coverage region, so users know within which limits
+they can trust the model.</p>
+</section>
+<section id="the-results-are-disappointing">
+<h2>The results are disappointing<a class="headerlink" href="#the-results-are-disappointing" title="Link to this heading">¶</a></h2>
+<p>When the validation results are bad does not necessarily mean that the model
+is bad. It may be that the validation procedure needs some tweak. Here are few
+things to check:</p>
+<ul class="simple">
+<li><p>The measurements dataset has noisy measurements. In that case you want to
+low-pass filter the dataset, but avoid to use tight cutoff frequencies
+because that would smooth the signal too much, possibly resulting in high
+ACF values. Also, it is worth nothing that the bandwidth of a signal
+downstream a first-order low-pass filter is, in general, not equal to the
+filter cutoff frequency.</p></li>
+<li><p>The signals may be over-sampled. Consider estimating the signals’
+bandwidths and pass this information to <em>dymoval</em> functions.</p></li>
+<li><p>The input signal has some trend or some large mean values or offset, etc..
+Consider removing possible trends, mean values, etc. from the input signals
+used in the <a class="reference internal" href="../reference_index/dataset.html#dataset"><span class="std std-ref">Dataset</span></a> object contained in the
+<a class="reference internal" href="../reference_index/validation.html#validationsession"><span class="std std-ref">ValidationSession</span></a> object. <em>You don’t need to do
+it in the output signals because eventual trends or mean values are
+canceled out during the computation of the residuals</em>. However, to generate
+the simulated data the input signal shall be as close as possible to the
+input signal used in the test. Hence, you may consider <strong>two distinct input
+signals</strong>: one for feeding the model and a manipulated version of it for
+validation purpose that is included in the <a class="reference internal" href="../reference_index/validation.html#validationsession"><span class="std std-ref">ValidationSession</span></a> object.</p></li>
+<li><p><em>Stiff models</em>: <em>dymoval</em> can naturally cope with stiff models, but it is
+very important to exploit bandwidths information. However, you can ignore
+entries in the resulting validation matrix described in point 2. of the
+next Section when performing an overall assessment if they represents
+signal with significantly different bandwidths. This means that you should
+extract information from the <a class="reference internal" href="../reference_index/validation.html#validationsession"><span class="std std-ref">ValidationSession</span></a>
+object and build custom evaluation metrics.</p></li>
+</ul>
+</section>
+<section id="some-theory-what-are-residuals">
+<span id="theory"></span><h2>Some theory: what are residuals?<a class="headerlink" href="#some-theory-what-are-residuals" title="Link to this heading">¶</a></h2>
+<p>The residuals, denoted as <span class="math notranslate nohighlight">\(\varepsilon\)</span>, are simply the error between
+the measured outputs and the simulated outputs, defined as <span class="math notranslate nohighlight">\(\varepsilon
+= y_{\mathrm{measured}} - y_{\mathrm{simulated}}\)</span>.</p>
+<p>It is desirable for the residuals to be as <cite>white</cite> as possible.</p>
+<p>In general, to examine the whiteness of a signal <span class="math notranslate nohighlight">\(x(t), t=1,\dots,N\)</span>, we
+study its similarity with some of its delayed copies. If such a similarity is
+small for a sufficiently high number of <em>lags</em>, then we can say that the
+signal <span class="math notranslate nohighlight">\(x(t)\)</span> is somewhat <em>white</em>. The function <span class="math notranslate nohighlight">\(r_{x,x}(k)\)</span> is
+called <em>auto-correlation function (ACF)</em> of the signal <span class="math notranslate nohighlight">\(x(t)\)</span> and it
+represents how similar <span class="math notranslate nohighlight">\(x(t)\)</span> is with delayed copies of itself at
+different lags <span class="math notranslate nohighlight">\(k\in \mathbb Z\)</span>. If instead of considering one signal we
+consider two signals <span class="math notranslate nohighlight">\(x(t)\)</span> and <span class="math notranslate nohighlight">\(y(t)\)</span>, then we obtain the
+<em>cross-correlation function (CCF)</em> <span class="math notranslate nohighlight">\(r_{x,y}(k)\)</span> between <span class="math notranslate nohighlight">\(x(t)\)</span> and
+<span class="math notranslate nohighlight">\(y(t)\)</span>.</p>
+<p>The next question is: to how many seconds one lag corresponds to?</p>
+<p>The answer is given by the <cite>delay time</cite> (or <cite>lag time</cite>) <span class="math notranslate nohighlight">\(\tau \in
+\mathbb{R}^+\)</span> which in <em>dymoval</em> is equal to <span class="math notranslate nohighlight">\(\tau = T_s\)</span>, being
+<span class="math notranslate nohighlight">\(T_s\)</span> the signal sampling period, or equal to <span class="math notranslate nohighlight">\(\tau=1/2B_x\)</span>, where
+<span class="math notranslate nohighlight">\(B_x\)</span> is the bandwidth of <span class="math notranslate nohighlight">\(X\)</span>, if the value of <span class="math notranslate nohighlight">\(B_x\)</span> is
+passed to <em>dymoval</em> API. It is not possible to take a larger lag time than
+<span class="math notranslate nohighlight">\(\tau=1/2B_x\)</span> otherwise the Nyquist-Shannon criteria would be violated.</p>
+<p>In case of cross-correlation between two signals <span class="math notranslate nohighlight">\(x\)</span> and <span class="math notranslate nohighlight">\(y\)</span> the
+<cite>lag time</cite> <span class="math notranslate nohighlight">\(\tau\)</span> is equal to the sampling period <span class="math notranslate nohighlight">\(T_s\)</span> of the
+signals - that must be the same - or to <span class="math notranslate nohighlight">\(\tau = \min(1/2B_x, 1/2B_y)\)</span> if
+information about the bandwidths are passed to the <em>dymoval</em> API.</p>
+<p><em>Dymval</em> also performs whiteness analysis of <strong>multivariate signals</strong> as it
+follows.</p>
+<p>Let <span class="math notranslate nohighlight">\(X\)</span> a signal of dimension <span class="math notranslate nohighlight">\(p\)</span> with <span class="math notranslate nohighlight">\(N\)</span> observations. The
+whiteness estimation of <span class="math notranslate nohighlight">\(X\)</span> is performed in three steps:</p>
+<ol class="arabic simple">
+<li><p>That is, the <cite>auto-/cross-correlation</cite> functions <span class="math notranslate nohighlight">\(r_{i,j}(k)\)</span> of each
+pair of components <span class="math notranslate nohighlight">\(x_i, x_j \in X\)</span> for <span class="math notranslate nohighlight">\(i,j = 1 \dots p\)</span> is
+computed and arranged in <span class="math notranslate nohighlight">\(p\times p\)</span>
+<a class="reference internal" href="../api_index/api.html#dymoval.validation.XCorrelation" title="dymoval.validation.XCorrelation"><code class="xref py py-class docutils literal notranslate"><span class="pre">XCorrelation</span></code></a> object.</p></li>
+<li><p>For each element <span class="math notranslate nohighlight">\(r_{i,j}(k), i,j = 1 \dots p\)</span> of the
+<a class="reference internal" href="../api_index/api.html#dymoval.validation.XCorrelation" title="dymoval.validation.XCorrelation"><code class="xref py py-class docutils literal notranslate"><span class="pre">XCorrelation</span></code></a> object the whiteness is
+estimated by computing a statistic of its realizations for
+<span class="math notranslate nohighlight">\(k=-n_{lags}, \dots, n_{lags}\)</span>, being <span class="math notranslate nohighlight">\(n_{lags} &gt;0\)</span> the number
+of lags considered (20 by default). The default statistic is the <em>mean of
+the absolute value</em> of the realizations of the
+<a class="reference internal" href="../api_index/api.html#dymoval.validation.XCorrelation" title="dymoval.validation.XCorrelation"><code class="xref py py-class docutils literal notranslate"><span class="pre">XCorrelation</span></code></a> function. The results are
+arranged in a <span class="math notranslate nohighlight">\(p\times p\)</span> array where each element is <cite>float</cite>.</p></li>
+<li><p>Another statistic is finally computed on the resulting flattened array. By
+default, <em>dymoval</em> take the <span class="math notranslate nohighlight">\(\max\)</span> element of such an array, which
+correspond to the <em>worst-case</em> whiteness estimate.</p></li>
+</ol>
+<p><em>Dymoval</em> consider <strong>normalized</strong> correlation functions, which means that the
+values of the <em>ACF</em>:s and <em>CCF</em>:s are always <strong>between 0.0 and 1.0</strong>.</p>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="../reference.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Reference Manual</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="simulate_model.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Simulate your model</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2024, U. Tiberi
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Validate your model</a><ul>
+<li><a class="reference internal" href="#how-to-interpret-the-results">How to interpret the results?</a></li>
+<li><a class="reference internal" href="#the-results-are-disappointing">The results are disappointing</a></li>
+<li><a class="reference internal" href="#some-theory-what-are-residuals">Some theory: what are residuals?</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=39bb1c6d"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=5fa4622c"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    </body>
+</html>
