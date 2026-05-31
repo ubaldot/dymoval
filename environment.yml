@@ -1,4 +1,4 @@
-# name: dymoval_dev
+name: dymoval_dev
 
 channels:
   - conda-forge
@@ -16,11 +16,8 @@ dependencies:
   - sphinx-autodoc-typehints
   - pytest
   - mypy
-  - black
-  - flake8
+  - ruff
   - coverage
-  - grayskull
   - h5py
   - pip
-  - filelock
   - typing_extensions

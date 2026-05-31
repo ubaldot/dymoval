@@ -1,5 +1,10 @@
 #!/bin/bash
 
+set -e
+
+# initialize conda for non-interactive shell
+source "$(conda info --base)/etc/profile.d/conda.sh"
+
 if ! command -v conda &> /dev/null && ! command -v mamba &> /dev/null; then
     echo "Error: Neither conda nor mamba is installed."
     exit 1
@@ -10,12 +15,10 @@ if [ ! -f environment.yml ]; then
     exit 1
 fi
 
-# Setup conda environment
-conda env create --file=environment.yml
+# create env (optional: avoid error if exists)
+conda env update -f environment.yml --prune
 conda activate dymoval_dev
 
-# Editable install
 pip install -e .
 
-# symlink pre-commit hook
 ln -sf ../../.githooks/pre-commit .git/hooks/pre-commit

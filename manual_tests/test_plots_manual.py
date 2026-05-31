@@ -54,20 +54,30 @@ in_lst = []
 for ii, val in enumerate(input_signal_names):
     temp_in: dmv.Signal = {
         "name": val,
-        "values": input_signal_values[ii],
+        "samples": input_signal_values[ii],
         "signal_unit": input_signal_units[ii],
         "sampling_period": input_sampling_periods[ii],
         "time_unit": "s",
     }
     in_lst.append(deepcopy(temp_in))
-# Output signal
+
+
+# %% Output signal
 output_signal_names = ["y1", "y2", "y3", "y4"]
 output_sampling_periods = [0.1, 0.1, 0.1, 0.1]
 output_signal_values = [
-    np.hstack((np.random.rand(50), nan_thing, np.random.rand(100), nan_thing)),
-    np.hstack((np.random.rand(100), nan_thing[0:50], np.random.rand(150), nan_thing)),
-    np.hstack((np.random.rand(10), nan_thing[0:105], np.random.rand(50), nan_thing)),
-    np.hstack((np.random.rand(20), nan_thing[0:85], np.random.rand(60), nan_thing)),
+    np.hstack(
+        (np.random.rand(50), nan_thing, np.random.rand(100), nan_thing)
+    ),
+    np.hstack(
+        (np.random.rand(100), nan_thing[0:50], np.random.rand(150), nan_thing)
+    ),
+    np.hstack(
+        (np.random.rand(10), nan_thing[0:105], np.random.rand(50), nan_thing)
+    ),
+    np.hstack(
+        (np.random.rand(20), nan_thing[0:85], np.random.rand(60), nan_thing)
+    ),
 ]
 
 output_signal_units = ["m/s", "deg", "°C", "kPa"]
@@ -76,7 +86,7 @@ for ii, val in enumerate(output_signal_names):
     # This is the syntax for defining a dymoval signal
     temp_out: dmv.Signal = {
         "name": val,
-        "values": output_signal_values[ii],
+        "samples": output_signal_values[ii],
         "signal_unit": output_signal_units[ii],
         "sampling_period": output_sampling_periods[ii],
         "time_unit": "s",
@@ -112,6 +122,8 @@ ds = dmv.Dataset(
     input_signal_names,
     output_signal_names,
     target_sampling_period=0.1,
+    # tin=0.1,
+    # tout=10.0,
     overlap=True,
 )
 
@@ -174,7 +186,9 @@ ds.plot_spectrum(linecolor_input="r", linecolor_output="c", alpha_fg=0.5)
 
 # %%
 ds.plot_spectrum(kind="psd")
-ds.plot_spectrum(kind="psd", linecolor_input="r", linecolor_output="c", alpha_fg=0.5)
+ds.plot_spectrum(
+    kind="psd", linecolor_input="r", linecolor_output="c", alpha_fg=0.5
+)
 
 # %%
 ds.plot_spectrum(kind="amplitude")

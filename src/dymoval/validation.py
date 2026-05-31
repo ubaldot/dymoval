@@ -2,17 +2,11 @@
 
 # The following is needed when there are methods that return instance of the
 # class itself.
-# TODO If you remove python 3.10 remove typing_extensions as Self in typing is
-# part of the standard python package starting from 3.11
-try:
-    from typing import Self
-except ImportError:
-    from typing_extensions import Self  # noqa
 
 from collections.abc import Sequence
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any, Literal, NamedTuple
+from typing import Any, Literal, NamedTuple, Self
 
 import matplotlib
 import numpy as np
@@ -306,7 +300,9 @@ class XCorrelation:
                 step = max(1, min(step, nlags_full // nlags_min))
                 indices_downsampled = np.where(lags_full % step == 0)[0]
 
-                values_downsampled = R_full[ii, jj].values[indices_downsampled]
+                values_downsampled = R_full[ii, jj].values[
+                    indices_downsampled
+                ]
 
                 lags_downsampled = lags_full[indices_downsampled] // step
 
@@ -334,9 +330,7 @@ class XCorrelation:
     def __repr__(self) -> str:
         # Include basic information about the object
         repr_str = (
-            f"name: {self.name}\n"
-            f"type: {self.kind}\n"
-            f"R shape: {self.R.shape}\n"
+            f"name: {self.name}\ntype: {self.kind}\nR shape: {self.R.shape}\n"
         )
 
         return repr_str
@@ -466,7 +460,9 @@ class XCorrelation:
 
         # fix global weights
         if global_weights is not None and global_weights.shape != (p, q):
-            raise IndexError(f"'global_weights' must be a {p}x{q} np.ndarray.")
+            raise IndexError(
+                f"'global_weights' must be a {p}x{q} np.ndarray."
+            )
         else:
             W_global = (
                 np.ones(p * q) if global_weights is None else global_weights
@@ -982,7 +978,7 @@ class ValidationSession:
         if Ruu_nlags is not None:
             if Ruu_nlags.shape[0] < self._p or Ruu_nlags.shape[1] < self._p:
                 raise IndexError(
-                    f"'Ruu_nlags' shall be a {self._p}x{self._p} " "array."
+                    f"'Ruu_nlags' shall be a {self._p}x{self._p} array."
                 )
             else:
                 self._Ruu_nlags = Ruu_nlags[0 : self._p, 0 : self._p]
@@ -1032,7 +1028,7 @@ class ValidationSession:
         if Ree_nlags is not None:
             if Ree_nlags.shape[0] < self._q or Ree_nlags.shape[1] < self._q:
                 raise IndexError(
-                    f"'Ree_nlags' shall be a {self._q}x{self._q} " " array."
+                    f"'Ree_nlags' shall be a {self._q}x{self._q}  array."
                 )
             else:
                 self._Ree_nlags = Ree_nlags[0 : self._q, 0 : self._q]
@@ -1056,7 +1052,7 @@ class ValidationSession:
         if Rue_nlags is not None:
             if Rue_nlags.shape[0] < self._p or Rue_nlags.shape[1] < self._q:
                 raise IndexError(
-                    f"'Rue_nlags' shall be a {self._p}x{self._q} " "array."
+                    f"'Rue_nlags' shall be a {self._p}x{self._q} array."
                 )
             else:
                 self._Rue_nlags = Rue_nlags[0 : self._p, 0 : self._q]
@@ -1189,7 +1185,7 @@ class ValidationSession:
             )
         else:
             Ree_global_weights_str = (
-                "global weights: Yes (see " "self._Ree_global_weights)\n"
+                "global weights: Yes (see self._Ree_global_weights)\n"
             )
 
         # ueps_nlags
@@ -1205,7 +1201,7 @@ class ValidationSession:
             )
         else:
             Rue_local_weights_str = (
-                "local weights: Yes (see " "self._Rue_local_weights)\n"
+                "local weights: Yes (see self._Rue_local_weights)\n"
             )
 
         if self._Rue_global_weights is None:
@@ -1214,7 +1210,7 @@ class ValidationSession:
             )
         else:
             Rue_global_weights_str = (
-                "global weights: Yes (see " "self._Rue_global_weights)\n"
+                "global weights: Yes (see self._Rue_global_weights)\n"
             )
 
         repr_str = (
@@ -1388,7 +1384,9 @@ class ValidationSession:
         # r2 value and r2 statistics
         r2 = rsquared(y_values, y_sim_values)
         self._r2_list[sim_name] = r2
-        self._r2[sim_name] = self._compute_r2_statistic(r2, self._r2_statistic)
+        self._r2[sim_name] = self._compute_r2_statistic(
+            r2, self._r2_statistic
+        )
 
         # Residuals auto-correlation
         Ree = XCorrelation(
@@ -1504,7 +1502,7 @@ class ValidationSession:
             )
         if not isinstance(y_data, np.ndarray):
             raise ValueError(
-                "The type the input signal values must be a " "numpy ndarray."
+                "The type the input signal values must be a numpy ndarray."
             )
         if len(y_names) not in y_data.shape:
             raise IndexError(
@@ -1666,8 +1664,7 @@ class ValidationSession:
                     grid=True,
                     legend=True,
                     color="gray",
-                    xlabel=f"{df_val.index.name[0]} "
-                    f"({df_val.index.name[1]})",
+                    xlabel=f"{df_val.index.name[0]} ({df_val.index.name[1]})",
                     ax=axes,
                 )
 
@@ -1720,8 +1717,7 @@ class ValidationSession:
                     color="gray",
                     linestyle="--",
                     ylabel=f"({s[1]})",
-                    xlabel=f"{df_val.index.name[0]} "
-                    f"({df_val.index.name[1]})",
+                    xlabel=f"{df_val.index.name[0]} ({df_val.index.name[1]})",
                     ax=axes_right,
                 )
 
@@ -1847,9 +1843,11 @@ class ValidationSession:
                     plt.pause(0.1)
             except Exception as e:
                 print(f"An error occurred {e}")
-                plt.close(fig)
             finally:
-                plt.close(fig)
+                fig.clear()
+                manager = fig.canvas.manager
+                if manager is not None:
+                    manager.destroy()
 
             # =======================================================
             axes[0].remove_callback(cid)
