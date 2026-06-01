@@ -5,6 +5,7 @@ channels:
 dependencies:
   - pandas
   - matplotlib
+  - mpl-measurements
   - control
   - scipy
   - pathlib
@@ -20,4 +21,3 @@ dependencies:
   - coverage
   - h5py
   - pip
-  - typing_extensions

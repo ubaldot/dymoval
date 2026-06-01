@@ -221,16 +221,16 @@ sim1_name = "Model 1"
 sim1_labels = ["my_y1", "my_y2", "my_y3", "my_y4"]
 if fixture_type == "SISO" or fixture_type == "MISO":
     sim1_labels = dmv.obj2list("my_y1")
-sim1_values = vs.Dataset.dataset["OUTPUT"].values + np.random.rand(
-    len(vs.Dataset.dataset["OUTPUT"].values), 1
+sim1_values = vs.dataset.dataset["OUTPUT"].values + np.random.rand(
+    len(vs.dataset.dataset["OUTPUT"].values), 1
 )
 
 sim2_name = "Model 2"
 sim2_labels = ["your_y1", "your_y2", "your_y3", "your_y4"]
 if fixture_type == "SISO" or fixture_type == "MISO":
     sim2_labels = dmv.obj2list("your_y1")
-sim2_values = vs.Dataset.dataset["OUTPUT"].values + np.random.rand(
-    len(vs.Dataset.dataset["OUTPUT"].values), 1
+sim2_values = vs.dataset.dataset["OUTPUT"].values + np.random.rand(
+    len(vs.dataset.dataset["OUTPUT"].values), 1
 )
 
 # %%
