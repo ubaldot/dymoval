@@ -65,10 +65,9 @@ jobs:
           make html
           cd ..
 
-      - name: Build wheel and sdist (pdm)
+      - name: Build wheel and sdist
         run: |
-          python -m pip install ".[build]"
-          pdm build
+          python -m build
 
   pip_tests_user:
     # The purpose is to check if it is OK to release on pypi, i.e. if the user
