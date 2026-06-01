@@ -1245,7 +1245,7 @@ class Dataset:
 
         # Now you can trim the dataset and update all the
         # other time-related attributes
-        ds.dataset = ds.dataset.loc[tin_sel:tout_sel, :]  # type:ignore
+        ds.dataset = ds.dataset.loc[tin_sel:tout_sel, :]
         ds._nan_intervals = ds._find_nan_intervals()
         ds.coverage = ds._find_dataset_coverage()
 

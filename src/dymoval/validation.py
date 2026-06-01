@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import scipy.signal as signal
 from matplotlib import pyplot as plt
+from mpl_measurements import InteractiveScope
 
 from .config import (
     COLORMAP,
@@ -1741,11 +1742,15 @@ class ValidationSession:
         # Title
         fig.suptitle("Simulations results.")
 
-        # Adjust fig size and layout
-        # nrows = fig.get_axes()[0].get_gridspec().get_geometry()[0]
-        # ncols = fig.get_axes()[0].get_gridspec().get_geometry()[1]
-        fig.set_size_inches(ncols * ax_width, nrows * ax_height + 1.25)
-        fig.set_layout_engine(layout)
+        fig_width_inches = ncols * ax_width
+        fig_height_inches = nrows * ax_height + 1.25
+        fig.set_size_inches(fig_width_inches, fig_height_inches)
+
+        box_width_inches = 1.4
+        panel_fraction = box_width_inches / fig_width_inches
+        fig.set_layout_engine(layout, rect=[0, 0, 1 - panel_fraction, 1])
+
+        self.scope = InteractiveScope(fig)
 
         if is_interactive_shell():
             fig.show()
@@ -1879,9 +1884,7 @@ class ValidationSession:
 
         # Now you can trim the dataset and update all the
         # other time-related attributes
-        vs._Dataset.dataset = (
-            vs._Dataset.dataset.loc[tin_sel:tout_sel, :]  # type: ignore[misc]
-        )
+        vs._Dataset.dataset = vs._Dataset.dataset.loc[tin_sel:tout_sel, :]
         vs._Dataset._nan_intervals = vs._Dataset._find_nan_intervals()
         vs._Dataset.coverage = vs._Dataset._find_dataset_coverage()
 
@@ -1890,9 +1893,7 @@ class ValidationSession:
         vs._Dataset.dataset = vs._Dataset.dataset
 
         # Also trim the simulations
-        vs._simulations_values = vs.simulations_values.loc[
-            tin_sel:tout_sel, :  # type: ignore[misc]
-        ]
+        vs._simulations_values = vs.simulations_values.loc[tin_sel:tout_sel, :]
         vs.simulations_values.index = vs._Dataset.dataset.index
 
         for sim_name in vs.simulations_names:
