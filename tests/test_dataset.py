@@ -820,7 +820,7 @@ class Test_Dataset_nominal:
 
         # Lets see if it is true (the mean of a signal with removed mean is 0.0)
         assert np.allclose(
-            ds_expected.dataset.droplevel(level=["kind", "units" ""], axis=1)
+            ds_expected.dataset.droplevel(level=["kind", "units"], axis=1)
             .loc[:, ["u1", "y1"]]
             .mean(),
             0.0,

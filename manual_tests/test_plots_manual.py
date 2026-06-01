@@ -122,8 +122,8 @@ ds = dmv.Dataset(
     input_signal_names,
     output_signal_names,
     target_sampling_period=0.1,
-    # tin=0.1,
-    # tout=10.0,
+    tin=0.1,
+    tout=10.0,
     overlap=True,
 )
 
@@ -134,7 +134,7 @@ ds.plot()
 plt.pause(1)
 
 # This shall raise because there are NaNs
-# ds.plot_spectrum()
+ds.plot_spectrum()
 
 
 # %%
