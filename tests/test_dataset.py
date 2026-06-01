@@ -1871,9 +1871,13 @@ class Test_validate_dataframe:
             dmv.validate_dataframe(df_test)
 
     def test_index_monotonicity(self, good_dataframe: pd.DataFrame) -> None:
-        # Nominal values
         df, u_names, y_names, u_units, y_units, _ = good_dataframe
-        df.index.values[0:2] = df.index[0]
+
+        idx = df.index.to_list()
+        idx[1] = idx[0]  # duplicate
+
+        df.index = pd.Index(idx, name=df.index.name)
+
         with pytest.raises(ValueError):
             dmv.validate_dataframe(df)
 

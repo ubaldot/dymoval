@@ -68,6 +68,9 @@ dev = [
 # ===================================
 # Formatting, type check, unit-test
 # ===================================
+# run:
+#   ruff format ./src
+#   ruff check . --fix-only
 [tool.ruff]
 target-version = "py311"
 line-length = 79
@@ -82,6 +85,8 @@ select = [
 ]
 ignore = ["F403","F405", "E501", "W291", "E203"]
 # mypy
+# run:
+# . mypy ./src
 [tool.mypy]
 python_version = "3.11"
 disallow_untyped_defs = true
@@ -104,6 +109,8 @@ module = [
 
 
 # pytest
+# Run
+#  pytest -m "not (plots or open_tutorial)"
 [tool.pytest.ini_options]
 norecursedirs = ["manual_tests"] # Exclude folders
 markers = [
