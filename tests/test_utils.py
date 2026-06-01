@@ -96,17 +96,26 @@ class Test_open_tutorial:
     @pytest.mark.open_tutorial
     def test_open_tutorial(self) -> None:
         shell_process, filename = open_tutorial()
-        # Check that the file exist, i.e. during the installation the folder
-        # script was installed in the right place.
-        assert os.path.exists(filename)
 
-        # keep it open for a while
-        # time.sleep(5)
+        print("filename =", filename)
+        print("parent exists =", filename.parent.exists())
+        print("contents =", list(filename.parent.iterdir()))
 
-        # # Check that it opens and then kill the associated process
-        # parent = psutil.Process(shell_process.pid)
-        # while parent.children() == []:
-        #     continue
-        # children = parent.children()
-        # child_pid = children[0].pid
-        # subprocess.check_output("Taskkill /PID %d /F" % child_pid)
+        assert filename.exists()
+
+    # def test_open_tutorial(self) -> None:
+    # shell_process, filename = open_tutorial()
+    # Check that the file exist, i.e. during the installation the folder
+    # script was installed in the right place.
+    # assert os.path.exists(filename)
+
+    # keep it open for a while
+    # time.sleep(5)
+
+    # # Check that it opens and then kill the associated process
+    # parent = psutil.Process(shell_process.pid)
+    # while parent.children() == []:
+    #     continue
+    # children = parent.children()
+    # child_pid = children[0].pid
+    # subprocess.check_output("Taskkill /PID %d /F" % child_pid)
