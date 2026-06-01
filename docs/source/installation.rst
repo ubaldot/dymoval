@@ -51,22 +51,20 @@ Configuration
 The configuration of `dymoval` is fairly straightforward since there are only
 few parameter that you can set.
 
+.. py:data:: color_map
+   :type: str
+   :value: "tab10"
 
-.. confval:: color_map
-    :type: str
-    :default: "tab10"
+   The used ``matplotlib`` color map. Check ``Matplotlib`` docs for possible values.
+.. py:data:: float_tolerance
+   :type: str
+   :value: 1e-9
 
-    The used ``matplotlib`` color map. Check ``Matplotlib`` docs for possible values.
+   Tolerance for ``float`` operations, such as ``np.isclose()``, etc.
 
-.. confval:: float_tolerance
-    :type: str
-    :default: 1e-9
-
-    Tolerance for ``float`` operations, such as ``np.close()``, etc.
-
-.. confval:: is_interactive
-    :type: bool | None
-    :default: None
+.. py:data:: is_interactive
+   :type: bool | None
+   :value: None
 
     The `dymoval` plot functions end with ``fig.show()`` in interactive
     environments such as ``IPython``, and with ``plt.show()`` for non-interactive

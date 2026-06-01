@@ -13,7 +13,6 @@ dependencies:
   - tomli
   - sphinx
   - furo
-  - sphinx-toolbox
   - sphinx-autodoc-typehints
   - pytest
   - mypy

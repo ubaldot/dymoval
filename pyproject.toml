@@ -55,7 +55,6 @@ keywords = [
 dev = [
     "sphinx",
     "furo",
-    "sphinx-toolbox",
     "sphinx-autodoc-typehints",
     "pytest",
     "mypy",
