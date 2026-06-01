@@ -668,7 +668,7 @@ class Test_Dataset_nominal:
             "time_unit": "s",
         }
 
-        with pytest.raises(Warning):
+        with pytest.raises(ValueError):
             if kind == "INPUT":
                 ds.add_input(test_bad_signal)
             elif kind == "OUTPUT":

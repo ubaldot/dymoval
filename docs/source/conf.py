@@ -39,7 +39,6 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.autosummary",
     "sphinx_autodoc_typehints",
-    # "sphinx_toolbox.confval",
     "sphinx.ext.githubpages",
     "sphinx.ext.mathjax",
 ]

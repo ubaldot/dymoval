@@ -328,7 +328,7 @@ class Dataset:
         # Function for cfiltering out only the signals present in the dataset
         # Note that only signals in the dataset can have NaN:s
         def filter_signals(
-            avail_signals: list[str], ax: matplotlib.axes.Axes
+            available_signals: list[str], ax: matplotlib.axes.Axes
         ) -> list[tuple[matplotlib.lines.Line2D, str]]:
             # Implementation
             lines, labels = ax.get_legend_handles_labels()
@@ -491,8 +491,9 @@ class Dataset:
         # in class attributes (see sphinx.ext.autodoc)
         # Set easy-to-set attributes
         self.name = name  #: Dataset name.
-        self.sampling_period = (
-            df.index[1] - df.index[0]
+        dt = np.diff(df.index.to_numpy())
+        self.sampling_period = float(
+            np.median(dt)
         )  #: Dataset sampling period.
 
         # Excluded signals list is either passed by _new_dataset_from_signals()
@@ -731,7 +732,7 @@ class Dataset:
 
         # Use the indices to locate the units
         u_units = list(
-            df["INPUT"].iloc[:, u_names_idx].columns.get_level_values("units")
+            df["INPUT"].columns[u_names_idx].get_level_values("units")
         )
         y_units = list(
             df["OUTPUT"].iloc[:, y_names_idx].columns.get_level_values("units")
@@ -914,7 +915,7 @@ class Dataset:
             else:
                 axes_tpl = []
                 axes = fig.add_subplot(grid[0])
-
+        df_plot = df.droplevel(level=["kind", "units"], axis=1)
         # Iterations
         for ii, s in enumerate(signals_tpl):
             # at each iteration a new axes who sharex with the
@@ -929,7 +930,7 @@ class Dataset:
                 assert fig is not None
                 axes = fig.add_subplot(grid[ii], sharex=axes)
 
-            df.droplevel(level=["kind", "units"], axis=1).loc[:, s[0]].plot(
+            df_plot.loc[:, s[0]].plot(
                 subplots=True,
                 grid=True,
                 color=linecolors_tpl[ii][0],
@@ -948,6 +949,8 @@ class Dataset:
             # no point in using a secondary_y
             line_r = []
             label_r = []
+            axes_right = None
+
             if len(s) == 2:  # tuple like ("u1","u2")
                 if len(axes_tpl) > 0:  # TODO: this may be alwaye true.
                     axes_right = axes_tpl[ii][1]
@@ -961,9 +964,7 @@ class Dataset:
                 else:
                     ylabel = ylabels_tpl[ii][1]
 
-                df.droplevel(level=["kind", "units"], axis=1).loc[
-                    :, s[1]
-                ].plot(
+                df_plot.loc[:, s[1]].plot(
                     subplots=True,
                     grid=False,
                     legend=False,
@@ -1015,6 +1016,7 @@ class Dataset:
                 raise ValueError("'target_sampling_period' must be positive.")
 
         # Initialization
+        signal_list = deepcopy(signal_list)
         excluded_signals: list[str] = []
 
         # Downsample to the slowest period if target_sampling_period
@@ -1070,7 +1072,7 @@ class Dataset:
         excluded_signals = [s["name"] for s in signals if s not in signals_ok]
         ds.excluded_signals = ds.excluded_signals + excluded_signals
         if excluded_signals:
-            raise Warning(f"Signals {excluded_signals} cannot be added.")
+            raise ValueError(f"Signals {excluded_signals} cannot be added.")
 
         # Check if the signal name(s) already exist in the current Dataset
         _, signal_names, _ = zip(*self.signal_list())
@@ -1575,7 +1577,7 @@ class Dataset:
         # ===================================================
         # create a figure and a grid first.
         # Subplots will be dynamically created
-        if not _grid:
+        if _grid is None:
             fig = plt.figure()
             n = len(signals_tpl)
             nrows, ncols = factorize(n)
@@ -1720,7 +1722,7 @@ class Dataset:
         # ===================================================
         # create a figure and a grid first.
         # Subplots will be dynamically created
-        if not _grid:
+        if _grid is None:
             fig = plt.figure()
             n = len(signals_lst)
             nrows, ncols = factorize(n)
@@ -2189,13 +2191,13 @@ class Dataset:
             # also the negative frequencies with the exception of the DC compontent
             # because that is not mirrored. This is why we multiply by 2.
             # The same happens for the psd.
-            df_freq.loc[1:-1] = 2 * df_freq.loc[1:-1]
+            df_freq.loc[1:-1] *= 2
         elif kind == "psd":
             Ts = self.sampling_period
             N = len(self.dataset.index)  # number of samples
             Delta_f = 1 / (Ts * N)  # Size of each frequency bin
             df_freq = df_freq.abs() ** 2 / Delta_f
-            df_freq.loc[1:-1] = 2 * df_freq.loc[1:-1]
+            df_freq.loc[1:-1] *= 2
 
         # ===================================================
         # Arrange colors, ylabels (=units) and linestyles
@@ -2222,7 +2224,7 @@ class Dataset:
         # ===================================================
         # create a figure and a grid first.
         # Subplots will be dynamically created
-        if not _grid:
+        if _grid is None:
             fig = plt.figure()
             n = len(signals_tpl)
             nrows, ncols = factorize(n)
@@ -2442,9 +2444,8 @@ class Dataset:
                 zip(["INPUT"] * len(u_names), u_names, u_units),
             )
 
-            df_temp.loc[:, cols] = df_temp.loc[:, cols].apply(
-                lambda x: x.subtract(u_offset), axis=1
-            )
+            for col, offset in zip(cols, u_offset):
+                df_temp[col] = df_temp[col] - offset
 
         # Then adjust the output columns
         if y_list:
@@ -2452,9 +2453,9 @@ class Dataset:
             cols = list(
                 zip(["OUTPUT"] * len(y_names), y_names, y_units),
             )
-            df_temp.loc[:, cols] = df_temp.loc[:, cols].apply(
-                lambda x: x.subtract(y_offset), axis=1
-            )
+
+            for col, offset in zip(cols, y_offset):
+                df_temp[col] = df_temp[col] - offset
 
         return ds_temp
 
@@ -2518,6 +2519,12 @@ class Dataset:
                 u_filt = df_temp.loc[:, ("INPUT", u, u_units[ii])].to_numpy()
                 y_filt = np.zeros(N)
                 y_filt[0] = u_filt[0]
+
+                if fc >= fs:
+                    raise ValueError(
+                        "cutoff frequency must be < sampling frequency"
+                    )
+
                 for kk in range(0, N - 1):
                     y_filt[kk + 1] = (1.0 - fc / fs) * y_filt[kk] + (
                         fc / fs
