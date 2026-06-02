@@ -668,7 +668,7 @@ class Test_Dataset_nominal:
             "time_unit": "s",
         }
 
-        with pytest.raises(Warning):
+        with pytest.raises(ValueError):
             if kind == "INPUT":
                 ds.add_input(test_bad_signal)
             elif kind == "OUTPUT":
@@ -820,7 +820,7 @@ class Test_Dataset_nominal:
 
         # Lets see if it is true (the mean of a signal with removed mean is 0.0)
         assert np.allclose(
-            ds_expected.dataset.droplevel(level=["kind", "units" ""], axis=1)
+            ds_expected.dataset.droplevel(level=["kind", "units"], axis=1)
             .loc[:, ["u1", "y1"]]
             .mean(),
             0.0,
@@ -1871,9 +1871,13 @@ class Test_validate_dataframe:
             dmv.validate_dataframe(df_test)
 
     def test_index_monotonicity(self, good_dataframe: pd.DataFrame) -> None:
-        # Nominal values
         df, u_names, y_names, u_units, y_units, _ = good_dataframe
-        df.index.values[0:2] = df.index[0]
+
+        idx = df.index.to_list()
+        idx[1] = idx[0]  # duplicate
+
+        df.index = pd.Index(idx, name=df.index.name)
+
         with pytest.raises(ValueError):
             dmv.validate_dataframe(df)
 

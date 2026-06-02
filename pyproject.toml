@@ -1,25 +1,31 @@
 [build-system]
-requires = ["pdm-backend"]
-build-backend = "pdm.backend"
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+dymoval_tutorial = ["*.ipynb"]
 
 [project]
 # General info
 name = "dymoval"
-version = "0.9.0"
+version = "0.9.1"
 
 # Requirements
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 
 # Dependencies
 dependencies = [
     "pandas",
     "matplotlib",
+    "mpl-measurements",
     "scipy",
     "control",
     "numpy",
     "tomli",
     "h5py",
-    "typing_extensions",
 ]
 
 # Other metadata
@@ -46,17 +52,17 @@ keywords = [
 
 # For developers
 [project.optional-dependencies]
-build = ["pdm"]
 dev = [
     "sphinx",
     "furo",
-    "sphinx-toolbox",
     "sphinx-autodoc-typehints",
     "pytest",
     "mypy",
     "ruff",
     "coverage",
     "grayskull",
+    "build",
+    "twine"
 ]
 
 [project.urls]
@@ -65,17 +71,13 @@ dev = [
 "Bug Tracker" = "https://github.com/ubaldot/dymoval/issues"
 
 # ===================================
-# PDM settings
-# ===================================
-# [tool.pdm.build]
-# includes = ["src", "tutorial"]
-
-
-# ===================================
 # Formatting, type check, unit-test
 # ===================================
+# run:
+#   ruff format ./src
+#   ruff check . --fix-only
 [tool.ruff]
-target-version = "py310"
+target-version = "py311"
 line-length = 79
 exclude = ["manual_tests", "docs", "src/dymoval_tutorial", ".*"]
 
@@ -88,8 +90,10 @@ select = [
 ]
 ignore = ["F403","F405", "E501", "W291", "E203"]
 # mypy
+# run:
+# . mypy ./src
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.11"
 disallow_untyped_defs = true
 show_error_codes = true
 no_implicit_optional = true
@@ -110,6 +114,8 @@ module = [
 
 
 # pytest
+# Run
+#  pytest -m "not (plots or open_tutorial)"
 [tool.pytest.ini_options]
 norecursedirs = ["manual_tests"] # Exclude folders
 markers = [

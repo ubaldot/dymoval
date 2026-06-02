@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.abspath("../../src"))
 # -- Project information -----------------------------------------------------
 
 project = "dymoval"
-copyright = "2024, U. Tiberi"
+copyright = "2026, U. Tiberi"
 author = "U. Tiberi "
 
 # The full version, including alpha/beta/rc tags
@@ -39,7 +39,6 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.autosummary",
     "sphinx_autodoc_typehints",
-    "sphinx_toolbox.confval",
     "sphinx.ext.githubpages",
     "sphinx.ext.mathjax",
 ]

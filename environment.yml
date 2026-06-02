@@ -1,10 +1,11 @@
-# name: dymoval_dev
+name: dymoval_dev
 
 channels:
   - conda-forge
 dependencies:
   - pandas
   - matplotlib
+  - mpl-measurements
   - control
   - scipy
   - pathlib
@@ -12,15 +13,10 @@ dependencies:
   - tomli
   - sphinx
   - furo
-  - sphinx-toolbox
   - sphinx-autodoc-typehints
   - pytest
   - mypy
-  - black
-  - flake8
+  - ruff
   - coverage
-  - grayskull
   - h5py
   - pip
-  - filelock
-  - typing_extensions

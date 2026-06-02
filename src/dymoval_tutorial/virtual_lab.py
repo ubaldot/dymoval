@@ -57,7 +57,9 @@ def get_low_frequency_input_signal(
     white_noise = rng.normal(loc=mean, scale=std, size=num_samples)
 
     # Generate a low_frequency signal from white noise
-    low_freq_signal = apply_higher_order_filter(white_noise, bandwidth, sampling_rate)
+    low_freq_signal = apply_higher_order_filter(
+        white_noise, bandwidth, sampling_rate
+    )
 
     if clip:
         # clip negative values to 0 (Voltage always positive)
@@ -119,7 +121,9 @@ time, u = get_low_frequency_input_signal(
 )
 
 # TODO: Simulate "real" plant
-res_ct = ct.forced_response(DCMotor_nominal_ct, T=time, X0=[0.0, 0.0, 0.0], U=u)
+res_ct = ct.forced_response(
+    DCMotor_nominal_ct, T=time, X0=[0.0, 0.0, 0.0], U=u
+)
 # res_dt = ct.forced_response(
 #     ct.c2d(DCMotor_nominal_ct, 1 / sampling_rate),
 #     T=time,

@@ -2,23 +2,18 @@
 
 # The following is needed when there are methods that return instance of the
 # class itself.
-# TODO If you remove python 3.10 remove typing_extensions as Self in typing is
-# part of the standard python package starting from 3.11
-try:
-    from typing import Self
-except ImportError:
-    from typing_extensions import Self  # noqa
 
 from collections.abc import Sequence
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any, Literal, NamedTuple
+from typing import Any, Literal, NamedTuple, Self
 
 import matplotlib
 import numpy as np
 import pandas as pd
 import scipy.signal as signal
 from matplotlib import pyplot as plt
+from mpl_measurements import InteractiveScope
 
 from .config import (
     COLORMAP,
@@ -334,9 +329,7 @@ class XCorrelation:
     def __repr__(self) -> str:
         # Include basic information about the object
         repr_str = (
-            f"name: {self.name}\n"
-            f"type: {self.kind}\n"
-            f"R shape: {self.R.shape}\n"
+            f"name: {self.name}\ntype: {self.kind}\nR shape: {self.R.shape}\n"
         )
 
         return repr_str
@@ -982,7 +975,7 @@ class ValidationSession:
         if Ruu_nlags is not None:
             if Ruu_nlags.shape[0] < self._p or Ruu_nlags.shape[1] < self._p:
                 raise IndexError(
-                    f"'Ruu_nlags' shall be a {self._p}x{self._p} " "array."
+                    f"'Ruu_nlags' shall be a {self._p}x{self._p} array."
                 )
             else:
                 self._Ruu_nlags = Ruu_nlags[0 : self._p, 0 : self._p]
@@ -1032,7 +1025,7 @@ class ValidationSession:
         if Ree_nlags is not None:
             if Ree_nlags.shape[0] < self._q or Ree_nlags.shape[1] < self._q:
                 raise IndexError(
-                    f"'Ree_nlags' shall be a {self._q}x{self._q} " " array."
+                    f"'Ree_nlags' shall be a {self._q}x{self._q}  array."
                 )
             else:
                 self._Ree_nlags = Ree_nlags[0 : self._q, 0 : self._q]
@@ -1056,7 +1049,7 @@ class ValidationSession:
         if Rue_nlags is not None:
             if Rue_nlags.shape[0] < self._p or Rue_nlags.shape[1] < self._q:
                 raise IndexError(
-                    f"'Rue_nlags' shall be a {self._p}x{self._q} " "array."
+                    f"'Rue_nlags' shall be a {self._p}x{self._q} array."
                 )
             else:
                 self._Rue_nlags = Rue_nlags[0 : self._p, 0 : self._q]
@@ -1189,7 +1182,7 @@ class ValidationSession:
             )
         else:
             Ree_global_weights_str = (
-                "global weights: Yes (see " "self._Ree_global_weights)\n"
+                "global weights: Yes (see self._Ree_global_weights)\n"
             )
 
         # ueps_nlags
@@ -1205,7 +1198,7 @@ class ValidationSession:
             )
         else:
             Rue_local_weights_str = (
-                "local weights: Yes (see " "self._Rue_local_weights)\n"
+                "local weights: Yes (see self._Rue_local_weights)\n"
             )
 
         if self._Rue_global_weights is None:
@@ -1214,7 +1207,7 @@ class ValidationSession:
             )
         else:
             Rue_global_weights_str = (
-                "global weights: Yes (see " "self._Rue_global_weights)\n"
+                "global weights: Yes (see self._Rue_global_weights)\n"
             )
 
         repr_str = (
@@ -1504,7 +1497,7 @@ class ValidationSession:
             )
         if not isinstance(y_data, np.ndarray):
             raise ValueError(
-                "The type the input signal values must be a " "numpy ndarray."
+                "The type the input signal values must be a numpy ndarray."
             )
         if len(y_names) not in y_data.shape:
             raise IndexError(
@@ -1666,8 +1659,7 @@ class ValidationSession:
                     grid=True,
                     legend=True,
                     color="gray",
-                    xlabel=f"{df_val.index.name[0]} "
-                    f"({df_val.index.name[1]})",
+                    xlabel=f"{df_val.index.name[0]} ({df_val.index.name[1]})",
                     ax=axes,
                 )
 
@@ -1720,8 +1712,7 @@ class ValidationSession:
                     color="gray",
                     linestyle="--",
                     ylabel=f"({s[1]})",
-                    xlabel=f"{df_val.index.name[0]} "
-                    f"({df_val.index.name[1]})",
+                    xlabel=f"{df_val.index.name[0]} ({df_val.index.name[1]})",
                     ax=axes_right,
                 )
 
@@ -1751,11 +1742,15 @@ class ValidationSession:
         # Title
         fig.suptitle("Simulations results.")
 
-        # Adjust fig size and layout
-        # nrows = fig.get_axes()[0].get_gridspec().get_geometry()[0]
-        # ncols = fig.get_axes()[0].get_gridspec().get_geometry()[1]
-        fig.set_size_inches(ncols * ax_width, nrows * ax_height + 1.25)
-        fig.set_layout_engine(layout)
+        fig_width_inches = ncols * ax_width
+        fig_height_inches = nrows * ax_height + 1.25
+        fig.set_size_inches(fig_width_inches, fig_height_inches)
+
+        box_width_inches = 1.4
+        panel_fraction = box_width_inches / fig_width_inches
+        fig.set_layout_engine(layout, rect=[0, 0, 1 - panel_fraction, 1])
+
+        self.scope = InteractiveScope(fig)
 
         if is_interactive_shell():
             fig.show()
@@ -1847,9 +1842,11 @@ class ValidationSession:
                     plt.pause(0.1)
             except Exception as e:
                 print(f"An error occurred {e}")
-                plt.close(fig)
             finally:
-                plt.close(fig)
+                fig.clear()
+                manager = fig.canvas.manager
+                if manager is not None:
+                    manager.destroy()
 
             # =======================================================
             axes[0].remove_callback(cid)
@@ -1887,9 +1884,7 @@ class ValidationSession:
 
         # Now you can trim the dataset and update all the
         # other time-related attributes
-        vs._Dataset.dataset = (
-            vs._Dataset.dataset.loc[tin_sel:tout_sel, :]  # type: ignore[misc]
-        )
+        vs._Dataset.dataset = vs._Dataset.dataset.loc[tin_sel:tout_sel, :]
         vs._Dataset._nan_intervals = vs._Dataset._find_nan_intervals()
         vs._Dataset.coverage = vs._Dataset._find_dataset_coverage()
 
@@ -1898,9 +1893,7 @@ class ValidationSession:
         vs._Dataset.dataset = vs._Dataset.dataset
 
         # Also trim the simulations
-        vs._simulations_values = vs.simulations_values.loc[
-            tin_sel:tout_sel, :  # type: ignore[misc]
-        ]
+        vs._simulations_values = vs.simulations_values.loc[tin_sel:tout_sel, :]
         vs.simulations_values.index = vs._Dataset.dataset.index
 
         for sim_name in vs.simulations_names:
