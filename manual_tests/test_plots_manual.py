@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
 
-from dataset import Dataset
+from dymoval.dataset import Dataset, Signal
 
 plt.ioff()
 matplotlib.use("qtagg")
@@ -20,12 +20,37 @@ fixture_type = "MIMO"  # ["MIMO", "SISO", "SIMO", "MISO"]
 
 np.random.seed(0)
 
-# ============================================================
+
+t = np.linspace(0, 1, 500)
+y0 = np.sin(2 * np.pi * 5 * t) + 0.2 * np.random.randn(len(t))
+
+s0 = Signal(
+    name="y0",
+    values=y0,
+    time=t,
+    unit="V",
+    time_unit="s",
+)
+
+t = np.linspace(0, 1, 500)
+y1 = np.cos(2 * np.pi * 2 * t) + 0.2 * np.random.randn(len(t))
+
+s1 = Signal(
+    name="y1",
+    values=y1,
+    time=t,
+    unit="V",
+    time_unit="s",
+)
+
+ds = Dataset.from_signals(inputs=[s0], outputs=[s1])
+
+# %% ============================================================
 # SIGNAL GENERATION
 # ============================================================
 
 
-def make_signal(name, dt, values):
+def make_signal(name, dt, values):  # type: ignore
     t = np.arange(len(values)) * dt
     return name, t, values
 
@@ -92,7 +117,7 @@ t_end = 40.0
 common_time = np.arange(0, t_end, target_dt)
 
 
-def build_dataset(defs):
+def build_dataset(defs):  # type: ignore
     data = {}
 
     for name, dt, values in defs:
@@ -117,7 +142,7 @@ def build_dataset(defs):
 ds_inputs = build_dataset(input_defs)
 ds_outputs = build_dataset(output_defs)
 
-# Merge datasets
+# %% Merge datasets
 ds = Dataset(
     time=common_time,
     data={**ds_inputs.data, **ds_outputs.data},
@@ -126,7 +151,7 @@ ds = Dataset(
 input_names = [k for k in ds_inputs.data]
 output_names = [k for k in ds_outputs.data]
 
-# ============================================================
+# %% ============================================================
 # APPLY FIXTURE TYPE
 # ============================================================
 
