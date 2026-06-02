@@ -248,27 +248,62 @@ class Dataset:
     # ====================================================
     # Plotting
     # ====================================================
-    def plot(self, *names: str, overlay: bool = False):
+    def plot(self, *names: str | tuple[str, ...]):
         import matplotlib.pyplot as plt
 
-        signals = self._select_signals(names)
+        # ====================================================
+        # Normalize groups
+        # ====================================================
+        if not names:
+            groups = [(name,) for name in self.all_signals()]
+        else:
+            groups = []
+            for item in names:
+                if isinstance(item, str):
+                    groups.append((item,))
+                elif isinstance(item, tuple):
+                    groups.append(item)
+                else:
+                    raise TypeError("Arguments must be str or tuple[str,...]")
 
-        if overlay:
-            fig, ax = plt.subplots()
+        # ====================================================
+        # Prepare figure
+        # ====================================================
+        fig, axes = plt.subplots(len(groups), 1, sharex=True)
 
-            for sig in signals:
-                sig.plot(ax=ax)
-
-            ax.legend([s.name for s in signals])
-            return fig
-
-        fig, axes = plt.subplots(len(signals), 1, sharex=True)
-
-        if len(signals) == 1:
+        if len(groups) == 1:
             axes = [axes]
 
-        for ax, sig in zip(axes, signals):
-            sig.plot(ax=ax)
+        # ====================================================
+        # Plot groups
+        # ====================================================
+        all_signals = self.all_signals()
+
+        for ax, group in zip(axes, groups):
+            plotted_signals = []
+
+            use_default_colors = len(group) > 1  # ✅ key logic
+
+            for name in group:
+                if name not in all_signals:
+                    raise KeyError(f"Signal '{name}' not found")
+
+                sig = all_signals[name]
+
+                if use_default_colors:
+                    # ✅ let matplotlib handle color cycle
+                    sig.plot(ax=ax)
+                else:
+                    # ✅ semantic coloring (only for single signal)
+                    if name in self.outputs:
+                        sig.plot(ax=ax, color="green")
+                    else:
+                        sig.plot(ax=ax)
+
+                plotted_signals.append(sig)
+
+            ax.legend([s.name for s in plotted_signals])
+            ax.grid(True)
 
         fig.tight_layout()
         return fig

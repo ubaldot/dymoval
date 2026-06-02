@@ -32,9 +32,7 @@ s0 = Signal(
     time_unit="s",
 )
 
-t = np.linspace(0, 1, 500)
 y1 = np.cos(2 * np.pi * 2 * t) + 0.2 * np.random.randn(len(t))
-
 s1 = Signal(
     name="y1",
     values=y1,
@@ -43,7 +41,17 @@ s1 = Signal(
     time_unit="s",
 )
 
-ds = Dataset.from_signals(inputs=[s0], outputs=[s1])
+
+u1 = np.cos(1 * np.pi * 0.5 * t) + 0.2 * np.random.randn(len(t))
+s3 = Signal(
+    name="u1",
+    values=u1,
+    time=t,
+    unit="V",
+    time_unit="s",
+)
+
+ds = Dataset.from_signals(inputs=[s3], outputs=[s1, s0])
 
 # %% ============================================================
 # SIGNAL GENERATION
