@@ -1,300 +1,219 @@
-#  -*- coding: utf-8 -*-
-# ===========================================================================
-# This script is used for testing the plot functions
-# by visual inspection.
-# It is recommended to test all the "MIMO", "SISO", "SIMO", "MISO" cases.
-# ===========================================================================
+# -*- coding: utf-8 -*-
+"""
+Manual test script for Dataset + Signal (NumPy version)
+"""
 
-from copy import deepcopy
-import dymoval as dmv
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
+
+from dataset import Dataset
 
 plt.ioff()
 matplotlib.use("qtagg")
 
-# ===========================================================================
-# Arange: SELECT THE FIXTURE TYPE
-# ===========================================================================
-# Setup the test type
-dataset_type = ["MIMO", "SISO", "SIMO", "MISO"]
-fixture_type = "MIMO"
+# ============================================================
+# CONFIGURATION
+# ============================================================
 
-# Set test data
-nan_thing = np.empty(200)
-nan_thing[:] = np.nan
+fixture_type = "MIMO"  # ["MIMO", "SISO", "SIMO", "MISO"]
 
-input_signal_names = ["u1", "u2", "u3"]
-input_sampling_periods = [0.01, 0.1, 0.1]
-input_signal_values = [
-    np.hstack(
-        (
-            10 * np.random.rand(50),
-            nan_thing,
-            5 * np.random.rand(400),
-            nan_thing,
-        )
-    ),
-    np.hstack(
-        (
-            15 * np.random.rand(20),
-            nan_thing[0:5],
-            30 * np.random.rand(30),
-            nan_thing,
-        )
-    ),
-    np.hstack((np.random.rand(80), nan_thing, np.random.rand(100))),
-]
+np.random.seed(0)
 
-input_signal_units = ["m/s", "%", "°C"]
-#
-in_lst = []
-for ii, val in enumerate(input_signal_names):
-    temp_in: dmv.Signal = {
-        "name": val,
-        "samples": input_signal_values[ii],
-        "signal_unit": input_signal_units[ii],
-        "sampling_period": input_sampling_periods[ii],
-        "time_unit": "s",
-    }
-    in_lst.append(deepcopy(temp_in))
+# ============================================================
+# SIGNAL GENERATION
+# ============================================================
 
 
-# %% Output signal
-output_signal_names = ["y1", "y2", "y3", "y4"]
-output_sampling_periods = [0.1, 0.1, 0.1, 0.1]
-output_signal_values = [
-    np.hstack(
-        (np.random.rand(50), nan_thing, np.random.rand(100), nan_thing)
+def make_signal(name, dt, values):
+    t = np.arange(len(values)) * dt
+    return name, t, values
+
+
+nan_block = np.full(200, np.nan)
+
+# ---- Inputs
+input_defs = [
+    (
+        "u1",
+        0.01,
+        np.hstack(
+            (10 * np.random.rand(50), nan_block, 5 * np.random.rand(200))
+        ),
     ),
-    np.hstack(
-        (np.random.rand(100), nan_thing[0:50], np.random.rand(150), nan_thing)
+    (
+        "u2",
+        0.05,
+        np.hstack(
+            (
+                15 * np.random.rand(80),
+                nan_block[:50],
+                30 * np.random.rand(100),
+            )
+        ),
     ),
-    np.hstack(
-        (np.random.rand(10), nan_thing[0:105], np.random.rand(50), nan_thing)
-    ),
-    np.hstack(
-        (np.random.rand(20), nan_thing[0:85], np.random.rand(60), nan_thing)
+    (
+        "u3",
+        0.1,
+        np.hstack((np.random.rand(100), nan_block, np.random.rand(80))),
     ),
 ]
 
-output_signal_units = ["m/s", "deg", "°C", "kPa"]
-out_lst = []
-for ii, val in enumerate(output_signal_names):
-    # This is the syntax for defining a dymoval signal
-    temp_out: dmv.Signal = {
-        "name": val,
-        "samples": output_signal_values[ii],
-        "signal_unit": output_signal_units[ii],
-        "sampling_period": output_sampling_periods[ii],
-        "time_unit": "s",
-    }
-    out_lst.append(deepcopy(temp_out))
-signal_list = [*in_lst, *out_lst]
-first_output_idx = len(input_signal_names)
+# ---- Outputs
+output_defs = [
+    (
+        "y1",
+        0.1,
+        np.hstack((np.random.rand(120), nan_block, np.random.rand(150))),
+    ),
+    (
+        "y2",
+        0.1,
+        np.hstack((np.random.rand(200), nan_block[:80], np.random.rand(100))),
+    ),
+    (
+        "y3",
+        0.1,
+        np.hstack((np.random.rand(50), nan_block[:120], np.random.rand(50))),
+    ),
+    (
+        "y4",
+        0.1,
+        np.hstack((np.random.rand(70), nan_block[:60], np.random.rand(90))),
+    ),
+]
 
+# ============================================================
+# BUILD DATASET (WITH RESAMPLING)
+# ============================================================
+
+target_dt = 0.1
+t_end = 40.0
+common_time = np.arange(0, t_end, target_dt)
+
+
+def build_dataset(defs):
+    data = {}
+
+    for name, dt, values in defs:
+        t = np.arange(len(values)) * dt
+
+        # simple resampling (manual, mimics Dataset.resample testing)
+        valid = ~np.isnan(values)
+        if np.sum(valid) < 2:
+            continue
+
+        interp = np.interp(
+            common_time,
+            t[valid],
+            values[valid],
+        )
+
+        data[name] = interp
+
+    return Dataset(common_time, data)
+
+
+ds_inputs = build_dataset(input_defs)
+ds_outputs = build_dataset(output_defs)
+
+# Merge datasets
+ds = Dataset(
+    time=common_time,
+    data={**ds_inputs.data, **ds_outputs.data},
+)
+
+input_names = [k for k in ds_inputs.data]
+output_names = [k for k in ds_outputs.data]
+
+# ============================================================
+# APPLY FIXTURE TYPE
+# ============================================================
 
 if fixture_type == "SISO":
-    # Slice signal list
-    # Pick u1 and y1
-    signal_list = [signal_list[0], signal_list[first_output_idx]]
-    input_signal_names = dmv.obj2list(input_signal_names[0])
-    output_signal_names = dmv.obj2list(output_signal_names[0])
-if fixture_type == "MISO":
-    signal_list = [
-        *signal_list[:first_output_idx],
-        signal_list[first_output_idx],
-    ]
-    output_signal_names = dmv.obj2list(output_signal_names[0])
-if fixture_type == "SIMO":
-    signal_list = [signal_list[0], *signal_list[first_output_idx:]]
-    input_signal_names = dmv.obj2list(input_signal_names[0])
-# %%
-# ===========================================================================
-# Act: Dataset plots test
-# ===========================================================================
-# Get a dataset
-ds = dmv.Dataset(
-    "mydataset",
-    signal_list,
-    input_signal_names,
-    output_signal_names,
-    target_sampling_period=0.1,
-    # tin=0.1,
-    # tout=10.0,
-    overlap=True,
-)
+    input_names = input_names[:1]
+    output_names = output_names[:1]
 
+elif fixture_type == "MISO":
+    output_names = output_names[:1]
 
-# %%
+elif fixture_type == "SIMO":
+    input_names = input_names[:1]
 
-ds.plot()
+selected = input_names + output_names
+ds = Dataset(common_time, {k: ds.data[k] for k in selected})
+
+# ============================================================
+# TEST: BASIC PLOT
+# ============================================================
+
+print("-> plot()")
+ds.plot(*selected)
+
+# overlay
+ds.plot(*selected, overlay=True)
+
 plt.pause(1)
 
-# This shall raise because there are NaNs
-ds.plot_spectrum()
+
+# ============================================================
+# TEST: COMPARE DATASETS (simulate output)
+# ============================================================
+
+print("-> compare")
+
+# create synthetic "processed" dataset
+ds_out = ds.detrend()
+
+ds.plot_compare(ds_out, *selected)
+
+plt.pause(1)
 
 
-# %%
-ds = ds.remove_NaNs()
+# ============================================================
+# TEST: RESAMPLING
+# ============================================================
 
-ds.plot()
+print("-> resample")
 
-# %% Test some colors, etc. OBS! 4 plots!
-ds.plot(
-    linecolor_input="r",
-    linestyle_fg=":",
-    linecolor_output="c",
-    alpha_bg=0.5,
-    overlap=True,
-)
+new_time = np.arange(0, common_time[-1], 0.05)
+ds_resampled = ds.resample(new_time)
 
+ds.plot_compare(ds_resampled, *selected)
 
-# Conditional plot
-if fixture_type == "MIMO" or fixture_type == "MISO":
-    ds.plot("u1", "u2", "y1", overlap=True)
-    # Duplicated signals
-    ds.plot("u1", "u1", "y1", overlap=True)
-    ds.plot("u1", "y1", "y1", overlap=True)
-else:
-    ds.plot("u1", "y1")
-
-# ===========================================================================
-# Act: plot_coverage test
-# ===========================================================================
-# %% Coverage. OBS 5 plots!
-ds.plot_coverage()
-ds.plot_coverage(linecolor_input="r", linecolor_output="c", alpha=0.5)
-
-# Conditional plot
-if fixture_type == "MIMO" or fixture_type == "MISO":
-    ds.plot_coverage("u1", "u2", "y1")
-    # Duplicated signals
-    ds.plot_coverage("u1", "u1", "y1")
-    ds.plot_coverage("u1", "y1", "y1")
-else:
-    ds.plot_coverage("u1", "y1")
-
-# %%
-# ===========================================================================
-# Act: plot_spectrum test
-# ===========================================================================
-ds.plot_spectrum()
-ds.plot_spectrum(linecolor_input="r", linecolor_output="c", alpha_fg=0.5)
-
-# %%
-ds.plot_spectrum(kind="psd")
-ds.plot_spectrum(
-    kind="psd", linecolor_input="r", linecolor_output="c", alpha_fg=0.5
-)
-
-# %%
-ds.plot_spectrum(kind="amplitude")
-ds.plot_spectrum(
-    kind="amplitude",
-    linecolor_input="r",
-    linecolor_output="c",
-    alpha_fg=0.5,
-)
-
-# %%
-# Conditional plot
-if fixture_type == "MIMO" or fixture_type == "MISO":
-    ds.plot_spectrum("u1", "u2", "y1")
-    # Duplicated signals
-    ds.plot_spectrum("u1", "u1", "y1")
-    ds.plot_spectrum("u1", "y1", "y1", kind="amplitude")
-else:
-    ds.plot_spectrum("u1", "y1")
+plt.pause(1)
 
 
-# ===========================================================================
-# Act: ValidatonSession plots test
-# ===========================================================================
-# %% Get a ValidationSession
-vs = dmv.ValidationSession("my_validation", ds)
+# ============================================================
+# TEST: FFT / SPECTRUM
+# ============================================================
 
-# %% Pretend that you ran two simulations of a model with two different settings.
-sim1_name = "Model 1"
-sim1_labels = ["my_y1", "my_y2", "my_y3", "my_y4"]
-if fixture_type == "SISO" or fixture_type == "MISO":
-    sim1_labels = dmv.obj2list("my_y1")
-sim1_values = vs.dataset.dataset["OUTPUT"].values + np.random.rand(
-    len(vs.dataset.dataset["OUTPUT"].values), 1
-)
+print("-> FFT")
 
-sim2_name = "Model 2"
-sim2_labels = ["your_y1", "your_y2", "your_y3", "your_y4"]
-if fixture_type == "SISO" or fixture_type == "MISO":
-    sim2_labels = dmv.obj2list("your_y1")
-sim2_values = vs.dataset.dataset["OUTPUT"].values + np.random.rand(
-    len(vs.dataset.dataset["OUTPUT"].values), 1
-)
+spec = ds.fft()
 
-# %%
-vs = vs.append_simulation(sim1_name, sim1_labels, sim1_values)
-vs = vs.append_simulation(sim2_name, sim2_labels, sim2_values)
+fig, ax = plt.subplots()
 
-# %%
+for name, (freq, mag) in spec.items():
+    ax.plot(freq, mag, label=name)
 
-vs.plot_simulations(["Model 1", "Model 2"])
-vs.plot_simulations("Model 1")
-vs.plot_simulations(dataset="only_out")
-vs.plot_simulations(dataset="all")
-vs.plot_simulations()
-# %%
-vs.clear()
-
-# =========================================================================
-# Test frequency response
-# =========================================================================
-# %%
-Ts = 0.001
-N = 10000
-t = np.linspace(0, Ts * N, N)
-c1 = 2
-c2 = 3
-c3 = 1
-
-f1 = 2
-w1 = 2 * np.pi * f1
-f2 = 2.4
-w2 = 2 * np.pi * f2
-f3 = 4.8
-w3 = 2 * np.pi * f3
-
-u_names = ["u1", "u2", "u3"]
-u_units = ["m", "m/s", "m/s**2"]
-u_labels = list(zip(u_names, u_units))
-u_values = [
-    c1 + np.sin(w1 * t) + np.sin(w2 * t),
-    c1 + np.sin(w2 * t),
-    c1 + np.sin(w3 * t),
-]
-
-y_names = ["y1", "y2", "y3", "y4"]
-y_units = ["degC", "rad", "kPa", ""]
-y_labels = list(zip(y_names, y_units))
-y_values = [
-    c1 + np.sin(w1 * t) + np.sin(w3 * t),
-    c3 + np.sin(w3 * t),
-    c1 + np.sin(w1 * t) + np.sin(w2 * t) + np.sin(w3 * t),
-    np.sin(w1 * t) - np.sin(w2 * t) - np.sin(w3 * t),
-]
-
-data = np.vstack((np.asarray(u_values), np.asarray(y_values))).transpose()
-df = pd.DataFrame(index=t, columns=[*u_labels, *y_labels], data=data)
-df.index.name = ("Time", "s")
-ds = dmv.Dataset("mydataset", df, u_names, y_names)
-ds.plot()
-
-ds.plot_spectrum(kind="amplitude")
-ds.plot_spectrum("u1", "y4")
+ax.set_title("Spectrum")
+ax.legend()
+plt.pause(1)
 
 
-# Remove means and offset
-u_list = ("u1", 2.0)
+# ============================================================
+# TEST: Interactive Scope (manual)
+# ============================================================
 
-ds.remove_offset(u_list)
+print("-> scope")
+
+scope = ds.scope(*selected)
+# manual interaction (blocking GUI)
+
+
+# ============================================================
+# DONE
+# ============================================================
+
+print("All tests executed.")
