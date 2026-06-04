@@ -168,16 +168,22 @@ class BaseScope:
 
         label = self.current_line.get_label() or "signal"
 
-        # NOTE: DatasetScope does not know units
+        # Get units
         time_unit = "s"
         value_unit = ""
+
+        if hasattr(self.current_line, "_signal"):
+            sig = self.current_line._signal
+
+            time_unit = sig.time_unit or ""
+            value_unit = sig.unit or ""
 
         if len(self.clicks) == 1:
             t1, y1 = self.clicks[0]
 
             self.info_text.set_text(
                 f"{label}\n\n"
-                f"t1 = {t1:.3f} {time_unit}, "
+                f"t1 = {t1:.3f} {time_unit}\n"
                 f"y1 = {y1:.3f} {value_unit}\n\n"
                 f"Select second point\n"
                 f"(press 'r' to reset)"
@@ -196,13 +202,15 @@ class BaseScope:
 
         self.info_text.set_text(
             f"{label}\n\n"
-            f"t1 = {t1:.3f} {time_unit}, y1 = {y1:.3f}\n"
-            f"t2 = {t2:.3f} {time_unit}, y2 = {y2:.3f}\n\n"
+            f"t1 = {t1:.3f} {time_unit}\n"
+            f"t2 = {t2:.3f} {time_unit}\n\n"
+            f"y1 = {y1:.3f} {value_unit}\n"
+            f"y2 = {y2:.3f} {value_unit}\n\n"
             f"Δt = {dt:.3f} {time_unit}\n"
             f"Δy = {dy:.3f} {value_unit}\n\n"
-            f"min = {ymin:.3f}\n"
-            f"max = {ymax:.3f}\n"
-            f"rms = {rms:.3f}\n\n"
+            f"min = {ymin:.3f} {value_unit}\n"
+            f"max = {ymax:.3f} {value_unit}\n"
+            f"RMS = {rms:.3f} {value_unit}\n\n"
             f"(press 'r' to reset)"
         )
 
@@ -251,7 +259,7 @@ class SignalScope(BaseScope):
 
             self.info_text.set_text(
                 f"{label}\n\n"
-                f"t1 = {t1:.3f} {time_unit}, "
+                f"t1 = {t1:.3f} {time_unit}\n"
                 f"y1 = {y1:.3f} {value_unit}\n\n"
                 f"Select second point\n"
                 f"(press 'r' to reset)"
@@ -270,13 +278,15 @@ class SignalScope(BaseScope):
 
         self.info_text.set_text(
             f"{label}\n\n"
-            f"t1 = {t1:.3f} {time_unit}, y1 = {y1:.3f} {value_unit}\n"
-            f"t2 = {t2:.3f} {time_unit}, y2 = {y2:.3f} {value_unit}\n\n"
+            f"t1 = {t1:.3f} {time_unit}\n"
+            f"t2 = {t2:.3f} {time_unit}\n\n"
+            f"y1 = {y1:.3f} {value_unit}\n"
+            f"y2 = {y2:.3f} {value_unit}\n\n"
             f"Δt = {dt:.3f} {time_unit}\n"
             f"Δy = {dy:.3f} {value_unit}\n\n"
-            f"min = {ymin:.3f}\n"
-            f"max = {ymax:.3f}\n"
-            f"rms = {rms:.3f}\n\n"
+            f"min = {ymin:.3f} {value_unit}\n"
+            f"max = {ymax:.3f} {value_unit}\n"
+            f"RMS = {rms:.3f} {value_unit}\n\n"
             f"(press 'r' to reset)"
         )
 
@@ -308,15 +318,47 @@ class DatasetScope(BaseScope):
         best_line = None
         best_dist = np.inf
 
+        x_click = event.xdata
+        y_click = event.ydata
+
+        best_line = None
+        best_idx = None
+        best_dist = np.inf
+
         for line in ax.get_lines():
             xdata = np.asarray(line.get_xdata())
+            ydata = np.asarray(line.get_ydata())
+            # --- find closest index in X
+            idx0 = np.argmin(np.abs(xdata - x_click))
 
-            idx = np.argmin(np.abs(xdata - x_click))
-            dist = abs(xdata[idx] - x_click)
+            # --- define small window around idx
+            window = 5  # you can tune this
+
+            i_min = max(0, idx0 - window)
+            i_max = min(len(xdata), idx0 + window)
+
+            x_win = xdata[i_min:i_max]
+            y_win = ydata[i_min:i_max]
+
+            # --- compute full 2D distance
+            dx = x_win - x_click
+            dy = y_win - y_click
+            dists = np.hypot(dx, dy)
+
+            local_idx = np.argmin(dists)
+
+            # map back to global index
+            idx = i_min + local_idx
+
+            x_sel = xdata[idx]
+            y_sel = ydata[idx]
+
+            dist = dists[local_idx]
 
             if dist < best_dist:
                 best_dist = dist
                 best_line = line
+                best_idx = idx
 
         if best_line is None:
             return

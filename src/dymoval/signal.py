@@ -99,11 +99,16 @@ class Signal:
             fig, ax = plt.subplots()
 
         if self.time is None:
-            ax.plot(self.values, **kwargs)
+            (line,) = ax.plot(self.values, label=self.name, **kwargs)
             ax.set_xlabel("samples")
         else:
-            ax.plot(self.time, self.values, **kwargs)
+            (line,) = ax.plot(
+                self.time, self.values, label=self.name, **kwargs
+            )
             ax.set_xlabel(f"time [{self.time_unit}]")
+
+        # attach metadata ✅
+        line._signal = self
 
         if self.unit:
             ax.set_ylabel(f"{self.name} [{self.unit}]")
@@ -123,11 +128,16 @@ class Signal:
         ax = subfigs[0].subplots()
 
         if self.time is None:
-            ax.plot(self.values, label=self.name, **kwargs)
+            (line,) = ax.plot(self.values, label=self.name, **kwargs)
             ax.set_xlabel("samples")
         else:
-            ax.plot(self.time, self.values, label=self.name, **kwargs)
+            (line,) = ax.plot(
+                self.time, self.values, label=self.name, **kwargs
+            )
             ax.set_xlabel(f"time [{self.time_unit}]")
+
+        # attach metadata ✅
+        line._signal = self
 
         if self.unit:
             ax.set_ylabel(f"{self.name} [{self.unit}]")
