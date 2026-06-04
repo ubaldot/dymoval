@@ -5,10 +5,12 @@ from copy import deepcopy
 from typing import Any, Self
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 from mpl_measurements import InteractiveScope
 
 from .signal import Signal
+from .scope import DatasetScope
 
 
 @dataclass
@@ -248,27 +250,26 @@ class Dataset:
     # ====================================================
     # Plotting
     # ====================================================
-    def plot(self, *names: str | tuple[str, ...]):
-        import matplotlib.pyplot as plt
-
-        # ====================================================
-        # Normalize groups
-        # ====================================================
+    def _normalize_groups(self, names):
+        # Needed to be able to overlap plots when passing tuples
         if not names:
-            groups = [(name,) for name in self.all_signals()]
-        else:
-            groups = []
-            for item in names:
-                if isinstance(item, str):
-                    groups.append((item,))
-                elif isinstance(item, tuple):
-                    groups.append(item)
-                else:
-                    raise TypeError("Arguments must be str or tuple[str,...]")
+            return [(name,) for name in self.all_signals()]
 
-        # ====================================================
+        groups = []
+        for item in names:
+            if isinstance(item, str):
+                groups.append((item,))
+            elif isinstance(item, tuple):
+                groups.append(item)
+            else:
+                raise TypeError("Arguments must be str or tuple[str,...]")
+
+        return groups
+
+    def _plot_standard(self, *names: str | tuple[str, ...]):
+
         # Prepare figure
-        # ====================================================
+        groups = self._normalize_groups(names)
         fig, axes = plt.subplots(len(groups), 1, sharex=True)
 
         if len(groups) == 1:
@@ -296,14 +297,79 @@ class Dataset:
                 else:
                     # ✅ semantic coloring (only for single signal)
                     if name in self.outputs:
-                        sig.plot(ax=ax, color="green")
+                        sig._plot_standard(ax=ax, color="green")
                     else:
-                        sig.plot(ax=ax)
+                        sig._plot_standard(ax=ax)
 
                 plotted_signals.append(sig)
 
             ax.legend([s.name for s in plotted_signals])
             ax.grid(True)
 
-        fig.tight_layout()
         return fig
+
+    def _plot_scope(self, *names):
+        # Figure + layout
+        groups = self._normalize_groups(names)
+        n_groups = len(groups)
+
+        # fig = plt.figure(
+        #     constrained_layout=True,
+        #     figsize=(10, 2.5 * n_groups),  # ✅ adaptive height
+        # )
+
+        # panel_ratio = min(2.5, 1.5 + 0.3 * (n_groups - 1))
+
+        # subfigs = fig.subfigures(
+        #     1,
+        #     2,
+        #     width_ratios=[4, panel_ratio],  # ✅ adaptive width
+        # )
+
+        fig = plt.figure(constrained_layout=True, figsize=(10, 5))
+        subfigs = fig.subfigures(1, 2, width_ratios=[3.8, 1.2])
+
+        axes = subfigs[0].subplots(n_groups, 1, sharex=True)
+
+        if n_groups == 1:
+            axes = [axes]
+
+        # ====================================================
+        # Plot groups
+        # ====================================================
+        all_signals = self.all_signals()
+
+        for ax, group in zip(axes, groups):
+            use_default_colors = len(group) > 1
+
+            for name in group:
+                if name not in all_signals:
+                    raise KeyError(f"Signal '{name}' not found")
+
+                sig = all_signals[name]
+
+                if use_default_colors:
+                    sig._plot_standard(ax=ax)
+                else:
+                    if name in self.outputs:
+                        sig._plot_standard(ax=ax, color="green")
+                    else:
+                        sig._plot_standard(ax=ax)
+
+            ax.legend(group)
+            ax.grid(True)
+
+        # ====================================================
+        # Panel + scope
+        # ====================================================
+        panel_ax = subfigs[1].add_subplot()
+        panel_ax.set_anchor("N")  # ✅ better vertical alignment
+
+        DatasetScope(fig, axes, panel_ax)
+
+        return fig
+
+    def plot(self, *names, with_scope: bool = True, **kwargs):
+        if with_scope:
+            return self._plot_scope(*names, **kwargs)
+        return self._plot_standard(*names, **kwargs)

@@ -4,37 +4,27 @@ import numpy as np
 
 
 # ============================================================
-# Lightweight interactive scope for Signal
+# Base class (shared logic)
 # ============================================================
-class SignalScope:
-    def __init__(self, fig, ax, panel_ax, signal: "Signal"):
+class BaseScope:
+    def __init__(self, fig, panel_ax):
         self.fig = fig
-        self.ax = ax
         self.panel_ax = panel_ax
-        self.signal = signal
 
+        # prevent garbage collection
+        setattr(fig, "_scope", self)
+
+        # state
         self.current_line = None
         self.x = None
         self.y = None
 
-        self.original_linewidths = {}
-        self.cursor_points = []
-        # prevent garbage collection
-        setattr(fig, "_signal_scope", self)
-
-        # data
-        self.x = (
-            signal.time
-            if signal.time is not None
-            else np.arange(len(signal.values))
-        )
-        self.y = signal.values
-
-        # state
         self.clicks: list[tuple[float, float]] = []
         self.cursor_lines = []
+        self.cursor_points = []
+        self.original_linewidths = {}
 
-        # UI
+        # UI + events
         self._init_panel()
         self._connect()
 
@@ -46,99 +36,70 @@ class SignalScope:
 
         self.info_text = self.panel_ax.text(
             0.05,
-            0.95,
-            f"{self.signal.name}\n Interactive Scope ",
+            0.98,
+            "Click on a signal\n(press 'r' to reset)",
             va="top",
             transform=self.panel_ax.transAxes,
             bbox=dict(boxstyle="round", facecolor="wheat"),
+            wrap=True,
         )
 
     # ====================================================
     # Events
     # ====================================================
     def _connect(self):
-        self.fig.canvas.mpl_connect("button_press_event", self._on_click)
         self.fig.canvas.mpl_connect("key_press_event", self._on_key)
 
     # ====================================================
-    # Click handling
+    # Shared click processing (CORE REUSE)
     # ====================================================
-    def _on_click(self, event):
-        if event.inaxes != self.ax or event.xdata is None:
-            return
+    def _process_click(self, line, x_click):
+        xdata = np.asarray(line.get_xdata())
+        ydata = np.asarray(line.get_ydata())
 
-        x_click = event.xdata
+        idx = np.argmin(np.abs(xdata - x_click))
 
-        best_line = None
-        best_idx = None
-        best_dist = np.inf
+        x_sel = xdata[idx]
+        y_sel = ydata[idx]
 
-        # ---------------------------------------------
-        # Find closest line + sample
-        # ---------------------------------------------
-        for line in self.ax.get_lines():
-            xdata = np.asarray(line.get_xdata())
+        color = line.get_color()
+        ax = line.axes
 
-            idx = np.argmin(np.abs(xdata - x_click))
-            dist = abs(xdata[idx] - x_click)
-
-            if dist < best_dist:
-                best_dist = dist
-                best_line = line
-                best_idx = idx
-
-        if best_line is None or best_idx is None:
-            return
-
-        # ---------------------------------------------
-        # Extract selected point
-        # ---------------------------------------------
-        xdata = np.asarray(best_line.get_xdata())
-        ydata = np.asarray(best_line.get_ydata())
-
-        x_sel = xdata[best_idx]
-        y_sel = ydata[best_idx]
-
-        line_color = best_line.get_color()
-
-        # store selected line + data
-        self.current_line = best_line
+        # store current selection
+        self.current_line = line
         self.x = xdata
         self.y = ydata
 
         # ---------------------------------------------
-        # Highlight selected line
+        # Highlight line
         # ---------------------------------------------
-        for line in self.ax.get_lines():
-            if line not in self.original_linewidths:
-                self.original_linewidths[line] = line.get_linewidth()
+        for ax_ in self.fig.axes:
+            for l in ax_.get_lines():
+                if l not in self.original_linewidths:
+                    self.original_linewidths[l] = l.get_linewidth()
 
-            if line is best_line:
-                line.set_linewidth(3)  # highlight
-            else:
-                line.set_linewidth(1)  # dim others
+                if l is line:
+                    l.set_linewidth(3)
+                else:
+                    l.set_linewidth(1)
 
         # ---------------------------------------------
-        # Draw cursor (vertical line)
+        # Draw cursor + marker
         # ---------------------------------------------
-        vline = self.ax.axvline(
+        vline = ax.axvline(
             x_sel,
             linestyle="--",
-            color=line_color,
+            color=color,
         )
 
-        self.cursor_lines.append(vline)
-
-        # ---------------------------------------------
-        # Draw marker (round point)
-        # ---------------------------------------------
-        (point,) = self.ax.plot(
+        (point,) = ax.plot(
             x_sel,
             y_sel,
             marker="o",
-            color=line_color,
+            color=color,
         )
 
+        self.cursor_lines.append(vline)
         self.cursor_points.append(point)
 
         self.clicks.append((x_sel, y_sel))
@@ -149,13 +110,11 @@ class SignalScope:
             self.cursor_points.pop(0).remove()
             self.clicks.pop(0)
 
-        # update panel text
         self._update_display()
-
         self.fig.canvas.draw_idle()
 
     # ====================================================
-    # Key handling
+    # Reset
     # ====================================================
     def _on_key(self, event):
         if event.key != "r":
@@ -170,12 +129,11 @@ class SignalScope:
         self.cursor_points.clear()
         self.clicks.clear()
 
-        # restore original linewidths
         for line, lw in self.original_linewidths.items():
             line.set_linewidth(lw)
 
         self.info_text.set_text(
-            f"{self.signal.name}\n\n Interactive Scope \n"
+            "Reset\nClick on a signal\n(press 'r' to reset)"
         )
 
         self.fig.canvas.draw_idle()
@@ -202,29 +160,33 @@ class SignalScope:
         )
 
     # ====================================================
-    # Display update
+    # Display
     # ====================================================
     def _update_display(self):
-        time_unit = self.signal.time_unit or ""
-        value_unit = self.signal.unit or ""
+        if self.current_line is None:
+            return
 
-        # ---- first click only
+        label = self.current_line.get_label() or "signal"
+
+        # NOTE: DatasetScope does not know units
+        time_unit = "s"
+        value_unit = ""
+
         if len(self.clicks) == 1:
             t1, y1 = self.clicks[0]
 
             self.info_text.set_text(
-                f"{self.signal.name}\n\n"
-                f"t1 = {t1:.3f} {time_unit},\n "
+                f"{label}\n\n"
+                f"t1 = {t1:.3f} {time_unit}, "
                 f"y1 = {y1:.3f} {value_unit}\n\n"
+                f"Select second point\n"
+                f"(press 'r' to reset)"
             )
-
-            self.fig.canvas.draw_idle()
             return
 
         if len(self.clicks) < 2:
             return
 
-        # ---- two points
         (t1, y1), (t2, y2) = self.clicks
 
         ymin, ymax, rms = self._compute_stats(t1, t2)
@@ -233,17 +195,130 @@ class SignalScope:
         dy = y2 - y1
 
         self.info_text.set_text(
-            f"{self.signal.name}\n\n"
-            f"t1 = {t1:.3f} {time_unit},\n"
-            f"t2 = {t2:.3f} {time_unit},\n\n"
-            f"y1 = {y1:.3f} {value_unit}\n"
-            f"y2 = {y2:.3f} {value_unit}\n\n"
+            f"{label}\n\n"
+            f"t1 = {t1:.3f} {time_unit}, y1 = {y1:.3f}\n"
+            f"t2 = {t2:.3f} {time_unit}, y2 = {y2:.3f}\n\n"
             f"Δt = {dt:.3f} {time_unit}\n"
             f"Δy = {dy:.3f} {value_unit}\n\n"
             f"min = {ymin:.3f}\n"
             f"max = {ymax:.3f}\n"
             f"rms = {rms:.3f}\n\n"
-            f"press 'r' to reset"
+            f"(press 'r' to reset)"
         )
 
-        self.fig.canvas.draw_idle()
+
+# ============================================================
+# Single-signal scope
+# ============================================================
+class SignalScope(BaseScope):
+    def __init__(self, fig, ax, panel_ax, signal):
+        self.ax = ax
+        self.signal = signal
+
+        super().__init__(fig, panel_ax)
+
+        # override units
+        self.time_unit = signal.time_unit or ""
+        self.value_unit = signal.unit or ""
+
+        self.fig.canvas.mpl_connect("button_press_event", self._on_click)
+
+    def _on_click(self, event):
+        if event.inaxes != self.ax or event.xdata is None:
+            return
+
+        lines = self.ax.get_lines()
+        if not lines:
+            return
+
+        # only one signal → take first
+        line = lines[0]
+
+        self._process_click(line, event.xdata)
+
+    # override display to include units
+    def _update_display(self):
+        if self.current_line is None:
+            return
+
+        label = self.signal.name
+
+        time_unit = self.time_unit
+        value_unit = self.value_unit
+
+        if len(self.clicks) == 1:
+            t1, y1 = self.clicks[0]
+
+            self.info_text.set_text(
+                f"{label}\n\n"
+                f"t1 = {t1:.3f} {time_unit}, "
+                f"y1 = {y1:.3f} {value_unit}\n\n"
+                f"Select second point\n"
+                f"(press 'r' to reset)"
+            )
+            return
+
+        if len(self.clicks) < 2:
+            return
+
+        (t1, y1), (t2, y2) = self.clicks
+
+        ymin, ymax, rms = self._compute_stats(t1, t2)
+
+        dt = t2 - t1
+        dy = y2 - y1
+
+        self.info_text.set_text(
+            f"{label}\n\n"
+            f"t1 = {t1:.3f} {time_unit}, y1 = {y1:.3f} {value_unit}\n"
+            f"t2 = {t2:.3f} {time_unit}, y2 = {y2:.3f} {value_unit}\n\n"
+            f"Δt = {dt:.3f} {time_unit}\n"
+            f"Δy = {dy:.3f} {value_unit}\n\n"
+            f"min = {ymin:.3f}\n"
+            f"max = {ymax:.3f}\n"
+            f"rms = {rms:.3f}\n\n"
+            f"(press 'r' to reset)"
+        )
+
+
+# ============================================================
+# Multi-signal Dataset scope
+# ============================================================
+class DatasetScope(BaseScope):
+    def __init__(self, fig, axes, panel_ax):
+        # normalize axes → always list
+        if isinstance(axes, np.ndarray):
+            self.axes = list(axes.ravel())
+        elif isinstance(axes, (list, tuple)):
+            self.axes = list(axes)
+        else:
+            self.axes = [axes]
+
+        super().__init__(fig, panel_ax)
+
+        self.fig.canvas.mpl_connect("button_press_event", self._on_click)
+
+    def _on_click(self, event):
+        if event.inaxes not in self.axes or event.xdata is None:
+            return
+
+        ax = event.inaxes
+        x_click = event.xdata
+
+        best_line = None
+        best_dist = np.inf
+
+        for line in ax.get_lines():
+            xdata = np.asarray(line.get_xdata())
+
+            idx = np.argmin(np.abs(xdata - x_click))
+            dist = abs(xdata[idx] - x_click)
+
+            if dist < best_dist:
+                best_dist = dist
+                best_line = line
+
+        if best_line is None:
+            return
+
+        self._process_click(best_line, x_click)

@@ -116,7 +116,7 @@ class Signal:
 
     def _plot_scope(self, **kwargs):
 
-        fig = plt.figure(constrained_layout=True)
+        fig = plt.figure(constrained_layout=True, figsize=(10, 5))
         subfigs = fig.subfigures(1, 2, width_ratios=[3.8, 1.2])
 
         # ---- main axis ----
