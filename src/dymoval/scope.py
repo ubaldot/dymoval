@@ -364,3 +364,54 @@ class DatasetScope(BaseScope):
             return
 
         self._process_click(best_line, x_click)
+
+
+class SpectrumScope(DatasetScope):
+    def _update_display(self):
+        if self.current_line is None:
+            return
+
+        label = self.current_line.get_label() or "signal"
+
+        # ---- units
+        freq_unit = "Hz"
+        value_unit = ""
+
+        if hasattr(self.current_line, "_signal"):
+            sig = self.current_line._signal
+            value_unit = sig.unit or ""
+
+        # ---------------------------------------
+        # First click
+        # ---------------------------------------
+        if len(self.clicks) == 1:
+            f1, a1 = self.clicks[0]
+
+            self.info_text.set_text(
+                f"{label}\n\n"
+                f"f1 = {f1:.3f} {freq_unit}\n"
+                f"A1 = {a1:.3f} {value_unit}\n\n"
+                f"Select second point\n"
+                f"(press 'r' to reset)"
+            )
+            return
+
+        if len(self.clicks) < 2:
+            return
+
+        # ---------------------------------------
+        # Two points
+        # ---------------------------------------
+        (f1, a1), (f2, a2) = self.clicks
+
+        df = f2 - f1
+        dA = a2 - a1
+
+        self.info_text.set_text(
+            f"{label}\n\n"
+            f"f1 = {f1:.3f} {freq_unit}, A1 = {a1:.3f}\n"
+            f"f2 = {f2:.3f} {freq_unit}, A2 = {a2:.3f}\n\n"
+            f"Δf = {df:.3f} {freq_unit}\n"
+            f"ΔA = {dA:.3f}\n\n"
+            f"(press 'r' to reset)"
+        )

@@ -6,11 +6,8 @@ from typing import Any, Self
 
 import numpy as np
 import matplotlib.pyplot as plt
-
-from mpl_measurements import InteractiveScope
-
 from .signal import Signal
-from .scope import DatasetScope
+from .scope import DatasetScope, SpectrumScope
 
 
 @dataclass
@@ -373,3 +370,143 @@ class Dataset:
         if with_scope:
             return self._plot_scope(*names, **kwargs)
         return self._plot_standard(*names, **kwargs)
+
+    def _plot_spectrum_standard(
+        self,
+        *names,
+        xscale="linear",
+        yscale="linear",
+        mode="amplitude",
+    ):
+        import matplotlib.pyplot as plt
+
+        # ====================================================
+        # Normalize groups
+        # ====================================================
+        groups = self._normalize_groups(names)
+
+        fig, axes = plt.subplots(len(groups), 1, sharex=True)
+
+        if len(groups) == 1:
+            axes = [axes]
+
+        all_signals = self.all_signals()
+
+        # ====================================================
+        # Plot groups
+        # ====================================================
+        for ax, group in zip(axes, groups):
+            for name in group:
+                if name not in all_signals:
+                    raise KeyError(f"Signal '{name}' not found")
+
+                sig = all_signals[name]
+
+                sig._plot_spectrum_standard(
+                    ax=ax,
+                    xscale=xscale,
+                    yscale=yscale,
+                    mode=mode,
+                )
+
+            ax.legend(group)
+            ax.grid(True)
+
+        ax.set_xlabel("Frequency [Hz]")
+
+        fig.tight_layout()
+        return fig
+
+    def _plot_spectrum_scope(
+        self,
+        *names,
+        xscale="linear",
+        yscale="linear",
+        mode="amplitude",
+    ):
+        import matplotlib.pyplot as plt
+
+        # ====================================================
+        # Normalize groups
+        # ====================================================
+        groups = self._normalize_groups(names)
+        n_groups = len(groups)
+
+        # ====================================================
+        # Figure + layout
+        # ====================================================
+        fig = plt.figure(
+            constrained_layout=True,
+            figsize=(10, 2.5 * n_groups),
+        )
+
+        panel_ratio = min(2.5, 1.5 + 0.3 * (n_groups - 1))
+
+        subfigs = fig.subfigures(
+            1,
+            2,
+            width_ratios=[4, panel_ratio],
+        )
+
+        axes = subfigs[0].subplots(n_groups, 1, sharex=True)
+
+        if n_groups == 1:
+            axes = [axes]
+
+        all_signals = self.all_signals()
+
+        # ====================================================
+        # Plot spectrum groups
+        # ====================================================
+        for ax, group in zip(axes, groups):
+            for name in group:
+                if name not in all_signals:
+                    raise KeyError(f"Signal '{name}' not found")
+
+                sig = all_signals[name]
+
+                sig._plot_spectrum_standard(
+                    ax=ax,
+                    xscale=xscale,
+                    yscale=yscale,
+                    mode=mode,
+                )
+
+            ax.legend(group)
+            ax.grid(True)
+
+        # ====================================================
+        # Panel + scope
+        # ====================================================
+        panel_ax = subfigs[1].add_subplot()
+        panel_ax.set_anchor("N")
+
+        SpectrumScope(fig, axes, panel_ax)
+
+        return fig
+
+    def plot_spectrum(
+        self,
+        *names,
+        with_scope=False,
+        xscale="linear",
+        yscale="linear",
+        mode="amplitude",
+        **kwargs,
+    ):
+        if with_scope:
+            return self._plot_spectrum_scope(
+                *names,
+                xscale=xscale,
+                yscale=yscale,
+                mode=mode,
+                **kwargs,
+            )
+
+        return self._plot_spectrum_standard(
+            *names,
+            xscale=xscale,
+            yscale=yscale,
+            mode=mode,
+            **kwargs,
+        )
