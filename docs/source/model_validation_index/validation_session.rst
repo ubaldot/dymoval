@@ -194,15 +194,15 @@ whiteness estimation of :math:`X` is performed in three steps:
 #. That is, the `auto-/cross-correlation` functions :math:`r_{i,j}(k)` of each
    pair of components :math:`x_i, x_j \in X` for :math:`i,j = 1 \dots p` is
    computed and arranged in :math:`p\times p`
-   :py:class:`~dymoval.validation.XCorrelation` object.
+   :py:class:`~dymoval.xcorrelation.XCorrelation` object.
 
 #. For each element :math:`r_{i,j}(k), i,j = 1 \dots p` of the
-   :py:class:`~dymoval.validation.XCorrelation` object the whiteness is
+   :py:class:`~dymoval.xcorrelation.XCorrelation` object the whiteness is
    estimated by computing a statistic of its realizations for
    :math:`k=-n_{lags}, \dots, n_{lags}`, being :math:`n_{lags} >0` the number
    of lags considered (20 by default). The default statistic is the *mean of
    the absolute value* of the realizations of the
-   :py:class:`~dymoval.validation.XCorrelation` function. The results are
+   :py:class:`~dymoval.xcorrelation.XCorrelation` function. The results are
    arranged in a :math:`p\times p` array where each element is `float`.
 
 #. Another statistic is finally computed on the resulting flattened array. By

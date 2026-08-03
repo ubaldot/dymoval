@@ -15,6 +15,7 @@ from .scope import (
     SpectrumScope,
 )
 from .signal import SPECTRUM_MODES, Signal
+from .statistics import compute_statistic, rsquared
 from .utils import (
     difference_lists_of_str,
     factorize,
@@ -25,12 +26,9 @@ from .utils import (
 from .validation import (
     VALIDATION_KEYS,
     ValidationSession,
-    XCorrelation,
-    compute_statistic,
-    rsquared,
     validate_models,
-    whiteness_level,
 )
+from .xcorrelation import XCorrelation, whiteness_level
 
 __all__ = [
     # core

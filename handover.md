@@ -49,7 +49,9 @@ and **never** calls the public plotting methods internally.
 | `dataset.py`  | new    | `Dataset`                                            |
 | `scope.py`    | new    | `BaseScope` / `SignalScope` / `DatasetScope` / `SpectrumScope` / `AmplitudeSpectrumScope` |
 | `plotting.py` | new    | multi-object helpers only                            |
-| `validation.py` | new  | `XCorrelation`, `ValidationSession`, `validate_models` |
+| `statistics.py` | new  | `compute_statistic`, `rsquared`                      |
+| `xcorrelation.py` | new | `XCorrelation`, `whiteness_level`                   |
+| `validation.py` | new  | `ValidationSession`, `validate_models`               |
 | `utils.py`, `config.py` | kept | unchanged                                  |
 
 The package is now **pandas-free**: `dataset_old.py`, the legacy
@@ -275,8 +277,35 @@ the same shared panel; the last clicked one wins (intentional).
 
 # Validation
 
-`validation.py` keeps the original algorithms (they were already
-numpy-based) and only replaces the *storage* and the *plotting*.
+Validation follows the very same "one object, one module" convention as
+`Signal` / `Dataset`:
+
+| module            | content                              | role                                        |
+| ----------------- | ------------------------------------ | ------------------------------------------- |
+| `statistics.py`   | `compute_statistic`, `rsquared`      | pure numpy metrics, no dymoval objects      |
+| `xcorrelation.py` | `XCorrelation`, `whiteness_level`    | the leaf object: computation + own plotting |
+| `validation.py`   | `ValidationSession`, `validate_models` | the orchestrator, over `Dataset` + simulations |
+
+The dependency graph is strictly layered, exactly like
+`signal.py` ← `dataset.py`:
+
+```text
+statistics.py  ←  xcorrelation.py  ←  validation.py
+                                   ↖  dataset.py, signal.py, scope.py
+```
+
+`whiteness_level` lives in `xcorrelation.py` rather than in
+`statistics.py` because it is a thin wrapper around
+`XCorrelation.estimate_whiteness`; putting it with the other metrics would
+have made the two modules mutually dependent.
+
+Everything is still re-exported from the package root, so `dmv.rsquared`,
+`dmv.XCorrelation`, `dmv.whiteness_level`, `dmv.compute_statistic` are
+unchanged. Only the *submodule* paths moved
+(`dymoval.validation.XCorrelation` → `dymoval.xcorrelation.XCorrelation`).
+
+The algorithms themselves were already numpy-based and are untouched; the
+port only replaced the *storage* and the *plotting*.
 
 ```python
 XCorrelation(name, X, Y, nlags, X_bandwidths, Y_bandwidths, sampling_period)
@@ -401,7 +430,7 @@ package.
 # Tests
 
 ```bash
-pytest tests -q -m "not open_tutorial"   # 363 tests (~7 s)
+pytest tests -q -m "not open_tutorial"   # 369 tests (~8 s)
 pytest tests -m "not plots"              # skip the plotting tests
 ruff format ./src ./tests && ruff check ./src ./tests
 mypy ./src/dymoval
@@ -419,7 +448,9 @@ tests/test_dataset.py     # construction, validation, harmonization
 tests/test_dataset_ops.py # structure editing, processing, coverage
 tests/test_scope.py       # synthetic click/key events
 tests/test_plotting.py
-tests/test_validation.py  # XCorrelation, ValidationSession, validate_models
+tests/test_statistics.py  # compute_statistic, rsquared
+tests/test_xcorrelation.py # XCorrelation, whiteness_level
+tests/test_validation.py  # ValidationSession, validate_models
 tests/test_utils.py
 ```
 

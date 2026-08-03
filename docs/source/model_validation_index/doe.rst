@@ -33,7 +33,7 @@ of the approach you choose, the goal is to hit as many corners as possible.
 Next, let's say that we have completed your experiments. To assess the quality
 of the experiments, we can simply check how similar the input signal was to
 white noise. This is done by analyzing the **auto-correlation** function of
-our input signal. Dymoval has the :py:class:`~dymoval.validation.XCorrelation`
+our input signal. Dymoval has the :py:class:`~dymoval.xcorrelation.XCorrelation`
 class that can be used for this purpose.
 
 Assume that you have a signal ``u`` expressed as a :math:`N \times p` array,
@@ -54,7 +54,7 @@ with the following:
    Ruu.whiteness()
 
 The whiteness level of the signal ``u`` is computed according to different
-metrics, see :py:meth:`~dymoval.validation.compute_statistics`.
+metrics, see :py:meth:`~dymoval.statistics.compute_statistic`.
 
 .. note::
 
@@ -85,7 +85,7 @@ auto-correlation of signals by considering a lag time :math:`lag\_time =
 we are analyzing the auto-correlation of the actual signal rather than
 consecutive measurements. Dymoval handles this automatically, provided that
 the bandwidth and sampling period are supplied to the constructor of the
-:py:class:`~dymoval.validation.XCorrelation` class.
+:py:class:`~dymoval.xcorrelation.XCorrelation` class.
 
 .. note::
 
