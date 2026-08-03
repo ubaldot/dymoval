@@ -99,5 +99,28 @@ dmv.plot_compare(
 print("-> plot_spectrum_compare")
 dmv.plot_spectrum_compare(ds, ds.detrend(), labels=["raw", "detrended"])
 
+# ============================================================
+# Validation
+# ============================================================
+print("-> ValidationSession")
+vs = dmv.ValidationSession("manual", ds)
+
+y_measured = np.column_stack([ds["y0"].values, ds["y1"].values])
+vs = vs.append_simulation(
+    "good model", ["y0", "y1"], y_measured + 0.05 * np.random.randn(len(t), 2)
+)
+vs = vs.append_simulation(
+    "bad model", ["y0", "y1"], np.random.randn(len(t), 2)
+)
+print(vs)
+
+print("-> ValidationSession.plot_simulations()")
+vs.plot_simulations()
+vs.plot_simulations(dataset="both")
+vs.plot_simulations("good model", dataset="out", with_scope=False)
+
+print("-> ValidationSession.plot_residuals()")
+vs.plot_residuals()
+
 print("All plots created. Close the windows to exit.")
 plt.show()

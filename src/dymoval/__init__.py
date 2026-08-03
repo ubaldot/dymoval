@@ -17,6 +17,15 @@ from .utils import (
     obj2list,
     open_tutorial,
 )
+from .validation import (
+    VALIDATION_KEYS,
+    ValidationSession,
+    XCorrelation,
+    compute_statistic,
+    rsquared,
+    validate_models,
+    whiteness_level,
+)
 
 __all__ = [
     # core
@@ -33,6 +42,14 @@ __all__ = [
     "DatasetScope",
     "SpectrumScope",
     "AmplitudeSpectrumScope",
+    # validation
+    "ValidationSession",
+    "XCorrelation",
+    "VALIDATION_KEYS",
+    "validate_models",
+    "compute_statistic",
+    "rsquared",
+    "whiteness_level",
     # utils
     "is_interactive_shell",
     "factorize",

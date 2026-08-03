@@ -10,20 +10,19 @@ from typing import Any, Literal, NamedTuple, Self
 
 import matplotlib
 import numpy as np
-import pandas as pd
 import scipy.signal as signal
 from matplotlib import pyplot as plt
-from mpl_measurements import InteractiveScope
 
 from .config import (
     COLORMAP,
-    SIGNAL_KEYS,
     XCORR_STATISTIC_TYPE,
     R2_Statistic_type,
     XCorr_Statistic_type,
     is_latex_installed,
 )
-from .dataset import Dataset, Signal, validate_signals
+from .dataset import Dataset
+from .scope import DatasetScope
+from .signal import Signal
 from .utils import (
     difference_lists_of_str,
     factorize,
@@ -38,6 +37,7 @@ __all__ = [
     "compute_statistic",
     "validate_models",
     "ValidationSession",
+    "VALIDATION_KEYS",
 ]
 
 
@@ -773,7 +773,22 @@ def whiteness_level(
     return whiteness_estimate, whiteness_matrix
 
 
-@dataclass
+VALIDATION_KEYS: tuple[str, ...] = (
+    "Ruu_whiteness",
+    "r2",
+    "Ree_whiteness",
+    "Rue_whiteness",
+)
+"""Keys of the validation statistics and of the validation thresholds."""
+
+_SIM_COLOR_FALLBACK = "gray"
+
+
+def _stack(signals: Sequence[Signal]) -> np.ndarray:
+    """Stack a sequence of signals into a ``N x p`` array."""
+    return np.column_stack([sig.values for sig in signals])
+
+
 class ValidationSession:
     # TODO: Save validation session.
     r"""The *ValidationSession* class is used to validate models against a
@@ -783,9 +798,12 @@ class ValidationSession:
     A validation session *name* shall be also provided.
 
     Multiple simulation results can be appended to the same
-    *ValidationSession* instance,
-    but for each ValidationSession instance only a :ref:`Dataset` object is
-    considered.
+    *ValidationSession* instance, but for each *ValidationSession* instance
+    only one :ref:`Dataset` object is considered.
+
+    Simulation results are stored as
+    :py:class:`~dymoval.signal.Signal` objects laid on the time vector of
+    the validation dataset.
 
     Parameters
     ----------
@@ -793,26 +811,18 @@ class ValidationSession:
         The `ValidationSession` object name.
     validation_dataset:
         The :py:class:`~dymoval.dataset.Dataset` object to be used for
-        validation.
+        validation. It must have at least one input and one output.
     U_bandwidths:
         1-D array representing the bandwidths of each signal in the input U.
         `U_bandwidths[i]` corresponds to the bandwidth of signal `U[i]`.
     Y_bandwidths:
         1-D array representing the bandwidths of each signal in the output Y.
         `Y_bandwidths[i]` corresponds to the bandwidth of signal `Y[i]`.
-    validation_thresolds:
-        Threshold used for validation. The `dict` keys shall be:
-
-        - `"Ruu_whiteness""`
-
-        - `"r2"`
-
-        - `"Ree_whiteness""`
-
-        - `"Rue_whiteness""`
-
+    validation_thresholds:
+        Thresholds used for validation. The `dict` keys shall be a subset of
+        :py:data:`~dymoval.validation.VALIDATION_KEYS`.
     ignore_input:
-        If `True` input auto-correlation is not considered in the
+        If `True` the input auto-correlation is not considered in the
         validation.
     r2_statistic:
         Statistic to be used for computing the global :math:`R^2` in case of
@@ -821,7 +831,7 @@ class ValidationSession:
         Number of lags for the input auto-correlation array `Ruu`.
     Ruu_local_statistic_type:
         Statistic used for estimating the whiteness of each element of the
-        :py:class:`~dymoval.validation,XCorrelation` object associated to the
+        :py:class:`~dymoval.validation.XCorrelation` object associated to the
         input signal.
     Ruu_global_statistic_type:
         Statistic used for estimating the overall whiteness of the resulting
@@ -830,32 +840,32 @@ class ValidationSession:
     Ruu_local_weights:
         Weights associated to each element of `Ruu`. It must be a
         :math:`p\times p` array where each element is a 1-D array.
-    Ruu_local_weights:
+    Ruu_global_weights:
         Weights associated to the resulting matrix after the local statistics
-        for each element or `Ruu` have been computed. It must be a
+        for each element of `Ruu` have been computed. It must be a
         :math:`p\times p` array.
     Ree_nlags:
         Number of lags for the residuals auto-correlation array `Ree`.
     Ree_local_statistic_type:
         Statistic used for estimating the whiteness of each element of the
-        :py:class:`~dymoval.validation,XCorrelation` object associated to the
+        :py:class:`~dymoval.validation.XCorrelation` object associated to the
         residuals auto-correlation.
     Ree_global_statistic_type:
         Statistic used for estimating the overall whiteness of the resulting
-        :math:`p\times p` matrix after the whiteness of each element of `Ree`
+        :math:`q\times q` matrix after the whiteness of each element of `Ree`
         has been computed.
     Ree_local_weights:
         Weights associated to each element of `Ree`. It must be a
         :math:`q\times q` array where each element is a 1-D array.
-    Ree_local_weights:
+    Ree_global_weights:
         Weights associated to the resulting matrix after the local statistics
-        for each element or `Ree` have been computed. It must be a
+        for each element of `Ree` have been computed. It must be a
         :math:`q\times q` array.
     Rue_nlags:
         Number of lags for the input-residuals cross-correlation array `Rue`.
     Rue_local_statistic_type:
         Statistic used for estimating the whiteness of each element of the
-        :py:class:`~dymoval.validation,XCorrelation` object associated to the
+        :py:class:`~dymoval.validation.XCorrelation` object associated to the
         input-residuals cross-correlation.
     Rue_global_statistic_type:
         Statistic used for estimating the overall whiteness of the resulting
@@ -864,9 +874,9 @@ class ValidationSession:
     Rue_local_weights:
         Weights associated to each element of `Rue`. It must be a
         :math:`p\times q` array where each element is a 1-D array.
-    Rue_local_weights:
+    Rue_global_weights:
         Weights associated to the resulting matrix after the local statistics
-        for each element or `Rue` have been computed. It must be a
+        for each element of `Rue` have been computed. It must be a
         :math:`p\times q` array.
     """
 
@@ -880,7 +890,7 @@ class ValidationSession:
         validation_thresholds: dict[str, float] | None = None,
         ignore_input: bool = False,
         # r2
-        r2_statistic: Literal["min", "mean"] = "min",
+        r2_statistic: R2_Statistic_type = "min",
         # The following are input to XCorrelation.estimate_whiteness()
         # method.
         # input auto-correlation
@@ -903,102 +913,74 @@ class ValidationSession:
         Rue_global_weights: np.ndarray | None = None,
     ) -> None:
         # Once you created a ValidationSession you should not change the
-        # validation dataset.
-        # Create another ValidationSession with another validation dataset
-        # By using the constructors, you should have no types problems because
-        # the check is done there.
+        # validation dataset. Create another ValidationSession with another
+        # validation dataset instead.
 
         # =============================================
         # Class attributes
-        # ============================================
+        # =============================================
+        if not validation_dataset.inputs or not validation_dataset.outputs:
+            raise ValueError(
+                "The validation dataset must have at least one input "
+                "and one output."
+            )
 
         self._Dataset: Dataset = validation_dataset
 
-        # Number of inputs
-        self._p = len(
-            self._Dataset.dataset["INPUT"].columns.get_level_values("names")
-        )
+        # Number of inputs and outputs
+        self._p = len(validation_dataset.inputs)
+        self._q = len(validation_dataset.outputs)
 
-        # Number of outputs
-        self._q = len(
-            self._Dataset.dataset["OUTPUT"].columns.get_level_values("names")
-        )
+        self._sampling_period = validation_dataset.get_sampling_period()
 
-        # Simulation based
         self.name: str = name  # The validation session name.
         """ValidationSession object name."""
 
         self._default_nlags = 41
 
-        self._simulations_values: pd.DataFrame = pd.DataFrame(
-            index=validation_dataset.dataset.index, columns=[[], [], []]
-        )
+        # sim_name -> list of q Signal objects
+        self._simulations: dict[str, list[Signal]] = {}
         """The appended simulation results.
         This attribute is automatically set through
         :py:meth:`~dymoval.validation.ValidationSession.append_simulation`
         and it should be considered as a *read-only* attribute."""
+
         # Format: 'name_sim': r2
         self._r2_list: dict[str, np.ndarray] = {}
         self._r2: dict[str, float] = {}
-        self._r2_statistic = r2_statistic
-
-        # Input: Ruu
-        self._Ruu: XCorrelation
-        """The auto-correlation tensors.
-        This attribute is automatically set
-        and it should be considered as a *read-only* attribute."""
+        self._r2_statistic: R2_Statistic_type = r2_statistic
 
         # Format: 'name_sim': Ree
-        self._Ree: dict[str, XCorrelation] = {}
         self._Ree_whiteness: dict[str, float] = {}
         self._Ree_whiteness_matrix: dict[str, np.ndarray] = {}
-        """The auto-correlation tensors.
-        This attribute is automatically set
-        and it should be considered as a *read-only* attribute."""
 
         # Format: 'name_sim': Rue
-        self._Rue: dict[str, XCorrelation] = {}
         self._Rue_whiteness: dict[str, float] = {}
         self._Rue_whiteness_matrix: dict[str, np.ndarray] = {}
-        """The cross-correlation tensors.
-        This attribute is automatically set
-        and it should be considered as a *read-only* attribute."""
 
         # ------------------ Input --------------------
         self._U_bandwidths = U_bandwidths
 
-        # Input nlags
-        # Default 41 lags (20 negative and 20 positive)
-        self._Ruu_nlags = np.full(
-            (self._p, self._p), fill_value=self._default_nlags
+        # Input nlags. Default 41 lags (20 negative and 20 positive)
+        self._Ruu_nlags = self._resolve_nlags(
+            "Ruu", Ruu_nlags, Ruu_local_weights, self._p, self._p
         )
-        if Ruu_nlags is not None:
-            if Ruu_nlags.shape[0] < self._p or Ruu_nlags.shape[1] < self._p:
-                raise IndexError(
-                    f"'Ruu_nlags' shall be a {self._p}x{self._p} array."
-                )
-            else:
-                self._Ruu_nlags = Ruu_nlags[0 : self._p, 0 : self._p]
-        elif Ruu_local_weights is not None:
-            # Iterate through the input array and count the number of lags
-            for ii in range(self._p):
-                for jj in range(self._p):
-                    self._Ruu_nlags[ii, jj] = len(Ruu_local_weights[ii, jj])
 
         self._Ruu_local_statistic_type = Ruu_local_statistic_type
         self._Ruu_global_statistic_type = Ruu_global_statistic_type
         self._Ruu_local_weights = Ruu_local_weights
         self._Ruu_global_weights = Ruu_global_weights
 
+        u_values = _stack(list(validation_dataset.inputs.values()))
+
         Ruu = XCorrelation(
             "Ruu",
-            X=self._Dataset.dataset["INPUT"].to_numpy(),
-            Y=self._Dataset.dataset["INPUT"].to_numpy(),
+            X=u_values,
+            Y=u_values,
             nlags=self._Ruu_nlags,
             X_bandwidths=self._U_bandwidths,
             Y_bandwidths=self._U_bandwidths,
-            sampling_period=self._Dataset.dataset.index[1]
-            - self._Dataset.dataset.index[0],
+            sampling_period=self._sampling_period,
         )
 
         self._Ruu_tensor = Ruu
@@ -1018,22 +1000,9 @@ class ValidationSession:
         # Residuals auto-correlation
         self._Ree_tensor: dict[str, XCorrelation] = {}
 
-        # nlags
-        self._Ree_nlags = np.full(
-            (self._q, self._q), fill_value=self._default_nlags
+        self._Ree_nlags = self._resolve_nlags(
+            "Ree", Ree_nlags, Ree_local_weights, self._q, self._q
         )
-        if Ree_nlags is not None:
-            if Ree_nlags.shape[0] < self._q or Ree_nlags.shape[1] < self._q:
-                raise IndexError(
-                    f"'Ree_nlags' shall be a {self._q}x{self._q}  array."
-                )
-            else:
-                self._Ree_nlags = Ree_nlags[0 : self._q, 0 : self._q]
-        elif Ree_local_weights is not None:
-            # Iterate through the input array and count the number of lags
-            for ii in range(self._q):
-                for jj in range(self._q):
-                    self._Ree_nlags[ii, jj] = len(Ree_local_weights[ii, jj])
 
         self._Ree_local_statistic_type = Ree_local_statistic_type
         self._Ree_global_statistic_type = Ree_global_statistic_type
@@ -1043,43 +1012,17 @@ class ValidationSession:
         # Input-Residuals cross-correlation
         self._Rue_tensor: dict[str, XCorrelation] = {}
 
-        self._Rue_nlags = np.full(
-            (self._p, self._q), fill_value=self._default_nlags
+        self._Rue_nlags = self._resolve_nlags(
+            "Rue", Rue_nlags, Rue_local_weights, self._p, self._q
         )
-        if Rue_nlags is not None:
-            if Rue_nlags.shape[0] < self._p or Rue_nlags.shape[1] < self._q:
-                raise IndexError(
-                    f"'Rue_nlags' shall be a {self._p}x{self._q} array."
-                )
-            else:
-                self._Rue_nlags = Rue_nlags[0 : self._p, 0 : self._q]
-        elif Rue_local_weights is not None:
-            # Iterate through the input array and count the number of lags
-            for ii in range(self._p):
-                for jj in range(self._q):
-                    self._Rue_nlags[ii, jj] = len(Rue_local_weights[ii, jj])
 
         self._Rue_local_statistic_type = Rue_local_statistic_type
         self._Rue_global_statistic_type = Rue_global_statistic_type
         self._Rue_local_weights = Rue_local_weights
         self._Rue_global_weights = Rue_global_weights
 
-        # Initialize validation results DataFrame.
-        idx = [
-            f"Input whiteness "
-            f"({self._Ruu_local_statistic_type}-"
-            f"{self._Ruu_global_statistic_type})",
-            "R-Squared (%)",
-            f"Residuals whiteness "
-            f"({self._Ree_local_statistic_type}-"
-            f"{self._Ree_global_statistic_type})",
-            f"Input-Res whiteness "
-            f"({self._Rue_local_statistic_type}-"
-            f"{self._Rue_global_statistic_type})",
-        ]
-        self._validation_statistics: pd.DataFrame = pd.DataFrame(
-            index=idx, columns=[]
-        )
+        # sim_name -> {statistic_key: value}
+        self._validation_statistics: dict[str, dict[str, float]] = {}
 
         # =========== Model validation =============================
         self._validation_thresholds = (
@@ -1098,117 +1041,137 @@ class ValidationSession:
         This attribute is automatically set
         and it should be considered as a *read-only* attribute."""
 
-    def __repr__(self) -> str:
-        # Save existing settings
-        # np_options = np.get_printoptions()
-        # pd_options = pd.options.display.float_format
+    # ====================================================
+    # Construction helpers
+    # ====================================================
+    def _resolve_nlags(
+        self,
+        who: str,
+        nlags: np.ndarray | None,
+        local_weights: np.ndarray | None,
+        nrows: int,
+        ncols: int,
+    ) -> np.ndarray:
+        """Build the ``nrows x ncols`` number-of-lags array."""
+        resolved = np.full((nrows, ncols), fill_value=self._default_nlags)
 
-        # np.set_printoptions(precision=NUM_DECIMALS, suppress=True)
-        # pd.options.display.float_format = lambda x: f"{x:.{NUM_DECIMALS}f}"
+        if nlags is not None:
+            if (
+                nlags.ndim != 2
+                or nlags.shape[0] < nrows
+                or nlags.shape[1] < ncols
+            ):
+                raise IndexError(
+                    f"'{who}_nlags' shall be a {nrows}x{ncols} array."
+                )
+
+            return np.asarray(nlags[0:nrows, 0:ncols])
+
+        if local_weights is not None:
+            for ii in range(nrows):
+                for jj in range(ncols):
+                    resolved[ii, jj] = len(local_weights[ii, jj])
+
+        return resolved
+
+    # ====================================================
+    # Representation
+    # ====================================================
+    def _statistics_labels(self) -> dict[str, str]:
+        return {
+            "Ruu_whiteness": (
+                f"Input whiteness "
+                f"({self._Ruu_local_statistic_type}-"
+                f"{self._Ruu_global_statistic_type})"
+            ),
+            "r2": "R-Squared (%)",
+            "Ree_whiteness": (
+                f"Residuals whiteness "
+                f"({self._Ree_local_statistic_type}-"
+                f"{self._Ree_global_statistic_type})"
+            ),
+            "Rue_whiteness": (
+                f"Input-Res whiteness "
+                f"({self._Rue_local_statistic_type}-"
+                f"{self._Rue_global_statistic_type})"
+            ),
+        }
+
+    def _statistics_table(self, keys: Sequence[str]) -> str:
+        """Render the validation statistics as a plain-text table."""
+        labels = self._statistics_labels()
+        sims = self.simulations_names
+
+        if not sims:
+            return "(no simulation appended)"
+
+        label_width = max(len(labels[k]) for k in keys)
+        col_width = max(12, *(len(s) for s in sims))
+
+        lines = [
+            " " * label_width + "".join(f"  {s:>{col_width}}" for s in sims)
+        ]
+
+        for k in keys:
+            values = "".join(
+                f"  {self._validation_statistics[s][k]:>{col_width}.4f}"
+                for s in sims
+            )
+            lines.append(f"{labels[k]:<{label_width}}{values}")
+
+        return "\n".join(lines)
+
+    @staticmethod
+    def _weights_str(who: str, weights: np.ndarray | None) -> str:
+        if weights is None:
+            return f"{who}: None\n"
+
+        return f"{who}: Yes (see self._{who.replace(' ', '_')})\n"
+
+    @staticmethod
+    def _nlags_str(nlags: np.ndarray) -> str:
+        flat = nlags.flatten()
+
+        if np.all(flat == flat[0]):
+            return f"num lags: {nlags[0, 0]}\n"
+
+        return f"num lags: \n{nlags}\n"
+
+    def __repr__(self) -> str:
         outcomes_head = "         "
         outcomes_body = "Outcome: "
         for k, v in self._outcome.items():
             delta = len(k) - len(v)
             if delta >= 0:
                 outcomes_head += f"{k}  "
-                outcomes_body += f"{self._outcome[k]}" + " " * (delta + 2)
+                outcomes_body += f"{v}" + " " * (delta + 2)
             else:
                 outcomes_head += f"{k}" + " " * (delta + 2)
-                outcomes_body += f"{self._outcome[k]}"
+                outcomes_body += f"{v}"
 
-        # u acorr weights
-        if self._Ruu_local_weights is None:
-            Ruu_local_weights_str = (
-                f"local weights: {self._Ruu_local_weights}\n"
-            )
-        else:
-            Ruu_local_weights_str = (
-                "local weights: Yes (see self._Ruu_local_weights)\n"
-            )
+        keys = list(VALIDATION_KEYS)
 
-        if self._Ruu_global_weights is None:
-            Ruu_global_weights_str = (
-                f"global weights: {self._Ruu_global_weights}\n"
-            )
-        else:
-            Ruu_global_weights_str = (
-                "global weights: Yes (see self._Ruu_global_weights)\n"
-            )
-
-        # u_nlags
-        if np.all(self._Ruu_nlags.flatten() == self._Ruu_nlags.flatten()[0]):
-            u_nlags_str = f"num lags: {self._Ruu_nlags[0, 0]}\n"
-        else:
-            u_nlags_str = f"num lags: \n{self._Ruu_nlags}\n"
-
-        # Ignore input
         if self._ignore_input:
             inputs_acorr_str = f"Input ignored: {self._ignore_input}\n"
-            Ruu_whiteness = ""
-            validation_results = self._validation_statistics.iloc[2:, :]
+            keys.remove("Ruu_whiteness")
         else:
             inputs_acorr_str = (
                 f"Inputs auto-correlation\n"
                 f"Statistic: "
                 f"{self._Ruu_local_statistic_type}-"
                 f"{self._Ruu_global_statistic_type}\n"
-                + Ruu_local_weights_str
-                + Ruu_global_weights_str
-                + u_nlags_str
-            )
-            Ruu_whiteness = f"{self._validation_statistics.index[0]}: "
-            "{self._validation_thresholds['Ruu_whiteness']} \n"
-            validation_results = self._validation_statistics
-
-        # eps_nlags
-        if np.all(self._Ree_nlags.flatten() == self._Ree_nlags.flatten()[0]):
-            eps_nlags_str = f"num lags: {self._Ree_nlags[0, 0]}\n"
-        else:
-            eps_nlags_str = f"num lags: \n{self._Ree_nlags}\n"
-
-        # eps acorr weights
-        if self._Ree_local_weights is None:
-            Ree_local_weights_str = (
-                f"local weights: {self._Ree_local_weights}\n"
-            )
-        else:
-            Ree_local_weights_str = (
-                "local weights: Yes (see self._Ree_local_weights)\n"
+                + self._weights_str(
+                    "Ruu_local_weights", self._Ruu_local_weights
+                )
+                + self._weights_str(
+                    "Ruu_global_weights", self._Ruu_global_weights
+                )
+                + self._nlags_str(self._Ruu_nlags)
             )
 
-        if self._Ree_global_weights is None:
-            Ree_global_weights_str = (
-                f"global weights: {self._Ree_global_weights}\n"
-            )
-        else:
-            Ree_global_weights_str = (
-                "global weights: Yes (see self._Ree_global_weights)\n"
-            )
-
-        # ueps_nlags
-        if np.all(self._Rue_nlags.flatten() == self._Rue_nlags.flatten()[0]):
-            ueps_nlags_str = f"num lags: {self._Rue_nlags[0, 0]}\n"
-        else:
-            ueps_nlags_str = f"num lags: \n{self._Rue_nlags}\n"
-
-        # ueps xcorr weights
-        if self._Rue_local_weights is None:
-            Rue_local_weights_str = (
-                f"local weights: {self._Rue_local_weights}\n"
-            )
-        else:
-            Rue_local_weights_str = (
-                "local weights: Yes (see self._Rue_local_weights)\n"
-            )
-
-        if self._Rue_global_weights is None:
-            Rue_global_weights_str = (
-                f"global weights: {self._Rue_global_weights}\n"
-            )
-        else:
-            Rue_global_weights_str = (
-                "global weights: Yes (see self._Rue_global_weights)\n"
-            )
+        thresholds_str = "".join(
+            f"{k}: {v:.4f} \n" for k, v in self._validation_thresholds.items()
+        )
 
         repr_str = (
             f"Validation session name: {self.name}\n\n"
@@ -1219,46 +1182,26 @@ class ValidationSession:
             f"Statistic: "
             f"{self._Ree_local_statistic_type}-"
             f"{self._Ree_global_statistic_type}\n"
-            + Ree_local_weights_str
-            + Ree_global_weights_str
-            + eps_nlags_str
+            + self._weights_str("Ree_local_weights", self._Ree_local_weights)
+            + self._weights_str("Ree_global_weights", self._Ree_global_weights)
+            + self._nlags_str(self._Ree_nlags)
             + "\n"
-            +
-            #
-            f"Input-residuals cross-correlation:\n"
+            + f"Input-residuals cross-correlation:\n"
             f"Statistic: "
             f"{self._Rue_local_statistic_type}-"
             f"{self._Rue_global_statistic_type}\n"
-            + Rue_local_weights_str
-            + Rue_global_weights_str
-            + ueps_nlags_str
+            + self._weights_str("Rue_local_weights", self._Rue_local_weights)
+            + self._weights_str("Rue_global_weights", self._Rue_global_weights)
+            + self._nlags_str(self._Rue_nlags)
             + "\n"
-            +
-            #
-            f"Validation results:\n-------------------\n"
+            + f"Validation results:\n-------------------\n"
             f"Thresholds: \n"
-            f"{Ruu_whiteness}"
-            f"{self._validation_thresholds['Ruu_whiteness']:.4f} \n"
-            f"{self._validation_statistics.index[1]}: "
-            f"{self._validation_thresholds['r2']:.4f} \n"
-            f"{self._validation_statistics.index[2]}: "
-            f"{self._validation_thresholds['Ree_whiteness']:.4f} \n"
-            f"{self._validation_statistics.index[3]}: "
-            f"{self._validation_thresholds['Rue_whiteness']:.4f} \n\n"
+            f"{thresholds_str}\n"
             "Actuals:\n"
-            f"{validation_results}\n\n"
+            f"{self._statistics_table(keys)}\n\n"
             f"{outcomes_head}\n"
             f"{outcomes_body}\n"
         )
-
-        # try:
-        #     if self.validation_results is not None:
-        #         repr_str = repr(self.validation_results)
-        #     if self.simulations_results is not None:
-        #         repr_str = repr(self.simulations_values)
-        # finally:
-        #     np.set_printoptions(**np_options)
-        #     pd.reset_option("display.float_format")
 
         return repr_str
 
@@ -1270,46 +1213,55 @@ class ValidationSession:
         return self._Dataset
 
     @property
-    def simulations_values(self) -> pd.DataFrame:
-        """Simulated out values."""
-        return self._simulations_values
+    def simulations(self) -> dict[str, list[Signal]]:
+        """The stored simulations as lists of
+        :py:class:`~dymoval.signal.Signal` objects."""
+        return self._simulations
+
+    @property
+    def simulations_values(self) -> dict[str, np.ndarray]:
+        """Simulated output values, one :math:`N\\times q` array per
+        simulation."""
+        return {
+            name: _stack(signals)
+            for name, signals in self._simulations.items()
+        }
 
     @property
     def simulations_names(self) -> list[str]:
         """Names of the stored simulations."""
-        return list(self._simulations_values.columns.levels[0])
+        return list(self._simulations)
 
     @property
     def outcome(self) -> dict[str, str]:
         """Validation outcome.
 
-        For each simulation return validation outcome.
+        For each simulation return the validation outcome.
         """
         return self._outcome
 
     @property
     def Ree(self) -> dict[str, XCorrelation]:
         """Residuals auto-correlation arrays."""
-        return self._Ree
+        return self._Ree_tensor
 
     @property
     def Ruu(self) -> XCorrelation:
-        """Input auto-correlation arrays."""
-        return self._Ruu
+        """Input auto-correlation array."""
+        return self._Ruu_tensor
 
     @property
     def Rue(self) -> dict[str, XCorrelation]:
         """Input-residuals cross-correlation arrays."""
-        return self._Rue
+        return self._Rue_tensor
 
     @property
     def validation_thresholds(self) -> dict[str, float]:
-        """Input-residuals cross-correlation arrays."""
+        """Thresholds used to compute the PASS/FAIL outcome."""
         return self._validation_thresholds
 
     @validation_thresholds.setter
     def validation_thresholds(self, val: dict[str, float]) -> None:
-        """Input-residuals cross-correlation arrays."""
         allowed_keys = self._get_validation_thresholds_default(
             ignore_input=False
         ).keys()
@@ -1325,9 +1277,8 @@ class ValidationSession:
             self._append_validation_statistics(sim_name=sim_name)
 
     @property
-    def validation_statistics(self) -> Any:
+    def validation_statistics(self) -> dict[str, dict[str, float]]:
         """Return the computed statistics for each simulation."""
-
         return self._validation_statistics
 
     def _get_validation_thresholds_default(
@@ -1335,39 +1286,37 @@ class ValidationSession:
     ) -> dict[str, float]:
         validation_thresholds_default = {
             "Ruu_whiteness": 0.6,
-            "r2": 35,
+            "r2": 35.0,
             "Ree_whiteness": 0.5,
             "Rue_whiteness": 0.5,
         }
 
         if ignore_input is True:
             del validation_thresholds_default["Ruu_whiteness"]
+
         return validation_thresholds_default
 
     def _compute_r2_statistic(
         self, r2_list: np.ndarray, statistic: R2_Statistic_type = "min"
     ) -> float:
-        result: float = 0.0
         if statistic == "mean":
-            result = np.mean(r2_list)
-        elif statistic == "min":
-            result = np.min(r2_list)
-        else:
-            raise ValueError("'r2_statistic' must be 'mean' or 'min'")
+            return float(np.mean(r2_list))
 
-        return result
+        if statistic == "min":
+            return float(np.min(r2_list))
+
+        raise ValueError("'r2_statistic' must be 'mean' or 'min'")
 
     def _append_validation_statistics(
         self,
         sim_name: str,
     ) -> None:
-        # Extact dataset output values
-        df_val = self._Dataset.dataset
-        y_values = df_val["OUTPUT"].to_numpy()
-        u_values = df_val["INPUT"].to_numpy()
+        # Dataset values
+        u_values = _stack(list(self._Dataset.inputs.values()))
+        y_values = _stack(list(self._Dataset.outputs.values()))
 
         # Simulation results
-        y_sim_values = self._simulations_values[sim_name].to_numpy()
+        y_sim_values = _stack(self._simulations[sim_name])
 
         # Residuals
         eps = y_values - y_sim_values
@@ -1391,8 +1340,7 @@ class ValidationSession:
             X_bandwidths=self._Y_bandwidths,
             Y_bandwidths=self._Y_bandwidths,
             nlags=self._Ree_nlags,
-            sampling_period=self._Dataset.dataset.index[1]
-            - self._Dataset.dataset.index[0],
+            sampling_period=self._sampling_period,
         )
 
         self._Ree_tensor[sim_name] = Ree
@@ -1407,7 +1355,7 @@ class ValidationSession:
             global_weights=self._Ree_global_weights,
         )
 
-        # Input-residals cross-correlation
+        # Input-residuals cross-correlation
         Rue = XCorrelation(
             "Rue",
             u_values,
@@ -1415,8 +1363,7 @@ class ValidationSession:
             X_bandwidths=self._Y_bandwidths,
             Y_bandwidths=self._Y_bandwidths,
             nlags=self._Rue_nlags,
-            sampling_period=self._Dataset.dataset.index[1]
-            - self._Dataset.dataset.index[0],
+            sampling_period=self._sampling_period,
         )
 
         self._Rue_tensor[sim_name] = Rue
@@ -1431,683 +1378,122 @@ class ValidationSession:
             global_weights=self._Rue_global_weights,
         )
 
-        # Append numerical values:
-        self._validation_statistics[sim_name] = np.array(
-            [
-                self._Ruu_whiteness,
-                self._r2[sim_name],
-                self._Ree_whiteness[sim_name],
-                self._Rue_whiteness[sim_name],
-            ]
-        )
+        # Append numerical values
+        self._validation_statistics[sim_name] = {
+            "Ruu_whiteness": self._Ruu_whiteness,
+            "r2": self._r2[sim_name],
+            "Ree_whiteness": self._Ree_whiteness[sim_name],
+            "Rue_whiteness": self._Rue_whiteness[sim_name],
+        }
 
         # Compute PASS/FAIL outcome
+        statistics = self._validation_statistics[sim_name]
         local_outcome = []
 
-        # Use shorter names for the dataframe, e.g. Ruu_whiteness instead of
-        # 'Ruu whiteness (abs-mean)'
-        df_new_indices = deepcopy(self._validation_statistics)
-        df_new_indices.index = self._validation_thresholds.keys()
-        validation_dict = df_new_indices[sim_name].to_dict()
-
-        # Start the comparison
-        for k in self._validation_thresholds.keys():
-            if k != "r2":
-                local_outcome.append(
-                    validation_dict[k] < self._validation_thresholds[k]
-                )
+        for k, threshold in self._validation_thresholds.items():
+            if k == "r2":
+                local_outcome.append(statistics[k] > threshold)
             else:
-                local_outcome.append(
-                    validation_dict[k] > self._validation_thresholds[k]
-                )
-        if all(local_outcome):
-            self._outcome[sim_name] = "PASS"
-        else:
-            self._outcome[sim_name] = "FAIL"
+                local_outcome.append(statistics[k] < threshold)
+
+        self._outcome[sim_name] = "PASS" if all(local_outcome) else "FAIL"
 
     def _sim_list_validate(self) -> None:
         if not self.simulations_names:
             raise KeyError(
                 "The simulations list looks empty. "
                 "Check the available simulation names with "
-                "'simulations_names()'"
+                "'simulations_names'"
             )
+
+    def _sims_to_plot(self, list_sims: str | list[str] | None) -> list[str]:
+        self._sim_list_validate()
+
+        if not list_sims:
+            return self.simulations_names
+
+        sims = obj2list(list_sims)
+        sim_not_found = difference_lists_of_str(sims, self.simulations_names)
+
+        if sim_not_found:
+            raise KeyError(
+                f"Simulation {sim_not_found} not found. "
+                "Check the available simulations names with "
+                "'simulations_names'"
+            )
+
+        return sims
 
     def _simulation_validation(
         self, sim_name: str, y_names: Sequence[str], y_data: np.ndarray
     ) -> None:
         if len(y_names) != len(set(y_names)):
             raise ValueError("Signals name must be unique.")
-        if (
-            not self._simulations_values.empty
-            and sim_name in self.simulations_names
-        ):
+
+        if sim_name in self.simulations_names:
             raise ValueError(
                 f"Simulation name '{sim_name}' already exists. \n"
                 "HINT: check the loaded simulations names with"
                 "'simulations_names' method."
             )
-        if len(set(y_names)) != len(
-            set(self._Dataset.dataset["OUTPUT"].columns)
-        ):
+
+        if len(set(y_names)) != self._q:
             raise IndexError(
                 "The number of outputs of your simulation must be equal "
                 "to the number of outputs in the dataset AND "
                 "the name of each simulation output shall be unique."
             )
+
         if not isinstance(y_data, np.ndarray):
             raise ValueError(
                 "The type the input signal values must be a numpy ndarray."
             )
+
         if len(y_names) not in y_data.shape:
             raise IndexError(
                 "The number of labels and the number of signals "
                 "must be the same."
             )
-        if len(y_data) != len(self._Dataset.dataset["OUTPUT"].values):
+
+        if len(y_data) != len(self._Dataset.time()):
             raise IndexError(
                 "The length of the input signal must be equal "
                 "to the length "
                 "of the other signals in the Dataset."
             )
 
-    def plot_simulations(
-        self,
-        # Cam be a positional or a keyword arg
-        list_sims: str | list[str] | None = None,
-        dataset: Literal["in", "out", "both"] | None = None,
-        layout: Literal[
-            "constrained", "compressed", "tight", "none"
-        ] = "tight",
-        ax_height: float = 1.8,
-        ax_width: float = 4.445,
-    ) -> matplotlib.figure.Figure:
-        """Plot the stored simulation results.
-
-        Possible values of the parameters describing the plot aesthetics,
-        such as the `linecolor_input` or the `alpha_output`,
-        are the same for the corresponding `matplotlib.axes.Axes.plot`.
-
-        You are free to manipulate the returned figure as you want by using
-        any method of the class `matplotlib.figure.Figure`.
-
-        Please, refer to *matplotlib* docs for more info.
-
-
-        Example
-        -------
-        >>> fig = vs.plot_simulations() # ds is a dymoval ValidationSession
-        object
-        # The following are methods of the class `matplotlib.figure.Figure`
-        >>> fig.set_size_inches(10,5)
-        >>> fig.set_layout_engine("constrained")
-        >>> fig.savefig("my_plot.svg")
-
-
-        Parameters
-        ----------
-        list_sims:
-            List of simulation names.
-        dataset:
-            Specify whether the dataset shall be plotted.
-
-            - *"in"*: dataset only the input signals of the dataset.
-            - *"out"*: dataset only the output signals of the dataset.
-            - *"both"*: dataset both the input and the output signals of the
-              dataset.
-
-        layout:
-            Figure layout.
-        ax_height:
-            Approximative height (inches) of each subplot.
-        ax_width:
-            Approximative width (inches) of each subplot.
+    # ====================================================
+    # Simulations bookkeeping
+    # ====================================================
+    def simulation_signals_list(
+        self, sim_name: str | list[str]
+    ) -> list[tuple[str, str]]:
         """
-        # TODO: could be refactored
-        # It uses the left axis for the simulation results and the dataset
-        # output.
-        # If the dataset input is overlapped, then we use the right axes.
-        # However, if the number of inputs "p" is greater than the number of
-        # outputs "q", we use the left axes of the remaining p-q axes since
-        # there is no need to create a pair of axes only for one extra signal.
-
-        # ================================================================
-        # Validate and arrange the plot setup.
-        # ================================================================
-        # check if the sim list is empty
-        self._sim_list_validate()
-
-        # Check the passed list of simulations is non-empty.
-        # or that the passed name actually exist
-        if not list_sims:
-            list_sims = self.simulations_names
-        else:
-            list_sims = obj2list(list_sims)
-            sim_not_found = difference_lists_of_str(
-                list_sims, self.simulations_names
-            )
-            if sim_not_found:
-                raise KeyError(
-                    f"Simulation {sim_not_found} not found. "
-                    "Check the available simulations names with "
-                    "'simulations_namess()'"
-                )
-
-        # Now we start
-        vs = self
-        ds_val = self._Dataset
-        df_val = ds_val.dataset
-        df_sim = self._simulations_values
-        p = len(df_val["INPUT"].columns.get_level_values("names"))
-        q = len(df_val["OUTPUT"].columns.get_level_values("names"))
-        # ================================================================
-        # Arrange the figure
-        # ================================================================
-        # Arange figure
-        fig = plt.figure()
-        cmap = plt.get_cmap(COLORMAP)
-        if dataset == "in" or dataset == "both":
-            n = max(p, q)
-        else:
-            n = q
-        nrows, ncols = factorize(n)
-        grid = fig.add_gridspec(nrows, ncols)
-        # Set a dummy initial axis
-        axes = fig.add_subplot(grid[0])
-
-        # ================================================================
-        # Start the simulations plots
-        # ================================================================
-        # Iterate through all the simulations
-        sims = list_sims
-        for kk, sim in enumerate(sims):
-            signals_units = vs.simulation_signals_list(sim)
-            for ii, s in enumerate(signals_units):
-                if kk > 0:
-                    # Second (and higher) roundr of simulations
-                    axes = fig.get_axes()[ii]
-                else:
-                    axes = fig.add_subplot(grid[ii], sharex=axes)
-                # Actual plot
-                # labels = columns names
-                df_sim.droplevel(level="units", axis=1).loc[
-                    :, (sim, s[0])
-                ].plot(
-                    subplots=True,
-                    grid=True,
-                    color=cmap(kk),
-                    legend=True,
-                    ylabel=f"({s[1]})",
-                    xlabel=f"{df_val.index.name[0]} "
-                    "({df_val.index.name[1]})",
-                    ax=axes,
-                )
-            # At the end of the first iteration drop the dummmy axis
-            if kk == 0:
-                fig.get_axes()[0].remove()
-
-        # Add output plots if requested
-        # labels = columns names
-        if dataset == "out" or dataset == "both":
-            signals_units = df_val["OUTPUT"].columns
-            for ii, s in enumerate(signals_units):
-                axes = fig.get_axes()[ii]
-                df_val.droplevel(level="units", axis=1).loc[
-                    :, ("OUTPUT", s[0])
-                ].plot(
-                    subplots=True,
-                    grid=True,
-                    legend=True,
-                    color="gray",
-                    xlabel=f"{df_val.index.name[0]} ({df_val.index.name[1]})",
-                    ax=axes,
-                )
-
-        # Until now, all the axes are on the left side.
-        # Due to that fig.get_axes() returns a list of all axes
-        # and apparently it is not possible to distinguis between
-        # left and right, it is therefore wise to keep track of the
-        # axes on the left side.
-        # Note that len(axes_l) = q, but only until now.
-        # len(axes_l) will change if p>q as we will place the remaining
-        # p-q inputs on the left side axes to save space.
-        axes_l = fig.get_axes()
-
-        # Get labels and handles needed for the legend in all the
-        # axes on the left side.
-        labels_l = []
-        handles_l = []
-        for axes in axes_l:
-            handles, labels = axes.get_legend_handles_labels()
-            labels_l.append(labels)
-            handles_l.append(handles)
-
-        # ===============================================
-        # Input signal handling.
-        # ===============================================
-
-        if dataset == "in" or dataset == "both":
-            signals_units = df_val["INPUT"].columns
-            for ii, s in enumerate(signals_units):
-                # Add a right axes to the existings "q" left axes
-                if ii < q:
-                    # If there are available axes, then
-                    # add a secondary y_axis to it.
-                    axes = fig.get_axes()[ii]
-                    axes_right = axes.twinx()
-                else:
-                    # Otherwise, create a new "left" axis.
-                    # We do this because there is no need of creating
-                    # a pair of two new axes for just one signal
-                    axes = fig.add_subplot(grid[ii], sharex=axes)
-                    axes_right = axes
-                    # Update the list of axis on the left
-                    axes_l.append(axes)
-
-                # Plot.
-                df_val.droplevel(level="units", axis=1).loc[
-                    :, ("INPUT", s[0])
-                ].plot(
-                    subplots=True,
-                    color="gray",
-                    linestyle="--",
-                    ylabel=f"({s[1]})",
-                    xlabel=f"{df_val.index.name[0]} ({df_val.index.name[1]})",
-                    ax=axes_right,
-                )
-
-                # get labels for legend
-                handles, labels = axes_right.get_legend_handles_labels()
-
-                # If there are enough axes, then add an entry to the
-                # existing legend, otherwise append new legend for the
-                # newly added axes.
-                if ii < q:
-                    labels_l[ii] += labels
-                    handles_l[ii] += handles
-                else:
-                    labels_l.append(labels)
-                    handles_l.append(handles)
-                    axes_right.grid(True)
-
-        # ====================================================
-        # Shade NaN:s areas
-        if dataset is not None:
-            ds_val._shade_nans(fig.get_axes())
-
-        # Write the legend by considering only the left axes
-        for ii, ax in enumerate(axes_l):
-            ax.legend(handles_l[ii], labels_l[ii])
-
-        # Title
-        fig.suptitle("Simulations results.")
-
-        fig_width_inches = ncols * ax_width
-        fig_height_inches = nrows * ax_height + 1.25
-        fig.set_size_inches(fig_width_inches, fig_height_inches)
-
-        box_width_inches = 1.4
-        panel_fraction = box_width_inches / fig_width_inches
-        fig.set_layout_engine(layout, rect=[0, 0, 1 - panel_fraction, 1])
-
-        self.scope = InteractiveScope(fig)
-
-        if is_interactive_shell():
-            fig.show()
-        else:
-            plt.show()
-
-        return fig
-
-    # TODO:
-    def trim(
-        self: Self,
-        tin: float | None = None,
-        tout: float | None = None,
-        verbosity: int = 0,
-        **kwargs: Any,
-    ) -> Self:
-        """
-        Trim the Validation session
-        :py:class:`ValidationSession <dymoval.validation.ValidationSession>`
-        object.
-
-        If not `tin` or `tout` are passed, then the selection is
-        made graphically.
-
-        Parameters
-        ----------
-        *signals :
-            Signals to be plotted in case of trimming from a plot.
-        tin :
-            Initial time of the desired time interval
-        tout :
-            Final time of the desired time interval.
-        verbosity :
-            Depending on its level, more or less info is displayed.
-            The higher the value, the higher is the verbosity.
-        **kwargs:
-            kwargs to be passed to the
-            :py:meth:`~dymoval.validation.ValidationSession.plot_simulations` method.
-
-        """
-        # This function is similar to Dataset.trim
-
-        def _graph_selection(
-            vs: Self,
-            **kwargs: Any,
-        ) -> tuple[float, float]:  # pragma: no cover
-            # Select the time interval graphically
-            # OBS! This part cannot be automatically tested because the it
-            # require
-            # manual action from the user (resize window).
-            # Hence, you must test this manually.
-
-            # Get axes from the plot and use them to extract tin and tout
-            figure = vs.plot_simulations(**kwargs)
-            axes = figure.get_axes()
-
-            # Define the selection dictionary
-            selection = {"tin": 0.0, "tout": vs._Dataset.dataset.index[-1]}
-
-            def update_time_interval(ax):  # type:ignore
-                time_interval = ax.get_xlim()
-                selection["tin"], selection["tout"] = time_interval
-                selection["tin"] = max(selection["tin"], 0.0)
-                selection["tout"] = max(selection["tout"], 0.0)
-                print(
-                    f"Updated time interval: {selection['tin']} to "
-                    f"{selection['tout']}"
-                )
-
-            # Connect the event handler to the xlim_changed event
-            cid = axes[0].callbacks.connect(
-                "xlim_changed", update_time_interval
-            )
-            fig = axes[0].get_figure()
-            assert fig is not None
-
-            fig.suptitle("Trim the simulation results.")
-
-            # =======================================================
-            # By using this while loop we never give back the control to the
-            # prompt. In this way user is constrained to graphically select a
-            # time interval or to close the figure window if it wants the
-            # control back.
-            # The "event loop" is a programming structure that waits for and
-            # dispatch events and programs. An example below.
-            # An alternative better solution is welcome!
-            try:
-                while fig in [plt.figure(num) for num in plt.get_fignums()]:
-                    plt.pause(0.1)
-            except Exception as e:
-                print(f"An error occurred {e}")
-            finally:
-                fig.clear()
-                manager = fig.canvas.manager
-                if manager is not None:
-                    manager.destroy()
-
-            # =======================================================
-            axes[0].remove_callback(cid)
-            tin_sel = selection["tin"]
-            tout_sel = selection["tout"]
-
-            return tin_sel, tout_sel
-
-        # =============================================
-        # Trim ValidationSession main function
-        # The user can either pass the pair (tin,tout) or
-        # he/she can select it graphically if nothing has passed
-        # =============================================
-
-        vs = deepcopy(self)
-        # Check if info on (tin,tout) is passed
-        if tin is None and tout is not None:
-            tin_sel = vs._Dataset.dataset.index[0]
-            tout_sel = tout
-        # If only tin is passed, then set tout to the last time sample.
-        elif tin is not None and tout is None:
-            tin_sel = tin
-            tout_sel = vs._Dataset.dataset.index[-1]
-        elif tin is not None and tout is not None:
-            tin_sel = tin
-            tout_sel = tout
-        else:  # pragma: no cover
-            tin_sel, tout_sel = _graph_selection(self, **kwargs)
-
-        if verbosity != 0:
-            print(
-                f"\n tin = {tin_sel}{vs._Dataset.dataset.index.name[1]} ",
-                f" tout = {tout_sel}{vs._Dataset.dataset.index.name[1]}",
-            )
-
-        # Now you can trim the dataset and update all the
-        # other time-related attributes
-        vs._Dataset.dataset = vs._Dataset.dataset.loc[tin_sel:tout_sel, :]
-        vs._Dataset._nan_intervals = vs._Dataset._find_nan_intervals()
-        vs._Dataset.coverage = vs._Dataset._find_dataset_coverage()
-
-        # ... and shift everything such that tin = 0.0
-        vs._Dataset._shift_dataset_tin_to_zero()
-        vs._Dataset.dataset = vs._Dataset.dataset
-
-        # Also trim the simulations
-        vs._simulations_values = vs.simulations_values.loc[tin_sel:tout_sel, :]
-        vs.simulations_values.index = vs._Dataset.dataset.index
-
-        for sim_name in vs.simulations_names:
-            vs._append_validation_statistics(sim_name)
-
-        return vs
-
-    def plot_residuals(
-        self,
-        list_sims: str | list[str] | None = None,
-        *,
-        plot_input: bool = True,
-        layout: Literal[
-            "constrained", "compressed", "tight", "none"
-        ] = "tight",
-        ax_height: float = 1.8,
-        ax_width: float = 4.445,
-    ) -> tuple[
-        matplotlib.figure.Figure,
-        matplotlib.figure.Figure,
-        matplotlib.figure.Figure,
-    ]:
-        """Plot the residuals auto- and cross-correlation functions.
-
-        Parameters
-        ----------
-        list_sims :
-            List of simulations.
-            If empty, all the simulations are plotted.
-        layout:
-            Figures layout.
-        ax_height:
-            Approximative height (inches) of each subplot.
-        ax_width:
-            Approximative width (inches) of each subplot.
-
-
-        You are free to manipulate the returned figure as you want by using
-        any
-        method of the class `matplotlib.figure.Figure`.
-
-        Please, refer to *matplotlib* docs for more info.
-
-
-        Example
-        -------
-        >>> fig = vs.plot_residuals() # vs is a dymoval ValidationSession
-        object
-        # The following are methods of the class `matplotlib.figure.Figure`
-        >>> fig.set_size_inches(10,5)
-        >>> fig.set_layout_engine("constrained")
-        >>> fig.savefig("my_plot.svg")
-        """
-        # Raises
-        # ------
-        # KeyError
-        #     If the requested simulation list is empty.
-
-        # Check if you have any simulation available
-        self._sim_list_validate()
-        if not list_sims:
-            list_sims = self.simulations_names
-        else:
-            list_sims = obj2list(list_sims)
-            sim_not_found = difference_lists_of_str(
-                list_sims, self.simulations_names
-            )
-            if sim_not_found:
-                raise KeyError(
-                    f"Simulation {sim_not_found} not found. "
-                    "Check the available simulations names with "
-                    "'simulations_namess()'"
-                )
-        Ruu = self._Ruu_tensor
-        Ree = self._Ree_tensor
-        Rue = self._Rue_tensor
-
-        # Get p
-        k0 = list(Rue.keys())[0]
-        p = Rue[k0].R.shape[0]
-
-        # Get q
-        k0 = list(Ree.keys())[0]
-        q = Ree[k0].R.shape[0]
-
-        # ===============================================================
-        # Plot input auto-correlation
-        # ===============================================================
-        if plot_input:
-            fig, ax = plt.subplots(p, p, squeeze=False)
-            plt.setp(ax, ylim=(-1.2, 1.2))
-            for ii in range(p):
-                for jj in range(p):
-                    if is_latex_installed:
-                        title = rf"$\hat r_{{u_{ii}u_{jj}}}$"
-                    else:
-                        title = rf"r_u{ii}u_{jj}"
-                    ax[ii, jj].stem(
-                        Ruu.R[ii, jj].lags,
-                        Ruu.R[ii, jj].values,
-                        label=title,
-                    )
-                    ax[ii, jj].grid(True)
-                    ax[ii, jj].set_xlabel("Lags")
-                    ax[ii, jj].set_title(title)
-                    ax[ii, jj].legend()
-            fig.suptitle("Input auto-correlation")
-
-            # Adjust fig size and layout
-            # Walrus operator to make mypy happy. Alternatively, you could use
-            # assert, see below.
-            if (gs := fig.get_axes()[0].get_gridspec()) is not None:
-                nrows, ncols = gs.get_geometry()
-            fig.set_size_inches(ncols * ax_width, nrows * ax_height + 1.25)
-            fig.set_layout_engine(layout)
-
-        # ===============================================================
-        # Plot residuals auto-correlation
-        # ===============================================================
-        cmap = plt.get_cmap(COLORMAP)
-        fig1, ax1 = plt.subplots(q, q, squeeze=False)
-        plt.setp(ax1, ylim=(-1.2, 1.2))
-        for kk, sim_name in enumerate(list_sims):
-            # Convert the RGBA color to hex format
-            color_hex = matplotlib.colors.to_hex(cmap(kk))
-            for ii in range(q):
-                for jj in range(q):
-                    if is_latex_installed:
-                        title = rf"$\hat r_{{\epsilon_{ii}\epsilon_{jj}}}$"
-                    else:
-                        title = rf"r_eps{ii}eps_{jj}"
-                    ax1[ii, jj].stem(
-                        Ree[sim_name].R[ii, jj].lags,
-                        Ree[sim_name].R[ii, jj].values,
-                        label=sim_name,
-                        linefmt=f"{color_hex}",
-                    )
-                    ax1[ii, jj].grid(True)
-                    ax1[ii, jj].set_xlabel("Lags")
-                    ax1[ii, jj].set_title(title)
-                    ax1[ii, jj].legend()
-        fig1.suptitle("Residuals auto-correlation")
-
-        # Adjust fig size and layout
-        # Walrus operator to make mypy happy. Alternatively, you could use
-        # assert, see below.
-        if (gs := fig1.get_axes()[0].get_gridspec()) is not None:
-            nrows, ncols = gs.get_geometry()
-        fig1.set_size_inches(ncols * ax_width, nrows * ax_height + 1.25)
-        fig1.set_layout_engine(layout)
-
-        # ===============================================================
-        # Plot input-residuals cross-correlation
-        # ===============================================================
-        fig2, ax2 = plt.subplots(p, q, sharex=True, squeeze=False)
-        plt.setp(ax2, ylim=(-1.2, 1.2))
-        for kk, sim_name in enumerate(list_sims):
-            # Convert the RGBA color to hex format
-            color_hex = matplotlib.colors.to_hex(cmap(kk))
-            for ii in range(p):
-                for jj in range(q):
-                    if is_latex_installed:
-                        title = rf"$\hat r_{{u_{ii}\epsilon_{jj}}}$"
-                    else:
-                        title = rf"r_u{ii}eps{jj}"
-                    ax2[ii, jj].stem(
-                        Rue[sim_name].R[ii, jj].lags,
-                        Rue[sim_name].R[ii, jj].values,
-                        label=sim_name,
-                        linefmt=f"{color_hex}",
-                    )
-                    ax2[ii, jj].grid(True)
-                    ax2[ii, jj].set_xlabel("Lags")
-                    ax2[ii, jj].set_title(title)
-                    ax2[ii, jj].legend()
-        fig2.suptitle("Input-residuals cross-correlation")
-
-        # Adjust fig size and layout
-        gs = fig2.get_axes()[0].get_gridspec()
-        assert gs is not None
-        nrows, ncols = gs.get_geometry()
-        fig2.set_size_inches(ncols * ax_width, nrows * ax_height + 1.25)
-        fig2.set_layout_engine(layout)
-
-        if is_interactive_shell():
-            fig.show()
-            fig1.show()
-            fig2.show()
-        else:
-            plt.show()
-
-        return fig, fig1, fig2
-
-    def simulation_signals_list(self, sim_name: str | list[str]) -> list[str]:
-        """
-        Return the signal name list of a given simulation.
+        Return the ``(name, unit)`` list of a given simulation.
 
         Parameters
         ----------
         sim_name :
             Simulation name.
-
         """
         self._sim_list_validate()
-        return list(self._simulations_values[sim_name].columns)
+
+        name = sim_name if isinstance(sim_name, str) else sim_name[0]
+
+        if name not in self._simulations:
+            raise KeyError(f"Simulation '{name}' not found.")
+
+        return [(sig.name, sig.unit or "") for sig in self._simulations[name]]
 
     def clear(self) -> Self:
         """Remove all the stored simulation results in the current
         ValidationSession object."""
-
         vs_temp = deepcopy(self)
         sim_names = vs_temp.simulations_names
+
         for x in sim_names:
             vs_temp = vs_temp.drop_simulations(x)
+
         return vs_temp
 
     def append_simulation(
@@ -2123,37 +1509,33 @@ class ValidationSession:
         ----------
         sim_name :
             Simulation name.
-        y_label :
+        y_names :
             Simulation output signal names.
         y_data :
-            Simulated out expressed as :math:`N\times q` array
+            Simulated output expressed as :math:`N\times q` array
             with `N` observations of `q` signals.
         """
         vs_temp = deepcopy(self)
-        # df_sim = vs_temp.simulations_values
 
         y_names = obj2list(y_names)
         vs_temp._simulation_validation(sim_name, y_names, y_data)
 
-        y_units = list(
-            vs_temp._Dataset.dataset["OUTPUT"].columns.get_level_values(
-                "units"
+        y_units = [sig.unit or "" for sig in vs_temp._Dataset.outputs.values()]
+        time = vs_temp._Dataset.time()
+        time_unit = vs_temp._Dataset.time_unit()
+
+        values = np.asarray(y_data).reshape(len(time), len(y_names))
+
+        vs_temp._simulations[sim_name] = [
+            Signal(
+                name=name,
+                values=np.asarray(values[:, ii], dtype=float),
+                time=time.copy(),
+                unit=y_units[ii],
+                time_unit=time_unit,
             )
-        )
-
-        # Initialize sim df
-        df_sim = pd.DataFrame(
-            data=y_data, index=vs_temp._Dataset.dataset.index
-        )
-        multicols = list(zip([sim_name] * len(y_names), y_names, y_units))
-        df_sim.columns = pd.MultiIndex.from_tuples(
-            multicols, names=["sim_names", "signal_names", "units"]
-        )
-
-        # Concatenate df_sim with the current sim results
-        vs_temp._simulations_values = vs_temp.simulations_values.join(
-            df_sim, how="right"
-        ).rename_axis(df_sim.columns.names, axis=1)
+            for ii, name in enumerate(y_names)
+        ]
 
         # Update residuals auto-correlation and cross-correlation attributes
         vs_temp._append_validation_statistics(sim_name)
@@ -2168,39 +1550,455 @@ class ValidationSession:
         *sims:
             Name of the simulations to be dropped.
         """
-
         vs_temp = deepcopy(self)
         vs_temp._sim_list_validate()
 
         for sim_name in sims:
             if sim_name not in vs_temp.simulations_names:
                 raise ValueError(f"Simulation {sim_name} not found.")
-            vs_temp._simulations_values = vs_temp.simulations_values.drop(
-                sim_name, axis=1, level="sim_names"
-            )
-            vs_temp.simulations_values.columns = (
-                vs_temp.simulations_values.columns.remove_unused_levels()
-            )
 
+            vs_temp._simulations.pop(sim_name)
             vs_temp._Ree_tensor.pop(sim_name)
             vs_temp._Rue_tensor.pop(sim_name)
-
-            vs_temp._validation_statistics = (
-                vs_temp._validation_statistics.drop(sim_name, axis=1)
-            )
+            vs_temp._validation_statistics.pop(sim_name)
+            vs_temp._outcome.pop(sim_name, None)
+            vs_temp._r2.pop(sim_name, None)
+            vs_temp._r2_list.pop(sim_name, None)
+            vs_temp._Ree_whiteness.pop(sim_name, None)
+            vs_temp._Ree_whiteness_matrix.pop(sim_name, None)
+            vs_temp._Rue_whiteness.pop(sim_name, None)
+            vs_temp._Rue_whiteness_matrix.pop(sim_name, None)
 
         return vs_temp
+
+    # ====================================================
+    # Plots
+    # ====================================================
+    def plot_simulations(
+        self,
+        # Can be a positional or a keyword arg
+        list_sims: str | list[str] | None = None,
+        dataset: Literal["in", "out", "both"] | None = None,
+        layout: Literal[
+            "constrained", "compressed", "tight", "none"
+        ] = "tight",
+        ax_height: float = 1.8,
+        ax_width: float = 4.445,
+        with_scope: bool = True,
+    ) -> matplotlib.figure.Figure:
+        """Plot the stored simulation results.
+
+        One subplot per output is created. The measured outputs and the
+        measured inputs of the validation dataset can be overlaid through
+        the `dataset` argument. When more inputs than outputs are available
+        the extra inputs get their own subplot.
+
+        Example
+        -------
+        >>> fig = vs.plot_simulations() # vs is a dymoval ValidationSession
+        >>> fig.set_size_inches(10,5)
+        >>> fig.savefig("my_plot.svg")
+
+        Parameters
+        ----------
+        list_sims:
+            List of simulation names.
+        dataset:
+            Specify whether the dataset shall be plotted.
+
+            - *"in"*: plot only the input signals of the dataset.
+            - *"out"*: plot only the output signals of the dataset.
+            - *"both"*: plot both the input and the output signals of the
+              dataset.
+
+        layout:
+            Figure layout.
+        ax_height:
+            Approximative height (inches) of each subplot.
+        ax_width:
+            Approximative width (inches) of each subplot.
+        with_scope:
+            If `True` an interactive
+            :py:class:`~dymoval.scope.DatasetScope` is attached.
+        """
+        sims = self._sims_to_plot(list_sims)
+
+        ds = self._Dataset
+        p = self._p
+        q = self._q
+
+        plot_in = dataset in ("in", "both")
+        plot_out = dataset in ("out", "both")
+
+        n = max(p, q) if plot_in else q
+        nrows, ncols = factorize(n)
+
+        # ================================================================
+        # Arrange the figure
+        # ================================================================
+        fig = plt.figure(constrained_layout=True)
+
+        if with_scope:
+            subfigs = fig.subfigures(1, 2, width_ratios=[3.8, 1.2])
+            plot_fig: Any = subfigs[0]
+            panel_ax = subfigs[1].add_subplot()
+            panel_ax.set_anchor("N")
+        else:
+            plot_fig = fig
+            panel_ax = None
+
+        axes = list(
+            np.atleast_1d(
+                plot_fig.subplots(nrows, ncols, squeeze=False)
+            ).ravel()
+        )
+
+        # Only the first "n" axes are used
+        for ax in axes[n:]:
+            ax.remove()
+        axes = axes[:n]
+
+        cmap = plt.get_cmap(COLORMAP)
+
+        # ================================================================
+        # Simulations
+        # ================================================================
+        for kk, sim in enumerate(sims):
+            color = cmap(kk % cmap.N)
+
+            for ii, sig in enumerate(self._simulations[sim]):
+                sig._plot_standard(
+                    ax=axes[ii],
+                    color=color,
+                    label=f"{sim}: {sig.name}",
+                )
+
+        # ================================================================
+        # Measured outputs
+        # ================================================================
+        if plot_out:
+            for ii, sig in enumerate(ds.outputs.values()):
+                sig._plot_standard(
+                    ax=axes[ii],
+                    color=_SIM_COLOR_FALLBACK,
+                )
+
+        # ================================================================
+        # Measured inputs
+        # ================================================================
+        if plot_in:
+            for ii, sig in enumerate(ds.inputs.values()):
+                if ii < q:
+                    # Overlay on a twin axes to keep the scales separated.
+                    # Lines drawn there are invisible to the scope, which
+                    # only looks at the axes it was given.
+                    ax = axes[ii].twinx()
+                else:
+                    # No need of a pair of axes for a single extra signal
+                    ax = axes[ii]
+
+                sig._plot_standard(
+                    ax=ax,
+                    color=_SIM_COLOR_FALLBACK,
+                    linestyle="--",
+                )
+
+                if ii >= q:
+                    ax.legend()
+
+        for ax in axes:
+            ax.grid(True)
+            ax.legend()
+
+        fig.suptitle("Simulations results.")
+
+        fig_width_inches = ncols * ax_width
+        fig_height_inches = nrows * ax_height + 1.25
+        fig.set_size_inches(fig_width_inches, fig_height_inches)
+
+        if with_scope:
+            assert panel_ax is not None
+            DatasetScope(fig, axes, panel_ax)
+        else:
+            fig.set_layout_engine(layout)
+
+        if is_interactive_shell():
+            fig.show()
+        else:
+            plt.show()
+
+        return fig
+
+    def plot_residuals(
+        self,
+        list_sims: str | list[str] | None = None,
+        *,
+        plot_input: bool = True,
+        layout: Literal[
+            "constrained", "compressed", "tight", "none"
+        ] = "tight",
+        ax_height: float = 1.8,
+        ax_width: float = 4.445,
+    ) -> tuple[matplotlib.figure.Figure, ...]:
+        """Plot the residuals auto- and cross-correlation functions.
+
+        It returns the input auto-correlation figure (only when `plot_input`
+        is `True`), the residuals auto-correlation figure and the
+        input-residuals cross-correlation figure.
+
+        Parameters
+        ----------
+        list_sims :
+            List of simulations. If empty, all the simulations are plotted.
+        plot_input:
+            Whether the input auto-correlation shall be plotted.
+        layout:
+            Figures layout.
+        ax_height:
+            Approximative height (inches) of each subplot.
+        ax_width:
+            Approximative width (inches) of each subplot.
+        """
+        sims = self._sims_to_plot(list_sims)
+
+        Ruu = self._Ruu_tensor
+        Ree = self._Ree_tensor
+        Rue = self._Rue_tensor
+
+        p = self._p
+        q = self._q
+
+        figs: list[matplotlib.figure.Figure] = []
+
+        def _finalize(fig: matplotlib.figure.Figure) -> None:
+            gs = fig.get_axes()[0].get_gridspec()
+            assert gs is not None
+            nrows, ncols = gs.get_geometry()
+            fig.set_size_inches(ncols * ax_width, nrows * ax_height + 1.25)
+            fig.set_layout_engine(layout)
+
+        # ===============================================================
+        # Plot input auto-correlation
+        # ===============================================================
+        if plot_input:
+            fig, ax = plt.subplots(p, p, squeeze=False)
+            plt.setp(ax, ylim=(-1.2, 1.2))
+
+            for ii in range(p):
+                for jj in range(p):
+                    if is_latex_installed:
+                        title = rf"$\hat r_{{u_{ii}u_{jj}}}$"
+                    else:
+                        title = rf"r_u{ii}u_{jj}"
+
+                    ax[ii, jj].stem(
+                        Ruu.R[ii, jj].lags,
+                        Ruu.R[ii, jj].values,
+                        label=title,
+                    )
+                    ax[ii, jj].grid(True)
+                    ax[ii, jj].set_xlabel("Lags")
+                    ax[ii, jj].set_title(title)
+                    ax[ii, jj].legend()
+
+            fig.suptitle("Input auto-correlation")
+            _finalize(fig)
+            figs.append(fig)
+
+        # ===============================================================
+        # Plot residuals auto-correlation
+        # ===============================================================
+        cmap = plt.get_cmap(COLORMAP)
+        fig1, ax1 = plt.subplots(q, q, squeeze=False)
+        plt.setp(ax1, ylim=(-1.2, 1.2))
+
+        for kk, sim_name in enumerate(sims):
+            color_hex = matplotlib.colors.to_hex(cmap(kk % cmap.N))
+
+            for ii in range(q):
+                for jj in range(q):
+                    if is_latex_installed:
+                        title = rf"$\hat r_{{\epsilon_{ii}\epsilon_{jj}}}$"
+                    else:
+                        title = rf"r_eps{ii}eps_{jj}"
+
+                    ax1[ii, jj].stem(
+                        Ree[sim_name].R[ii, jj].lags,
+                        Ree[sim_name].R[ii, jj].values,
+                        label=sim_name,
+                        linefmt=f"{color_hex}",
+                    )
+                    ax1[ii, jj].grid(True)
+                    ax1[ii, jj].set_xlabel("Lags")
+                    ax1[ii, jj].set_title(title)
+                    ax1[ii, jj].legend()
+
+        fig1.suptitle("Residuals auto-correlation")
+        _finalize(fig1)
+        figs.append(fig1)
+
+        # ===============================================================
+        # Plot input-residuals cross-correlation
+        # ===============================================================
+        fig2, ax2 = plt.subplots(p, q, sharex=True, squeeze=False)
+        plt.setp(ax2, ylim=(-1.2, 1.2))
+
+        for kk, sim_name in enumerate(sims):
+            color_hex = matplotlib.colors.to_hex(cmap(kk % cmap.N))
+
+            for ii in range(p):
+                for jj in range(q):
+                    if is_latex_installed:
+                        title = rf"$\hat r_{{u_{ii}\epsilon_{jj}}}$"
+                    else:
+                        title = rf"r_u{ii}eps{jj}"
+
+                    ax2[ii, jj].stem(
+                        Rue[sim_name].R[ii, jj].lags,
+                        Rue[sim_name].R[ii, jj].values,
+                        label=sim_name,
+                        linefmt=f"{color_hex}",
+                    )
+                    ax2[ii, jj].grid(True)
+                    ax2[ii, jj].set_xlabel("Lags")
+                    ax2[ii, jj].set_title(title)
+                    ax2[ii, jj].legend()
+
+        fig2.suptitle("Input-residuals cross-correlation")
+        _finalize(fig2)
+        figs.append(fig2)
+
+        if is_interactive_shell():
+            for fig_ in figs:
+                fig_.show()
+        else:
+            plt.show()
+
+        return tuple(figs)
+
+    # ====================================================
+    # Trim
+    # ====================================================
+    def trim(
+        self: Self,
+        tin: float | None = None,
+        tout: float | None = None,
+        verbosity: int = 0,
+        **kwargs: Any,
+    ) -> Self:
+        """
+        Trim the
+        :py:class:`ValidationSession <dymoval.validation.ValidationSession>`
+        object.
+
+        If neither `tin` nor `tout` are passed, then the selection is
+        made graphically.
+
+        Parameters
+        ----------
+        tin :
+            Initial time of the desired time interval.
+        tout :
+            Final time of the desired time interval.
+        verbosity :
+            Depending on its level, more or less info is displayed.
+            The higher the value, the higher is the verbosity.
+        **kwargs:
+            kwargs to be passed to the
+            :py:meth:`~dymoval.validation.ValidationSession.plot_simulations`
+            method.
+        """
+
+        def _graph_selection(
+            vs: Self,
+            **kwargs: Any,
+        ) -> tuple[float, float]:  # pragma: no cover
+            # Select the time interval graphically.
+            # OBS! This part cannot be automatically tested because it
+            # requires manual action from the user (resize window).
+            figure = vs.plot_simulations(**kwargs)
+            axes = figure.get_axes()
+
+            time = vs._Dataset.time()
+            selection = {"tin": float(time[0]), "tout": float(time[-1])}
+
+            def update_time_interval(ax):  # type:ignore
+                time_interval = ax.get_xlim()
+                selection["tin"], selection["tout"] = time_interval
+                selection["tin"] = max(selection["tin"], 0.0)
+                selection["tout"] = max(selection["tout"], 0.0)
+                print(
+                    f"Updated time interval: {selection['tin']} to "
+                    f"{selection['tout']}"
+                )
+
+            cid = axes[0].callbacks.connect(
+                "xlim_changed", update_time_interval
+            )
+            fig = axes[0].get_figure()
+            assert fig is not None
+
+            fig.suptitle("Trim the simulation results.")
+
+            try:
+                while fig in [plt.figure(num) for num in plt.get_fignums()]:
+                    plt.pause(0.1)
+            except Exception as e:
+                print(f"An error occurred {e}")
+            finally:
+                fig.clear()
+                manager = fig.canvas.manager
+                if manager is not None:
+                    manager.destroy()
+
+            axes[0].remove_callback(cid)
+
+            return selection["tin"], selection["tout"]
+
+        # =============================================
+        # Trim ValidationSession main function
+        # =============================================
+        vs = deepcopy(self)
+        time = vs._Dataset.time()
+
+        if tin is None and tout is None:  # pragma: no cover
+            tin_sel, tout_sel = _graph_selection(self, **kwargs)
+        else:
+            tin_sel = float(time[0]) if tin is None else tin
+            tout_sel = float(time[-1]) if tout is None else tout
+
+        if verbosity != 0:
+            print(
+                f"\n tin = {tin_sel}{vs._Dataset.time_unit()} ",
+                f" tout = {tout_sel}{vs._Dataset.time_unit()}",
+            )
+
+        # Trim the dataset ...
+        vs._Dataset = vs._Dataset.trim(tin_sel, tout_sel)
+
+        # ... and the simulations, on the very same grid.
+        vs._simulations = {
+            sim_name: [
+                sig.trim(tin_sel, tout_sel, shift_to_zero=True)
+                for sig in signals
+            ]
+            for sim_name, signals in vs._simulations.items()
+        }
+
+        for sim_name in vs.simulations_names:
+            vs._append_validation_statistics(sim_name)
+
+        return vs
 
 
 def validate_models(
     measured_in: np.ndarray | Sequence[Signal],
-    measured_out: np.ndarray | list[Signal],
-    simulated_out: np.ndarray | list[np.ndarray],
+    measured_out: np.ndarray | Sequence[Signal],
+    simulated_out: np.ndarray | Sequence[np.ndarray],
     sampling_period: float | None = None,
     **kwargs: Any,
 ) -> ValidationSession:
     r"""Validate models based on measured and simulated data.
-
 
     Parameters
     ----------
@@ -2217,56 +2015,51 @@ def validate_models(
         :math:`N\times q`, where `N` is the
         number of observations and `q` is the number of outputs.
     sampling_period:
-        Signals sampling period.
+        Signals sampling period. It is mandatory when the measurements are
+        passed as `np.ndarray`.
     **kwargs:
         Keyword arguments passed to
         :py:class:`~dymoval.validation.ValidationSession` constructor.
     """
 
     def _dummy_signal_list(
-        dataset: np.ndarray,  # Must be 2D array
+        values: np.ndarray,  # Must be a 2D array
         sampling_period: float,
         kind: Literal["in", "out"],
     ) -> list[Signal]:
         uy_label = "u" if kind == "in" else "y"
-        signal_list = []
-        for ii in range(dataset.shape[1]):
-            tmp: Signal = {
-                "name": f"{uy_label}{ii}",
-                "samples": dataset[:, ii],  # Must be a 1D array
-                "signal_unit": "NA",
-                "sampling_period": sampling_period,
-                "time_unit": "NA",
-            }
-            signal_list.append(deepcopy(tmp))
-        return signal_list
+        time = np.arange(values.shape[0]) * sampling_period
+
+        return [
+            Signal(
+                name=f"{uy_label}{ii}",
+                values=np.asarray(values[:, ii], dtype=float),
+                time=time.copy(),
+                unit="NA",
+                time_unit="NA",
+            )
+            for ii in range(values.shape[1])
+        ]
 
     def _to_list_of_Signal(
         data: np.ndarray | Sequence[Signal],
         sampling_period: float,
         kind: Literal["in", "out"],
     ) -> list[Signal]:
-        # Case 2D np.ndarray, convert to a list[Signal]
         if isinstance(data, np.ndarray):
-            data_list = _dummy_signal_list(
-                dataset=data, sampling_period=sampling_period, kind=kind
+            return _dummy_signal_list(
+                values=data, sampling_period=sampling_period, kind=kind
             )
 
-        # Case list[Signal]
-        elif isinstance(data, list) and all(
-            isinstance(item, dict) and set(item.keys()) == set(SIGNAL_KEYS)
-            for item in data
+        if isinstance(data, Sequence) and all(
+            isinstance(item, Signal) for item in data
         ):
-            # elif isinstance(data, list) and all(isinstance(item, dict) and
-            # set(item.keys()) == set(SIGNAL_KEYS), for all items in data):
-            data_list = data
-        else:
-            raise ValueError(
-                "'measured_in' and 'measured_out' must be 2D-arrays "
-                "or list of Signals."
-            )
+            return list(data)
 
-        return data_list
+        raise ValueError(
+            "'measured_in' and 'measured_out' must be 2D-arrays "
+            "or list of Signals."
+        )
 
     # ======== MAIN ================
     # Sanity check
@@ -2276,17 +2069,14 @@ def validate_models(
     if isinstance(measured_out, np.ndarray) and measured_out.ndim != 2:
         raise IndexError("'measured_out' shall be a Nxq np.ndarray.")
 
-    # Gather sampling_period from Signals
-    if (
-        isinstance(measured_out, list)
-        and isinstance(measured_out[0], dict)
-        and set(measured_out[0].keys()) == set(SIGNAL_KEYS)
+    # Gather the sampling period from the Signals, when available
+    if not isinstance(measured_out, np.ndarray) and all(
+        isinstance(item, Signal) for item in measured_out
     ):
-        sampling_period = measured_out[0]["sampling_period"]
+        sampling_period = measured_out[0].get_sampling_period()
     elif sampling_period is None:
         raise TypeError("'sampling_period' missing.")
 
-    # Convert everything into list[Signal] to create a dataset object
     measured_in_list = _to_list_of_Signal(
         data=measured_in, sampling_period=sampling_period, kind="in"
     )
@@ -2294,30 +2084,29 @@ def validate_models(
         data=measured_out, sampling_period=sampling_period, kind="out"
     )
 
-    # Build Dataset instance and Validation instance
-    input_labels = [s["name"] for s in measured_in_list]
-    output_labels = [s["name"] for s in measured_out_list]
-    signal_list = measured_in_list + measured_out_list
-    validate_signals(*signal_list)
-    ds = Dataset(
-        "dummy",
-        signal_list,
-        input_labels,
-        output_labels,
-        full_time_interval=True,
+    output_labels = [s.name for s in measured_out_list]
+
+    ds = Dataset.from_signals(
+        inputs=measured_in_list, outputs=measured_out_list
     )
 
     # Create a ValidationSession object placeholder
     vs = ValidationSession("quick & dirty", ds, **kwargs)
 
     # ---- Fix simulated_out arg -----
-    simulated_out_list = obj2list(simulated_out)
-    # Fetch the number of observations
-    N = measured_out_list[0]["samples"].shape[0]
+    simulated_out_list = (
+        [simulated_out]
+        if isinstance(simulated_out, np.ndarray)
+        else list(simulated_out)
+    )
 
-    # Format check
-    if all(
-        sim.shape[0] != N or sim.shape[1] != len(measured_out_list)
+    # Fetch the number of observations
+    N = len(ds.time())
+
+    if any(
+        sim.ndim != 2
+        or sim.shape[0] != N
+        or sim.shape[1] != len(measured_out_list)
         for sim in simulated_out_list
     ):
         raise ValueError(

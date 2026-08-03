@@ -49,12 +49,12 @@ and **never** calls the public plotting methods internally.
 | `dataset.py`  | new    | `Dataset`                                            |
 | `scope.py`    | new    | `BaseScope` / `SignalScope` / `DatasetScope` / `SpectrumScope` / `AmplitudeSpectrumScope` |
 | `plotting.py` | new    | multi-dataset helpers only                           |
+| `validation.py` | new  | `XCorrelation`, `ValidationSession`, `validate_models` |
 | `utils.py`, `config.py` | kept | unchanged                                  |
-| `validation.py` | legacy | still pandas + `mpl_measurements`                  |
-| `dataset_old.py` | legacy | pandas implementation, kept for reference         |
 
-The legacy pandas test-suite lives in `tests/legacy/` and is excluded from
-collection (`norecursedirs` in `pyproject.toml`).
+The package is now **pandas-free**: `dataset_old.py`, the legacy
+`tests/legacy/` suite and the `pandas` / `mpl-measurements` dependencies
+have all been removed.
 
 ---
 
@@ -271,6 +271,58 @@ the same shared panel; the last clicked one wins (intentional).
 
 ---
 
+# Validation
+
+`validation.py` keeps the original algorithms (they were already
+numpy-based) and only replaces the *storage* and the *plotting*.
+
+```python
+XCorrelation(name, X, Y, nlags, X_bandwidths, Y_bandwidths, sampling_period)
+compute_statistic(data, statistic, weights)
+rsquared(x, y)
+whiteness_level(data, ...)
+ValidationSession(name, validation_dataset, ...)
+validate_models(measured_in, measured_out, simulated_out, sampling_period, ...)
+```
+
+## What changed
+
+| legacy                                        | new                                            |
+| --------------------------------------------- | ---------------------------------------------- |
+| `_simulations_values` : `pd.DataFrame`         | `_simulations` : `dict[str, list[Signal]]`      |
+| `simulations_values` → `pd.DataFrame`          | → `dict[str, np.ndarray]` (`N x q` each)        |
+| `_validation_statistics` : `pd.DataFrame`      | `dict[sim_name, dict[key, float]]`              |
+| `ds.dataset["INPUT"].to_numpy()`               | `np.column_stack([s.values for s in ds.inputs.values()])` |
+| `mpl_measurements.InteractiveScope`            | `DatasetScope`                                  |
+| pandas-rendered `__repr__`                     | hand-rolled plain-text table                    |
+| `plot_residuals()` → always 3 figures (crashed with `plot_input=False`) | returns 2 or 3 figures |
+
+The statistic keys are exported as
+`dymoval.VALIDATION_KEYS = ("Ruu_whiteness", "r2", "Ree_whiteness",
+"Rue_whiteness")`; they are also the keys of `validation_thresholds`.
+
+A `ValidationSession` now **requires at least one input and one output**
+(the input auto-correlation `Ruu` would be undefined otherwise).
+
+## Plotting
+
+```python
+vs.plot_simulations(list_sims=None, dataset=None, layout, ax_height,
+                    ax_width, with_scope=True)
+vs.plot_residuals(list_sims=None, *, plot_input=True, ...)
+```
+
+`plot_simulations` draws one subplot per output through
+`sig._plot_standard(...)`, overlays the measured outputs in gray and the
+measured inputs on a `twinx()` axes (extra inputs, when `p > q`, get their
+own subplot). The `twinx` axes are deliberately **not** handed to the
+scope, so only the simulations and the measured outputs are selectable.
+
+`trim()` reuses `Dataset.trim()` and applies the very same trimming to the
+stored simulation signals, then recomputes every statistic.
+
+---
+
 # Scope architecture
 
 ```python
@@ -334,52 +386,61 @@ plot_multi()
 
 Interactive behavior is now integrated through
 `plot(..., with_scope=True)` and `plot_spectrum(..., with_scope=True)`.
-The new core has **no** reference to `InteractiveScope`; the remaining
-occurrences live only in the legacy `validation.py` / `dataset_old.py`.
+There is **no** reference to `InteractiveScope` left anywhere in the
+package.
 
 ---
 
 # Tests
 
 ```bash
-pytest tests -q                     # 232 tests
-pytest tests -m "not plots"         # skip the plotting tests
+pytest tests -q -m "not open_tutorial"   # 363 tests (~7 s)
+pytest tests -m "not plots"              # skip the plotting tests
 ruff format ./src ./tests && ruff check ./src ./tests
-mypy ./src/dymoval/{signal,dataset,scope,plotting,__init__}.py
+mypy ./src/dymoval
 ```
+
+> `tests/test_utils.py::Test_open_tutorial` launches VSCode and takes
+> ~100 s; deselect it with `-m "not open_tutorial"`.
 
 Files:
 
 ```text
-tests/conftest.py         # Agg backend + Signal/Dataset fixtures
+tests/conftest.py         # Agg backend + Signal/Dataset/validation fixtures
 tests/test_signal.py
 tests/test_dataset.py     # construction, validation, harmonization
 tests/test_dataset_ops.py # structure editing, processing, coverage
 tests/test_scope.py       # synthetic click/key events
 tests/test_plotting.py
+tests/test_validation.py  # XCorrelation, ValidationSession, validate_models
 tests/test_utils.py
-tests/legacy/             # pandas-era suite, not collected
 ```
 
 The fixtures `sine_dataset` and `ones_dataset` are ports of the legacy
-`sine_dataframe` / `constant_ones_dataframe`, so the numerical
-expectations of the legacy suite (notably the `low_pass_filter` reference
-values) are reused verbatim.
+`sine_dataframe` / `constant_ones_dataframe`, and `good_dataset`,
+`good_signals` and `correlation_tensors` are ports of `good_dataframe`,
+`good_signals_no_nans` and `correlation_tensors`. All the numerical
+expectations of the legacy suite (the `low_pass_filter` reference values,
+the Matlab-computed cross-correlations, the `compute_statistic` and
+`rsquared` references) are reused verbatim.
 
-`manual_tests/test_plots_manual.py` is the interactive smoke script.
+`manual_tests/test_plots_manual.py` is the interactive smoke script; it
+now also exercises `plot_coverage` and the `ValidationSession` plots.
 
 ---
 
 # Near-Term Roadmap
 
-## Port `validation.py`
+## Refresh the tutorial
 
-The last pandas consumer. It also depends on `mpl_measurements`
-(`InteractiveScope`) which must be replaced by the new scopes. Once done:
+`src/dymoval_tutorial/dymoval_tutorial.ipynb` is the last artefact still
+written against the pandas API. It must be rewritten on top of `Signal`,
+`Dataset` and `ValidationSession`.
 
-- delete `src/dymoval/dataset_old.py` and `tests/legacy/`
-- drop `pandas` and `mpl-measurements` from `pyproject.toml`
-- refresh `src/dymoval_tutorial/` (still pandas-based)
+## Validation enhancements
+
+- attach a scope to `plot_residuals` (stem plots need a dedicated scope)
+- persist / reload a `ValidationSession`
 
 ## Spectrum enhancements
 
