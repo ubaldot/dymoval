@@ -19,6 +19,7 @@ use these signals to feed your model:
 
    # Assuming `ds` is a measurements Dataset object
    (t, u_meas, y_meas) = ds.dataset_values()
+   # `u_meas` and `y_meas` are 2-D, with one column per signal.
    # Assume you are using a simulation tool that has a Python API with
    # a function called 'simulate_model()`
    y_sim = simulate_model(time = t, input= u_meas)

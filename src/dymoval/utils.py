@@ -15,9 +15,6 @@ from .config import IS_INTERACTIVE
 
 __all__ = [
     "is_interactive_shell",
-    "factorize",
-    "difference_lists_of_str",
-    "obj2list",
     "open_tutorial",
 ]
 
@@ -39,7 +36,7 @@ def is_interactive_shell() -> bool:
         return IS_INTERACTIVE
 
 
-def factorize(n: int) -> tuple[int, int]:
+def _factorize(n: int) -> tuple[int, int]:
     r"""
     Find the smallest and closest integers *(a,b)* such that :math:`n \le ab`.
 
@@ -49,7 +46,7 @@ def factorize(n: int) -> tuple[int, int]:
     return a, b
 
 
-def difference_lists_of_str(
+def _difference_lists_of_str(
     # Does it work only for strings?
     A: str | list[str],
     B: str | list[str],
@@ -74,8 +71,8 @@ def difference_lists_of_str(
         The set difference of `A` and `B`.
     """
 
-    A = obj2list(A)
-    B = obj2list(B)
+    A = _obj2list(A)
+    B = _obj2list(B)
 
     return list(set(A) - set(B))
 
@@ -83,7 +80,7 @@ def difference_lists_of_str(
 T = TypeVar("T")
 
 
-def obj2list(x: T | list[T]) -> list[T]:
+def _obj2list(x: T | list[T]) -> list[T]:
     """
     Convert an object `obj` into `list[obj]`.
 

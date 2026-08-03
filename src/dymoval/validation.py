@@ -23,13 +23,20 @@ from .config import (
     XCorr_Statistic_type,
 )
 from .dataset import Dataset
-from .scope import DatasetScope, Layout, _pick_time_interval, scope_subplots
+from .scope import (
+    _GRID_AX_HEIGHT,
+    _GRID_AX_WIDTH,
+    DatasetScope,
+    Layout,
+    _pick_time_interval,
+    scope_subplots,
+)
 from .signal import Signal
 from .statistics import rsquared
 from .utils import (
-    difference_lists_of_str,
-    factorize,
-    obj2list,
+    _difference_lists_of_str,
+    _factorize,
+    _obj2list,
 )
 from .xcorrelation import XCorrelation
 
@@ -659,8 +666,8 @@ class ValidationSession:
         if not list_sims:
             return self.simulations_names
 
-        sims = obj2list(list_sims)
-        sim_not_found = difference_lists_of_str(sims, self.simulations_names)
+        sims = _obj2list(list_sims)
+        sim_not_found = _difference_lists_of_str(sims, self.simulations_names)
 
         if sim_not_found:
             raise KeyError(
@@ -764,7 +771,7 @@ class ValidationSession:
         """
         vs_temp = deepcopy(self)
 
-        y_names = obj2list(y_names)
+        y_names = _obj2list(y_names)
         vs_temp._simulation_validation(sim_name, y_names, y_data)
 
         y_units = [sig.unit or "" for sig in vs_temp._Dataset.outputs.values()]
@@ -824,8 +831,8 @@ class ValidationSession:
         list_sims: str | list[str] | None = None,
         dataset: Literal["in", "out", "both"] | None = None,
         layout: Layout = "tight",
-        ax_height: float = 1.8,
-        ax_width: float = 4.445,
+        ax_height: float = _GRID_AX_HEIGHT,
+        ax_width: float = _GRID_AX_WIDTH,
         with_scope: bool = True,
     ) -> matplotlib.figure.Figure:
         """Plot the stored simulation results.
@@ -873,7 +880,7 @@ class ValidationSession:
         plot_out = dataset in ("out", "both")
 
         n = max(p, q) if plot_in else q
-        nrows, ncols = factorize(n)
+        nrows, ncols = _factorize(n)
 
         # ================================================================
         # Arrange the figure
@@ -957,8 +964,8 @@ class ValidationSession:
         *,
         plot_input: bool = True,
         layout: Layout = "tight",
-        ax_height: float = 1.8,
-        ax_width: float = 4.445,
+        ax_height: float = _GRID_AX_HEIGHT,
+        ax_width: float = _GRID_AX_WIDTH,
     ) -> tuple[matplotlib.figure.Figure, ...]:
         """Plot the residuals auto- and cross-correlation functions.
 

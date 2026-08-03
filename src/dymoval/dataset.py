@@ -11,7 +11,16 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable, Literal, Self, Sequence, get_args
+from typing import (
+    Any,
+    Callable,
+    Iterable,
+    Literal,
+    Self,
+    Sequence,
+    cast,
+    get_args,
+)
 
 import numpy as np
 from matplotlib.axes import Axes
@@ -19,6 +28,10 @@ from matplotlib.figure import Figure
 from scipy.io import savemat
 
 from .scope import (
+    _AX_HEIGHT,
+    _AX_WIDTH,
+    _COVERAGE_AX_HEIGHT,
+    _COVERAGE_AX_WIDTH,
     AmplitudeSpectrumScope,
     DatasetScope,
     Layout,
@@ -27,17 +40,13 @@ from .scope import (
     scope_subplots,
 )
 from .signal import Scale, Signal, SpectrumMode, SpectrumScale, _check_mode
-from .utils import factorize
+from .utils import _factorize
 
 __all__ = ["Dataset", "SIGNAL_KIND"]
 
 #: color used when a single *output* signal is plotted alone
 _OUTPUT_COLOR = "green"
 _INPUT_COLOR = "blue"
-
-#: default figure geometry, in inches
-_AX_WIDTH = 10.0
-_AX_HEIGHT = 2.0
 
 SignalKind = Literal["INPUT", "OUTPUT"]
 SIGNAL_KIND: tuple[str, ...] = get_args(SignalKind)
@@ -352,18 +361,17 @@ class Dataset:
     def dataset_values(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Return ``(time, inputs, outputs)`` as numpy arrays.
 
-        ``inputs`` and ``outputs`` are 2-D ``(n_samples, n_signals)``,
-        except when the dataset holds a single input (resp. output), in
-        which case the corresponding array is 1-D.
+        ``time`` is 1-D, whereas ``inputs`` and ``outputs`` are always
+        2-D with shape ``(n_samples, n_signals)``, in the order returned
+        by :py:meth:`~dymoval.dataset.Dataset.names`. Use
+        ``u[:, 0]`` or ``u.squeeze()`` for a SISO dataset.
         """
 
         def stack(signals: dict[str, Signal]) -> np.ndarray:
             if not signals:
                 return np.empty((len(self.time()), 0))
 
-            values = [sig.values for sig in signals.values()]
-
-            return values[0] if len(values) == 1 else np.column_stack(values)
+            return np.column_stack([sig.values for sig in signals.values()])
 
         return self.time(), stack(self.inputs), stack(self.outputs)
 
@@ -429,18 +437,42 @@ class Dataset:
         )
 
     def _pairs(
-        self, pairs: Sequence[tuple[str, Any]], what: str
+        self,
+        pairs: Sequence[tuple[str, Any]],
+        what: str,
+        arity: int | tuple[int, int] = 2,
     ) -> dict[str, Any]:
-        """Validate and flatten ``(name, value)`` argument tuples."""
+        """Validate and flatten ``(name, value)`` argument tuples.
+
+        ``arity`` is the accepted tuple length, either an exact value or
+        a ``(min, max)`` range. Tuples of any other length are rejected
+        rather than silently truncated.
+        """
+        low, high = (arity, arity) if isinstance(arity, int) else arity
+        expected = (
+            f"{low}" if low == high else f"between {low} and {high}"
+        ) + " elements"
         result: dict[str, Any] = {}
 
         for item in pairs:
-            if not isinstance(item, tuple) or len(item) < 2:
+            if not isinstance(item, tuple):
                 raise TypeError(
-                    f"Arguments must be ('signal_name', {what}) tuples"
+                    f"Arguments must be ('signal_name', {what}) tuples, "
+                    f"got {type(item).__name__}"
                 )
 
-            result[item[0]] = item[1:] if len(item) > 2 else item[1]
+            if not low <= len(item) <= high:
+                raise TypeError(
+                    f"Argument {item!r} must be a ('signal_name', {what}) "
+                    f"tuple with {expected}, got {len(item)}"
+                )
+
+            if not isinstance(item[0], str):
+                raise TypeError(
+                    f"The first element of {item!r} must be a signal name"
+                )
+
+            result[item[0]] = item[1:] if high > 2 else item[1]
 
         self._check_names(list(result))
 
@@ -531,23 +563,57 @@ class Dataset:
         """Subtract the mean of the selected signals (all by default)."""
         return self._map(lambda sig: sig.remove_mean(), names)
 
-    def remove_constant(self, value: float | dict[str, float]) -> Self:
-        """Subtract a constant from every signal.
+    def remove_constant(
+        self, *signals_constants: tuple[str, float] | float
+    ) -> Self:
+        """Subtract a constant from the given signals.
 
-        ``value`` is either a scalar applied to all the signals, or a
-        ``{signal_name: constant}`` mapping. Signals missing from the
-        mapping are left untouched.
+        Either pass a single scalar, applied to every signal::
+
+            ds.remove_constant(1.5)
+
+        or one ``(name, constant)`` tuple per signal, in which case the
+        signals left out are untouched::
+
+            ds.remove_constant(("u1", 1.5), ("y1", -0.5))
         """
-        if isinstance(value, dict):
-            self._check_names(list(value))
-
-            return self._map(
-                lambda sig: sig.remove_constant(value.get(sig.name, 0.0))
+        if not signals_constants:
+            raise TypeError(
+                "remove_constant() needs a scalar or "
+                "('signal_name', constant) tuples"
             )
 
-        return self._map(lambda sig: sig.remove_constant(value))
+        first = signals_constants[0]
 
-    def apply(self, *signal_function_unit: tuple[Any, ...]) -> Self:
+        if isinstance(first, dict):
+            raise TypeError(
+                "The {name: constant} mapping is no longer supported, "
+                "pass ('signal_name', constant) tuples instead"
+            )
+
+        if not isinstance(first, tuple):
+            if len(signals_constants) > 1:
+                raise TypeError(
+                    "A scalar constant applies to every signal and cannot "
+                    "be combined with other arguments"
+                )
+
+            return self._map(lambda sig: sig.remove_constant(float(first)))
+
+        constants = self._pairs(
+            cast(Sequence[tuple[str, Any]], signals_constants), "constant"
+        )
+
+        return self._map(
+            lambda sig: sig.remove_constant(float(constants[sig.name])),
+            list(constants),
+        )
+
+    def apply(
+        self,
+        *signal_function_unit: tuple[str, Callable[..., Any]]
+        | tuple[str, Callable[..., Any], str],
+    ) -> Self:
         """Apply a function to the given signals.
 
         Each argument is a ``(name, func)`` or ``(name, func, new_unit)``
@@ -555,17 +621,16 @@ class Dataset:
 
             ds.apply(("u1", np.square, "V^2"), ("y1", lambda x: 2 * x))
         """
-        spec = self._pairs(signal_function_unit, "func[, unit]")
+        spec = self._pairs(
+            cast(Sequence[tuple[str, Any]], signal_function_unit),
+            "func[, unit]",
+            arity=(2, 3),
+        )
 
         def transform(sig: Signal) -> Signal:
             item = spec[sig.name]
 
-            if isinstance(item, tuple):
-                func, unit = item[0], item[1]
-            else:
-                func, unit = item, None
-
-            return sig.apply(func, unit)
+            return sig.apply(item[0], item[1] if len(item) > 1 else None)
 
         return self._map(transform, list(spec))
 
@@ -1022,7 +1087,7 @@ class Dataset:
 
             return ax
 
-        nrows, ncols = factorize(len(resolved))
+        nrows, ncols = _factorize(len(resolved))
 
         fig, axes, _ = scope_subplots(
             nrows,
@@ -1036,7 +1101,7 @@ class Dataset:
         for axis, (x_name, y_name) in zip(axes, resolved):
             self._plot_xy_pair(axis, x_name, y_name, **kwargs)
 
-        # factorize() may over-allocate, e.g. 3 pairs on a 2x2 grid
+        # _factorize() may over-allocate, e.g. 3 pairs on a 2x2 grid
         for axis in axes[len(resolved) :]:
             axis.remove()
 
@@ -1081,8 +1146,8 @@ class Dataset:
         alpha: float = 1.0,
         histtype: Literal["bar", "barstacked", "step", "stepfilled"] = "bar",
         layout: Layout = "constrained",
-        ax_height: float = 1.8,
-        ax_width: float = 7.0,
+        ax_height: float = _COVERAGE_AX_HEIGHT,
+        ax_width: float = _COVERAGE_AX_WIDTH,
     ) -> Figure:
         """Plot the histogram of the signal values, one subplot each.
 

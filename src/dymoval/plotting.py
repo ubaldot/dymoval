@@ -13,8 +13,17 @@ from typing import Any, Callable, Literal, Sequence
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
-from .dataset import _AX_HEIGHT, _AX_WIDTH, Dataset
-from .scope import DatasetScope, Layout, SpectrumScope, scope_subplots
+from .dataset import Dataset
+from .scope import (
+    _AX_HEIGHT,
+    _AX_WIDTH,
+    _COVERAGE_AX_HEIGHT,
+    _COVERAGE_AX_WIDTH,
+    DatasetScope,
+    Layout,
+    SpectrumScope,
+    scope_subplots,
+)
 from .signal import Scale, Signal, SpectrumMode, SpectrumScale, _check_mode
 
 __all__ = [
@@ -293,8 +302,8 @@ def plot_coverage_compare(
     histtype: Literal["bar", "barstacked", "step", "stepfilled"] = "step",
     align: bool = False,
     layout: Layout = "constrained",
-    ax_height: float = 1.8,
-    ax_width: float = 7.0,
+    ax_height: float = _COVERAGE_AX_HEIGHT,
+    ax_width: float = _COVERAGE_AX_WIDTH,
     **kwargs: Any,
 ) -> Figure:
     """Overlay the coverage histograms of the same signals from several

@@ -10,7 +10,7 @@ Created on Thu Jul 14 11:43:21 2022
 
 import pytest
 
-from dymoval.utils import difference_lists_of_str, obj2list, open_tutorial
+from dymoval.utils import _difference_lists_of_str, _obj2list, open_tutorial
 
 # import sys
 # import subprocess
@@ -71,7 +71,7 @@ class Test_difference_lists_of_str:
         expected: list[str],
     ) -> None:
         # Nominal
-        elements_not_found = difference_lists_of_str(A, B)
+        elements_not_found = _difference_lists_of_str(A, B)
         assert sorted(elements_not_found) == sorted(expected)
 
 
@@ -87,7 +87,7 @@ class Test_obj2list:
         ],
     )
     def test_obj2list(self, x: str | list[str], expected: list[str]) -> None:
-        actual = obj2list(x)
+        actual = _obj2list(x)
         assert sorted(actual) == sorted(expected)
 
 

@@ -42,6 +42,30 @@ LAYOUTS: tuple[str, ...] = get_args(Layout)
 
 _HINT = "Click on a signal\n(press 'r' to reset)"
 
+# ================================================
+# Default figure geometry, in inches.
+#
+# Every plotting entry point in the package sizes its figure from one of
+# these pairs, so that the look stays consistent and there is a single
+# place to tune it. `ax_height`/`ax_width` arguments override them.
+# ================================================
+
+#: one axes per signal, stacked vertically (time plots, spectra, ...)
+_AX_WIDTH = 10.0
+_AX_HEIGHT = 2.0
+
+#: coverage plots: a grid of narrow histograms
+_COVERAGE_AX_WIDTH = 7.0
+_COVERAGE_AX_HEIGHT = 1.8
+
+#: square-ish grids of small axes (residuals correlations, x/y plots)
+_GRID_AX_WIDTH = 4.445
+_GRID_AX_HEIGHT = 1.8
+
+#: standalone single-`Signal` figures
+_SIGNAL_FIGSIZE = (10.0, 5.0)
+_SIGNAL_SPECTRUM_FIGSIZE = (10.0, 4.0)
+
 #: width ratio between the plotting area and the scope info panel
 _PANEL_WIDTH_RATIOS = (3.8, 1.2)
 

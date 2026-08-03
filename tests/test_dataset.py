@@ -242,15 +242,15 @@ class Test_processing:
         for name, sig in out.all_signals().items():
             assert np.allclose(sig.values, dataset[name].values - 1.0)
 
-    def test_remove_constant_mapping(self, dataset: Dataset) -> None:
-        out = dataset.remove_constant({"u1": 2.0})
+    def test_remove_constant_per_signal(self, dataset: Dataset) -> None:
+        out = dataset.remove_constant(("u1", 2.0))
 
         assert np.allclose(out["u1"].values, dataset["u1"].values - 2.0)
         assert np.allclose(out["y0"].values, dataset["y0"].values)
 
     def test_remove_constant_unknown_signal(self, dataset: Dataset) -> None:
         with pytest.raises(KeyError):
-            dataset.remove_constant({"nope": 1.0})
+            dataset.remove_constant(("nope", 1.0))
 
     def test_detrend(self, dataset: Dataset) -> None:
         out = dataset.detrend()

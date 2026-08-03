@@ -62,7 +62,7 @@ print("-> remove_mean / remove_constant / detrend")
 dmv.plot_compare(
     ds,
     ds.remove_mean(),
-    ds.remove_constant({"y0": 3.0}),
+    ds.remove_constant(("y0", 3.0)),
     ds.detrend(),
     labels=["raw", "mean removed", "constant removed", "detrended"],
 )

@@ -56,6 +56,17 @@ point-by-point mapping of the old API onto the new one.
 - `Dataset.fft` returns `{name: (freq, values)}` instead of a
   `DataFrame`; `Dataset.coverage` and `Dataset.dataset_values` return
   `numpy` arrays.
+- `Dataset.dataset_values` always returns 2-D `(n_samples, n_signals)`
+  arrays. It used to flatten to 1-D when the dataset held a single input
+  (resp. output), so downstream code had to handle both ranks.
+- `Dataset.remove_constant` takes `(name, constant)` tuples, like its
+  siblings `apply` and `low_pass_filter`, instead of a
+  `{name: constant}` mapping. A lone scalar still applies to every
+  signal.
+- `Dataset.apply` and `Dataset.low_pass_filter` reject tuples of the
+  wrong length instead of silently ignoring the extra elements.
+- `factorize`, `difference_lists_of_str` and `obj2list` are no longer
+  exported: they were internal plumbing.
 
 ### Added
 

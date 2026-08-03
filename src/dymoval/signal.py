@@ -25,6 +25,8 @@ from scipy.signal import detrend as _detrend
 from scipy.signal import welch
 
 from .scope import (
+    _SIGNAL_FIGSIZE,
+    _SIGNAL_SPECTRUM_FIGSIZE,
     AmplitudeSpectrumScope,
     SignalScope,
     SpectrumScope,
@@ -526,7 +528,7 @@ class Signal:
         return ax
 
     def _plot_scope(self, **kwargs: Any) -> Figure:
-        fig, axes, panel_ax = scope_subplots(figsize=(10, 5))
+        fig, axes, panel_ax = scope_subplots(figsize=_SIGNAL_FIGSIZE)
         ax = axes[0]
 
         self._plot_standard(ax=ax, **kwargs)
@@ -672,7 +674,7 @@ class Signal:
             with_scope=with_scope,
             # the scope panel needs the extra width; without it, stick to
             # the matplotlib default size
-            figsize=(10, 5) if with_scope else None,
+            figsize=_SIGNAL_FIGSIZE if with_scope else None,
             sharex=True,
         )
         mag_ax, phase_ax = axes
@@ -704,7 +706,7 @@ class Signal:
                 True, xscale=xscale, yscale=yscale, **kwargs
             )
 
-        fig, axes, panel_ax = scope_subplots(figsize=(10, 4))
+        fig, axes, panel_ax = scope_subplots(figsize=_SIGNAL_SPECTRUM_FIGSIZE)
         ax = axes[0]
 
         self._plot_spectrum_standard(

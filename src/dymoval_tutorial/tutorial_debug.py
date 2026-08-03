@@ -70,7 +70,7 @@ _ = dmv.plot_spectrum_compare(
 # ===== Validation =================================================
 (t, u, y) = ds_filt.dataset_values()
 
-res_sim = ct.forced_response(DCMotor_model_dt, X0=[0.0, 0.0, 0.0], U=u)
+res_sim = ct.forced_response(DCMotor_model_dt, X0=[0.0, 0.0, 0.0], U=u.T)
 y_sim = res_sim.y.T
 
 measured_signals = ds_filt.to_signals()

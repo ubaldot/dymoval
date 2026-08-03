@@ -87,12 +87,12 @@ class Test_dataset_values:
         assert np.allclose(u[:, 0], sine_dataset["u1"].values)
         assert np.allclose(y[:, 3], sine_dataset["y4"].values)
 
-    def test_single_signal_is_flattened(self, dataset: Dataset) -> None:
+    def test_single_signal_is_still_2d(self, dataset: Dataset) -> None:
         t, u, y = dataset.dataset_values()
 
-        assert u.ndim == 1  # only one input
-        assert y.ndim == 2  # two outputs
-        assert np.allclose(u, dataset["u1"].values)
+        assert u.shape == (len(t), 1)  # only one input
+        assert y.shape == (len(t), 2)  # two outputs
+        assert np.allclose(u[:, 0], dataset["u1"].values)
         assert np.allclose(t, dataset.time())
 
     def test_no_inputs(self, time: np.ndarray) -> None:
@@ -102,7 +102,7 @@ class Test_dataset_values:
         _, u, y = ds.dataset_values()
 
         assert u.shape == (len(time), 0)
-        assert y.ndim == 1
+        assert y.shape == (len(time), 1)
 
 
 # ============================================================
@@ -214,9 +214,14 @@ class Test_remove_means:
 
 
 class Test_remove_constant:
-    def test_mapping(self, ones_dataset: Dataset) -> None:
+    def test_per_signal(self, ones_dataset: Dataset) -> None:
         out = ones_dataset.remove_constant(
-            {"u1": 2.0, "u2": 2.0, "u3": 2.0, "y1": 2.0, "y2": 1.0, "y3": 2.0}
+            ("u1", 2.0),
+            ("u2", 2.0),
+            ("u3", 2.0),
+            ("y1", 2.0),
+            ("y2", 1.0),
+            ("y3", 2.0),
         )
 
         assert np.allclose(out["u1"].values, -1.0)
@@ -226,14 +231,32 @@ class Test_remove_constant:
         assert np.allclose(ones_dataset["u1"].values, 1.0)
 
     def test_only_inputs(self, ones_dataset: Dataset) -> None:
-        out = ones_dataset.remove_constant({"u1": 2.0, "u2": 2.0, "u3": 2.0})
+        out = ones_dataset.remove_constant(("u1", 2.0), ("u2", 2.0))
 
         assert np.allclose(out["u1"].values, -1.0)
         assert np.allclose(out["y1"].values, 1.0)
 
+    def test_scalar_applies_to_all(self, ones_dataset: Dataset) -> None:
+        out = ones_dataset.remove_constant(2.0)
+
+        assert np.allclose(out["u1"].values, -1.0)
+        assert np.allclose(out["y1"].values, -1.0)
+
+    def test_scalar_cannot_be_combined(self, ones_dataset: Dataset) -> None:
+        with pytest.raises(TypeError):
+            ones_dataset.remove_constant(2.0, ("u1", 1.0))
+
+    def test_no_arguments(self, ones_dataset: Dataset) -> None:
+        with pytest.raises(TypeError):
+            ones_dataset.remove_constant()
+
+    def test_mapping_is_rejected(self, ones_dataset: Dataset) -> None:
+        with pytest.raises(TypeError, match="no longer supported"):
+            ones_dataset.remove_constant({"u1": 2.0})  # type: ignore[arg-type]
+
     def test_unknown_signal(self, ones_dataset: Dataset) -> None:
         with pytest.raises(KeyError):
-            ones_dataset.remove_constant({"potato": 1.0})
+            ones_dataset.remove_constant(("potato", 1.0))
 
 
 class Test_detrend:
@@ -284,6 +307,20 @@ class Test_apply:
         with pytest.raises(TypeError):
             ones_dataset.apply("u1")  # type: ignore[arg-type]
 
+    def test_too_many_elements(self, ones_dataset: Dataset) -> None:
+        with pytest.raises(TypeError, match="between 2 and 3"):
+            ones_dataset.apply(
+                ("u1", np.square, "c", "extra")  # type: ignore[arg-type]
+            )
+
+    def test_too_few_elements(self, ones_dataset: Dataset) -> None:
+        with pytest.raises(TypeError, match="between 2 and 3"):
+            ones_dataset.apply(("u1",))  # type: ignore[arg-type]
+
+    def test_name_must_be_a_string(self, ones_dataset: Dataset) -> None:
+        with pytest.raises(TypeError, match="signal name"):
+            ones_dataset.apply((1, np.square))  # type: ignore[arg-type]
+
 
 class Test_low_pass_filter:
     def test_matches_the_legacy_implementation(
@@ -325,6 +362,12 @@ class Test_low_pass_filter:
     def test_unknown_signal(self, sine_dataset: Dataset) -> None:
         with pytest.raises(KeyError):
             sine_dataset.low_pass_filter(("potato", 1.0))
+
+    def test_extra_elements_are_rejected(self, sine_dataset: Dataset) -> None:
+        with pytest.raises(TypeError, match="2"):
+            sine_dataset.low_pass_filter(
+                ("u1", 1.0, "junk")  # type: ignore[arg-type]
+            )
 
 
 class Test_trim:

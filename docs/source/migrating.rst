@@ -110,7 +110,7 @@ Renamed and reshaped members
                                       <dymoval.dataset.Dataset.coverage>`
 ``ds.remove_means()``                 :py:meth:`ds.remove_mean()
                                       <dymoval.dataset.Dataset.remove_mean>`
-``ds.remove_offset(("u1", 3.0))``     :py:meth:`ds.remove_constant({"u1": 3.0})
+``ds.remove_offset(("u1", 3.0))``     :py:meth:`ds.remove_constant(("u1", 3.0))
                                       <dymoval.dataset.Dataset.remove_constant>`
 ``ds.remove_NaNs()``                  :py:meth:`ds.remove_nans()
                                       <dymoval.dataset.Dataset.remove_nans>`
@@ -125,7 +125,13 @@ Renamed and reshaped members
 
 :py:meth:`ds.dataset_values() <dymoval.dataset.Dataset.dataset_values>`
 returns ``(time, inputs, outputs)`` as plain arrays and is the direct
-replacement for reaching into the old ``DataFrame``.
+replacement for reaching into the old ``DataFrame``. ``inputs`` and
+``outputs`` are always 2-D, with shape ``(n_samples, n_signals)``, even
+for a SISO dataset: use ``u[:, 0]`` where you would have got a 1-D array.
+
+The helpers ``factorize``, ``difference_lists_of_str`` and ``obj2list``
+were internal plumbing that happened to be exported. They are now
+private; ``numpy`` and the standard library cover what they did.
 
 *************************
  Overlapping is grouping

@@ -29,10 +29,7 @@ from .signal import (
 )
 from .statistics import compute_statistic, rsquared
 from .utils import (
-    difference_lists_of_str,
-    factorize,
     is_interactive_shell,
-    obj2list,
     open_tutorial,
 )
 from .validation import (
@@ -81,9 +78,6 @@ __all__ = [
     "whiteness_level",
     # utils
     "is_interactive_shell",
-    "factorize",
-    "difference_lists_of_str",
-    "obj2list",
     "open_tutorial",
     # config
     "COLORMAP",
