@@ -15,7 +15,7 @@ from matplotlib.figure import Figure
 
 from .dataset import _AX_HEIGHT, _AX_WIDTH, Dataset
 from .scope import DatasetScope, Layout, SpectrumScope, scope_subplots
-from .signal import Signal, SpectrumMode, _check_mode
+from .signal import Scale, Signal, SpectrumMode, SpectrumScale, _check_mode
 
 __all__ = [
     "plot_signals",
@@ -367,8 +367,8 @@ def plot_spectrum_compare(
     labels: Sequence[str] | None = None,
     align: bool = True,
     with_scope: bool = True,
-    xscale: str = "linear",
-    yscale: str = "linear",
+    xscale: Scale = "linear",
+    yscale: SpectrumScale = "linear",
     mode: SpectrumMode = "psd_welch",
     layout: Layout = "constrained",
     ax_height: float = _AX_HEIGHT,

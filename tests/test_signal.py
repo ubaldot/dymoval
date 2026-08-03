@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 from matplotlib.axes import Axes
@@ -384,6 +385,40 @@ class Test_plot:
 
         assert isinstance(fig, Figure)
         assert len(fig._scopes) == 1
+
+    @pytest.mark.plots
+    def test_passing_ax_draws_on_it(self, signal: Signal) -> None:
+        _, ax = plt.subplots()
+        out = signal.plot(ax=ax)
+
+        assert out is ax
+        assert len(ax.get_lines()) == 1
+
+    @pytest.mark.plots
+    def test_passing_ax_and_scope_raises(self, signal: Signal) -> None:
+        _, ax = plt.subplots()
+
+        with pytest.raises(ValueError):
+            signal.plot(ax=ax, with_scope=True)
+
+        with pytest.raises(ValueError):
+            signal.plot_spectrum(ax=ax, with_scope=True)
+
+    @pytest.mark.plots
+    def test_spectrum_passing_ax_draws_on_it(self, signal: Signal) -> None:
+        _, ax = plt.subplots()
+        out = signal.plot_spectrum(ax=ax)
+
+        assert out is ax
+        assert len(ax.get_lines()) == 1
+
+    @pytest.mark.plots
+    def test_bad_scale_raises(self, signal: Signal) -> None:
+        with pytest.raises(ValueError):
+            signal.plot_spectrum(yscale="banana")  # type: ignore[arg-type]
+
+        with pytest.raises(ValueError):
+            signal.plot_spectrum(xscale="banana")  # type: ignore[arg-type]
 
     @pytest.mark.plots
     @pytest.mark.parametrize("mode", SPECTRUM_MODES)

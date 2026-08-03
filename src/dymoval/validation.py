@@ -802,7 +802,10 @@ class ValidationSession:
 
         for sim_name in sims:
             if sim_name not in vs_temp.simulations_names:
-                raise ValueError(f"Simulation {sim_name} not found.")
+                raise KeyError(
+                    f"Simulation {sim_name!r} not found. "
+                    f"Available: {vs_temp.simulations_names}"
+                )
 
             vs_temp._simulations.pop(sim_name)
             vs_temp._Ree_tensor.pop(sim_name)
@@ -876,7 +879,7 @@ class ValidationSession:
         # Arrange the figure
         # ================================================================
         fig, axes, panel_ax = scope_subplots(
-            nrows, ncols, with_scope=with_scope, squeeze=False
+            nrows, ncols, with_scope=with_scope, layout=layout, squeeze=False
         )
 
         # Only the first "n" axes are used
@@ -945,8 +948,6 @@ class ValidationSession:
         if with_scope:
             assert panel_ax is not None
             DatasetScope(fig, axes, panel_ax)
-        else:
-            fig.set_layout_engine(layout)
 
         return fig
 

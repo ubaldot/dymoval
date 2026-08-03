@@ -353,7 +353,7 @@ class Test_ValidationSession_sim_validation:
             "Model 1", _sim_labels(q), rng.random((n, q))
         )
 
-        with pytest.raises(ValueError):
+        with pytest.raises(KeyError):
             vs.drop_simulations("potato")
 
     def test_cheating_raise(self, good_dataset: tuple) -> None:
@@ -373,6 +373,29 @@ class Test_ValidationSession_sim_validation:
 # Plots
 # ============================================================
 class Test_Plots:
+    @pytest.mark.plots
+    @pytest.mark.parametrize("with_scope", [False, True])
+    def test_plot_simulations_honours_layout(
+        self, good_dataset: tuple, with_scope: bool
+    ) -> None:
+        ds, _, y_names, _, _, _ = good_dataset
+
+        vs = dmv.ValidationSession("my_validation", ds)
+        n = len(ds.time())
+        q = len(y_names)
+        rng = np.random.default_rng(16)
+        vs = vs.append_simulation(
+            "Model 1", _sim_labels(q), rng.random((n, q))
+        )
+
+        fig = vs.plot_simulations(layout="tight", with_scope=with_scope)
+        engine = fig.get_layout_engine()
+
+        assert engine is not None
+        assert type(engine).__name__ == "TightLayoutEngine"
+
+        plt.close("all")
+
     @pytest.mark.plots
     def test_xcorrelation_plot(self, correlation_tensors: tuple) -> None:
         X = correlation_tensors[6]

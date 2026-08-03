@@ -207,9 +207,13 @@ Allowed values are ``"amplitude"``, ``"power"``, ``"psd"`` and
 <dymoval.dataset.Dataset.spectrum>` takes signal names positionally, so
 ``mode`` must be passed by keyword: ``ds.spectrum("u1", mode="psd")``.
 
-*************
+``xscale`` and ``yscale`` are validated too: ``xscale`` accepts
+``"linear"`` and ``"log"``, ``yscale`` also accepts ``"db"``. An
+unsupported value used to be silently ignored and now raises.
+
+**************
  Plot output
-*************
+**************
 
 Plotting functions **never** call ``show()`` any more: they return the
 ``Figure`` (or the tuple of figures, for
@@ -222,7 +226,10 @@ influences plotting.
 
 Conversely, most plots now carry an interactive **scope**: click a curve
 to inspect it, press ``r`` to reset. Pass ``with_scope=False`` to opt
-out.
+out. A scope owns its whole figure, so :py:meth:`Signal.plot
+<dymoval.signal.Signal.plot>` and :py:meth:`Signal.plot_spectrum
+<dymoval.signal.Signal.plot_spectrum>` turn it off automatically when
+you hand them an ``ax`` to draw on, and refuse to do both at once.
 
 ******************
  Removed for good

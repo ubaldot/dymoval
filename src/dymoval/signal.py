@@ -31,10 +31,33 @@ from .scope import (
     scope_subplots,
 )
 
-__all__ = ["Signal", "SPECTRUM_MODES"]
+__all__ = ["Signal", "SPECTRUM_MODES", "SCALES", "SPECTRUM_SCALES"]
 
 SpectrumMode = Literal["amplitude", "power", "psd", "psd_welch"]
 SPECTRUM_MODES: tuple[str, ...] = get_args(SpectrumMode)
+
+#: how a frequency axis may be scaled
+Scale = Literal["linear", "log"]
+SCALES: tuple[str, ...] = get_args(Scale)
+
+#: how a spectrum magnitude axis may be scaled. ``"db"`` converts the
+#: values to decibels, the others only change the axis scale.
+SpectrumScale = Literal["linear", "log", "db"]
+SPECTRUM_SCALES: tuple[str, ...] = get_args(SpectrumScale)
+
+
+def _check_scale(xscale: Scale, yscale: SpectrumScale) -> None:
+    """Raise if either scale is not a supported value."""
+    if xscale not in SCALES:
+        raise ValueError(
+            f"Invalid xscale: {xscale!r}. Allowed: {list(SCALES)}"
+        )
+
+    if yscale not in SPECTRUM_SCALES:
+        raise ValueError(
+            f"Invalid yscale: {yscale!r}. Allowed: {list(SPECTRUM_SCALES)}"
+        )
+
 
 #: magnitudes below ``_PHASE_MASK_RATIO * max(magnitude)`` carry no
 #: meaningful phase information and are masked out.
@@ -406,7 +429,9 @@ class Signal:
     # ------------------------------------------------
     # Labels
     # ------------------------------------------------
-    def _spectrum_ylabel(self, mode: SpectrumMode, yscale: str) -> str:
+    def _spectrum_ylabel(
+        self, mode: SpectrumMode, yscale: SpectrumScale
+    ) -> str:
         unit = self.unit or ""
 
         if yscale == "db":
@@ -514,11 +539,26 @@ class Signal:
     def plot(
         self,
         ax: Axes | None = None,
-        with_scope: bool = True,
+        with_scope: bool | None = None,
         **kwargs: Any,
     ) -> Figure | Axes:
-        """Plot the signal, optionally with an interactive scope."""
+        """Plot the signal, optionally with an interactive scope.
+
+        Returns the created :class:`~matplotlib.figure.Figure`, or ``ax``
+        itself when the caller provides one. A scope owns its whole
+        figure, so passing ``ax`` turns it off unless ``with_scope`` is
+        explicitly set, in which case it is an error.
+        """
+        with_scope = ax is None if with_scope is None else with_scope
+
         if with_scope:
+            if ax is not None:
+                raise ValueError(
+                    f"{self.name}: a scope needs its own figure and "
+                    "cannot draw on the passed 'ax'. Pass either 'ax' "
+                    "or with_scope=True, not both."
+                )
+
             return self._plot_scope(**kwargs)
 
         return self._plot_standard(ax=ax, **kwargs)
@@ -549,12 +589,14 @@ class Signal:
     def _plot_spectrum_standard(
         self,
         ax: Axes | None = None,
-        xscale: str = "linear",
-        yscale: str = "linear",
+        xscale: Scale = "linear",
+        yscale: SpectrumScale = "linear",
         mode: SpectrumMode = "psd_welch",
         **kwargs: Any,
     ) -> Axes:
         """Draw the magnitude-like spectrum of the signal on ``ax``."""
+        _check_scale(xscale, yscale)
+
         freq, spectrum, _ = self._compute_spectrum(mode)
 
         if yscale == "db":
@@ -579,7 +621,7 @@ class Signal:
     def _plot_phase_standard(
         self,
         ax: Axes,
-        xscale: str = "linear",
+        xscale: Scale = "linear",
         **kwargs: Any,
     ) -> Axes:
         """Draw the (masked, unwrapped) phase spectrum on ``ax``."""
@@ -598,8 +640,8 @@ class Signal:
         self,
         mag_ax: Axes,
         phase_ax: Axes,
-        xscale: str = "linear",
-        yscale: str = "linear",
+        xscale: Scale = "linear",
+        yscale: SpectrumScale = "linear",
         **kwargs: Any,
     ) -> tuple[Axes, Axes]:
         """Draw magnitude *and* phase on the two given axes."""
@@ -619,8 +661,8 @@ class Signal:
     def _plot_spectrum_amplitude_figure(
         self,
         with_scope: bool,
-        xscale: str = "linear",
-        yscale: str = "linear",
+        xscale: Scale = "linear",
+        yscale: SpectrumScale = "linear",
         **kwargs: Any,
     ) -> Figure:
         """Build the stacked magnitude/phase figure."""
@@ -652,8 +694,8 @@ class Signal:
 
     def _plot_spectrum_scope(
         self,
-        xscale: str = "linear",
-        yscale: str = "linear",
+        xscale: Scale = "linear",
+        yscale: SpectrumScale = "linear",
         mode: SpectrumMode = "psd_welch",
         **kwargs: Any,
     ) -> Figure:
@@ -678,9 +720,9 @@ class Signal:
     def plot_spectrum(
         self,
         ax: Axes | None = None,
-        with_scope: bool = True,
-        xscale: str = "linear",
-        yscale: str = "linear",
+        with_scope: bool | None = None,
+        xscale: Scale = "linear",
+        yscale: SpectrumScale = "linear",
         mode: SpectrumMode = "psd_welch",
         **kwargs: Any,
     ) -> Figure | Axes:
@@ -688,8 +730,20 @@ class Signal:
 
         With ``mode="amplitude"`` both the magnitude and the phase are
         shown, stacked vertically.
+
+        As for :meth:`plot`, passing ``ax`` turns the scope off, since a
+        scope owns its whole figure.
         """
+        with_scope = ax is None if with_scope is None else with_scope
+
         if with_scope:
+            if ax is not None:
+                raise ValueError(
+                    f"{self.name}: a scope needs its own figure and "
+                    "cannot draw on the passed 'ax'. Pass either 'ax' "
+                    "or with_scope=True, not both."
+                )
+
             return self._plot_spectrum_scope(
                 xscale=xscale, yscale=yscale, mode=mode, **kwargs
             )

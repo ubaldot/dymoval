@@ -1,7 +1,7 @@
 """dymoval: analyze measurement data and validate models."""
 
 from .config import ATOL, COLORMAP
-from .dataset import SIGNAL_KIND, Dataset
+from .dataset import ALIGN_MODES, SIGNAL_KIND, AlignMode, Dataset, SignalKind
 from .plotting import (
     plot_compare,
     plot_coverage_compare,
@@ -10,13 +10,23 @@ from .plotting import (
     plot_spectrum_compare,
 )
 from .scope import (
+    LAYOUTS,
     AmplitudeSpectrumScope,
     BaseScope,
     DatasetScope,
+    Layout,
     SignalScope,
     SpectrumScope,
 )
-from .signal import SPECTRUM_MODES, Signal
+from .signal import (
+    SCALES,
+    SPECTRUM_MODES,
+    SPECTRUM_SCALES,
+    Scale,
+    Signal,
+    SpectrumMode,
+    SpectrumScale,
+)
 from .statistics import compute_statistic, rsquared
 from .utils import (
     difference_lists_of_str,
@@ -36,8 +46,19 @@ __all__ = [
     # core
     "Signal",
     "Dataset",
+    # type aliases and their runtime tuples
+    "SpectrumMode",
     "SPECTRUM_MODES",
+    "SignalKind",
     "SIGNAL_KIND",
+    "Scale",
+    "SCALES",
+    "SpectrumScale",
+    "SPECTRUM_SCALES",
+    "AlignMode",
+    "ALIGN_MODES",
+    "Layout",
+    "LAYOUTS",
     # plotting
     "plot_signals",
     "plot_dataset",

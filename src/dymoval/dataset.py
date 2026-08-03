@@ -26,7 +26,7 @@ from .scope import (
     _pick_time_interval,
     scope_subplots,
 )
-from .signal import Signal, SpectrumMode, _check_mode
+from .signal import Scale, Signal, SpectrumMode, SpectrumScale, _check_mode
 from .utils import factorize
 
 __all__ = ["Dataset", "SIGNAL_KIND"]
@@ -41,6 +41,10 @@ _AX_HEIGHT = 2.0
 
 SignalKind = Literal["INPUT", "OUTPUT"]
 SIGNAL_KIND: tuple[str, ...] = get_args(SignalKind)
+
+#: how two datasets may be put on a common time vector
+AlignMode = Literal["intersection", "union"]
+ALIGN_MODES: tuple[str, ...] = get_args(AlignMode)
 
 Group = tuple[str, ...]
 
@@ -583,8 +587,9 @@ class Dataset:
         self,
         tin: float | None = None,
         tout: float | None = None,
-        *names: str,
+        *,
         shift_to_zero: bool = True,
+        show: Sequence[str] | None = None,
         verbosity: int = 0,
         **kwargs: Any,
     ) -> Self:
@@ -597,14 +602,27 @@ class Dataset:
         picked graphically: the dataset is plotted and the interval is
         read from the x-limits of the figure when it gets closed, so
         just zoom on the region of interest and close the window.
-        ``names`` selects which signals to display while picking and
-        ``**kwargs`` are forwarded to :meth:`plot`; both are ignored
-        otherwise.
+
+        Parameters
+        ----------
+        tin, tout :
+            Bounds of the interval to keep.
+        shift_to_zero :
+            Whether the resulting time vector should start at 0.
+        show :
+            Signals to display while picking the interval graphically.
+            Purely cosmetic: every signal is trimmed regardless, since a
+            ``Dataset`` has one common time vector. Ignored when ``tin``
+            or ``tout`` is given.
+        verbosity :
+            The higher, the more info is printed.
+        **kwargs :
+            Forwarded to :meth:`plot` while picking the interval.
         """
         if tin is None and tout is None:  # pragma: no cover
             time = self.time()
             tin, tout = _pick_time_interval(
-                self.plot(*names, **kwargs),
+                self.plot(*(show or ()), **kwargs),
                 float(time[0]),
                 float(time[-1]),
                 title="Trim the dataset.",
@@ -612,9 +630,8 @@ class Dataset:
             )
 
         if verbosity != 0:
-            print(
-                f"\n tin = {tin}{self.time_unit()}  tout = {tout}{self.time_unit()}"
-            )
+            unit = self.time_unit()
+            print(f"\n tin = {tin}{unit}  tout = {tout}{unit}")
 
         return self._map(
             lambda sig: sig.trim(tin, tout, shift_to_zero=shift_to_zero)
@@ -672,17 +689,16 @@ class Dataset:
         )
 
     def align(
-        self, other: "Dataset", how: str = "intersection"
+        self, other: "Dataset", how: AlignMode = "intersection"
     ) -> tuple[Self, "Dataset"]:
         """Resample ``self`` and ``other`` on a common time vector.
 
         The resulting time vector is always uniformly sampled with the
         sampling period of ``self``, so that both datasets stay valid.
         """
-        if how not in ("intersection", "union"):
+        if how not in ALIGN_MODES:
             raise ValueError(
-                f"Invalid align mode: {how!r}. "
-                "Allowed: ['intersection', 'union']"
+                f"Invalid align mode: {how!r}. Allowed: {list(ALIGN_MODES)}"
             )
 
         t1 = self.time()
@@ -1116,8 +1132,8 @@ class Dataset:
         self,
         ax: Axes,
         group: Group,
-        xscale: str,
-        yscale: str,
+        xscale: Scale,
+        yscale: SpectrumScale,
         mode: SpectrumMode,
         **kwargs: Any,
     ) -> None:
@@ -1136,8 +1152,8 @@ class Dataset:
         mag_ax: Axes,
         phase_ax: Axes,
         group: Group,
-        xscale: str,
-        yscale: str,
+        xscale: Scale,
+        yscale: SpectrumScale,
         **kwargs: Any,
     ) -> None:
         all_signals = self.all_signals()
@@ -1161,8 +1177,8 @@ class Dataset:
     def _plot_spectrum_amplitude(
         self,
         *names: str | tuple[str, ...],
-        xscale: str = "linear",
-        yscale: str = "linear",
+        xscale: Scale = "linear",
+        yscale: SpectrumScale = "linear",
         with_scope: bool = False,
         layout: Layout = "constrained",
         ax_height: float = _AX_HEIGHT,
@@ -1206,8 +1222,8 @@ class Dataset:
         self,
         *names: str | tuple[str, ...],
         with_scope: bool,
-        xscale: str = "linear",
-        yscale: str = "linear",
+        xscale: Scale = "linear",
+        yscale: SpectrumScale = "linear",
         mode: SpectrumMode = "psd_welch",
         layout: Layout = "constrained",
         ax_height: float = _AX_HEIGHT,
@@ -1250,8 +1266,8 @@ class Dataset:
         self,
         *names: str | tuple[str, ...],
         with_scope: bool = True,
-        xscale: str = "linear",
-        yscale: str = "linear",
+        xscale: Scale = "linear",
+        yscale: SpectrumScale = "linear",
         mode: SpectrumMode = "psd_welch",
         layout: Layout = "constrained",
         ax_height: float = _AX_HEIGHT,

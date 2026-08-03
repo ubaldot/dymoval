@@ -38,9 +38,18 @@ point-by-point mapping of the old API onto the new one.
 - The `linecolor_*` / `linestyle_*` / `alpha_*` plotting arguments
   collapsed into `color_input` / `color_output` plus `**kwargs`
   forwarded to `matplotlib`.
-- `plot_spectrum`'s `kind` argument is now `mode`.
+- `plot_spectrum`'s `kind` argument is now `mode`, and `xscale`/`yscale`
+  are validated instead of silently falling back to linear.
 - Plotting functions never call `show()`; they return the `Figure`. The
   `is_interactive` configuration key no longer influences plotting.
+- `Signal.plot(ax=...)` and `Signal.plot_spectrum(ax=...)` draw on the
+  passed axes instead of silently creating a scope figure of their own.
+- `Dataset.trim` picks the interval graphically when neither `tin` nor
+  `tout` is given; `shift_to_zero`, `show` and `verbosity` are
+  keyword-only.
+- `ValidationSession.drop_simulations` raises `KeyError` rather than
+  `ValueError` for an unknown simulation, matching the rest of the
+  package.
 - Renames: `remove_means` → `remove_mean`, `remove_offset` →
   `remove_constant`, `remove_NaNs` → `remove_nans`, `plotxy` →
   `plot_xy`, `dump_to_signals` → `to_signals`.
@@ -65,6 +74,9 @@ point-by-point mapping of the old API onto the new one.
   `ValidationSession.trim`.
 - `Dataset.align`, `Dataset.pipe`, and per-signal selection in
   `Dataset.fft` and `Dataset.spectrum`.
+- The `SpectrumMode`, `SignalKind`, `Scale`, `SpectrumScale`, `AlignMode`
+  and `Layout` type aliases are exported from the top-level package,
+  alongside the runtime tuples of their allowed values.
 - A dedicated `statistics`, `xcorrelation`, `signal`, `scope` and
   `plotting` module, replacing the two monolithic ones.
 
