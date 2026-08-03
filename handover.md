@@ -48,13 +48,15 @@ and **never** calls the public plotting methods internally.
 | `signal.py`   | new    | `Signal`                                             |
 | `dataset.py`  | new    | `Dataset`                                            |
 | `scope.py`    | new    | `BaseScope` / `SignalScope` / `DatasetScope` / `SpectrumScope` / `AmplitudeSpectrumScope` |
-| `plotting.py` | new    | multi-dataset helpers only                           |
+| `plotting.py` | new    | multi-object helpers only                            |
 | `validation.py` | new  | `XCorrelation`, `ValidationSession`, `validate_models` |
 | `utils.py`, `config.py` | kept | unchanged                                  |
 
 The package is now **pandas-free**: `dataset_old.py`, the legacy
 `tests/legacy/` suite and the `pandas` / `mpl-measurements` dependencies
-have all been removed.
+have all been removed. `src/dymoval_tutorial/` (the notebook and
+`tutorial_debug.py`) has been rewritten on the new API and the notebook is
+now shipped without stored outputs.
 
 ---
 
@@ -365,13 +367,18 @@ are tagged with `_scope_artifact` and are never selectable.
 
 ---
 
-# Multi-dataset plotting (`plotting.py`)
+# Multi-object plotting (`plotting.py`)
 
 ```python
+plot_signals(*signals, with_scope=True)             # loose, possibly unaligned Signals
 plot_dataset(ds, *groups, with_scope=True)          # alias of ds.plot
 plot_compare(ref, *others, names, labels, align, with_scope)
 plot_spectrum_compare(ref, *others, ..., mode)      # mode != "amplitude"
 ```
+
+`plot_signals` is the only way to eyeball raw logs *before* a `Dataset`
+exists: it does not require the signals to share a time vector. A tuple of
+signals is drawn on a single subplot.
 
 ---
 
@@ -430,12 +437,6 @@ now also exercises `plot_coverage` and the `ValidationSession` plots.
 ---
 
 # Near-Term Roadmap
-
-## Refresh the tutorial
-
-`src/dymoval_tutorial/dymoval_tutorial.ipynb` is the last artefact still
-written against the pandas API. It must be rewritten on top of `Signal`,
-`Dataset` and `ValidationSession`.
 
 ## Validation enhancements
 

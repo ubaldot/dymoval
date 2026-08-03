@@ -1,9 +1,9 @@
-"""Plotting helpers that operate on more than one :class:`Dataset`.
+"""Plotting helpers that operate on more than one object.
 
-Single-dataset plotting lives on the objects themselves
+Single-object plotting lives on the objects themselves
 (``Signal.plot``, ``Dataset.plot``, ``Dataset.plot_spectrum``, ...).
 This module only adds what cannot belong to a single object, namely
-dataset comparison.
+plotting a bunch of loose signals and comparing datasets.
 """
 
 from __future__ import annotations
@@ -16,9 +16,73 @@ from matplotlib.figure import Figure
 
 from .dataset import Dataset
 from .scope import DatasetScope, SpectrumScope
-from .signal import SPECTRUM_MODES, SpectrumMode
+from .signal import SPECTRUM_MODES, Signal, SpectrumMode
 
-__all__ = ["plot_dataset", "plot_compare", "plot_spectrum_compare"]
+__all__ = [
+    "plot_signals",
+    "plot_dataset",
+    "plot_compare",
+    "plot_spectrum_compare",
+]
+
+
+def plot_signals(
+    *signals: Signal | tuple[Signal, ...],
+    with_scope: bool = True,
+) -> Figure:
+    """Plot loose :class:`dymoval.signal.Signal`, one subplot per group.
+
+    Unlike :meth:`dymoval.dataset.Dataset.plot`, the signals need not be
+    aligned: this is the function to use to eyeball raw logs *before*
+    building a ``Dataset``. Signals passed as a tuple are overlaid on the
+    same axes.
+
+    Parameters
+    ----------
+    signals :
+        The signals to plot. A tuple of signals is drawn on one subplot.
+    with_scope :
+        Attach an interactive scope to the figure.
+    """
+    groups: list[tuple[Signal, ...]] = []
+
+    for item in signals:
+        group = item if isinstance(item, tuple) else (item,)
+
+        for sig in group:
+            if not isinstance(sig, Signal):
+                raise TypeError("All the arguments must be Signal instances")
+
+        groups.append(group)
+
+    if not groups:
+        raise ValueError("At least one signal is required")
+
+    fig = plt.figure(
+        constrained_layout=True, figsize=(10, 2.0 * len(groups) + 1)
+    )
+
+    if with_scope:
+        subfigs = fig.subfigures(1, 2, width_ratios=[3.8, 1.2])
+        host: Any = subfigs[0]
+    else:
+        host = fig
+
+    axes = list(np.atleast_1d(host.subplots(len(groups), 1)))
+
+    for ax, group in zip(axes, groups):
+        for sig in group:
+            sig._plot_standard(ax=ax)
+
+        ax.legend()
+        ax.grid(True)
+
+    if with_scope:
+        panel_ax = subfigs[1].add_subplot()
+        panel_ax.set_anchor("N")
+        DatasetScope(fig, axes, panel_ax)
+
+    return fig
 
 
 def plot_dataset(

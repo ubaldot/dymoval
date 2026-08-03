@@ -1,7 +1,12 @@
 """dymoval: analyze measurement data and validate models."""
 
 from .dataset import Dataset
-from .plotting import plot_compare, plot_dataset, plot_spectrum_compare
+from .plotting import (
+    plot_compare,
+    plot_dataset,
+    plot_signals,
+    plot_spectrum_compare,
+)
 from .scope import (
     AmplitudeSpectrumScope,
     BaseScope,
@@ -33,6 +38,7 @@ __all__ = [
     "Dataset",
     "SPECTRUM_MODES",
     # plotting
+    "plot_signals",
     "plot_dataset",
     "plot_compare",
     "plot_spectrum_compare",

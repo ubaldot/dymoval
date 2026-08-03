@@ -9,14 +9,65 @@ from matplotlib.figure import Figure
 
 from dymoval import (
     Dataset,
+    Signal,
     plot_compare,
     plot_dataset,
+    plot_signals,
     plot_spectrum_compare,
 )
 
 
 def _plot_axes(fig: Figure) -> list:
     return [ax for ax in fig.axes if ax.get_lines()]
+
+
+class Test_plot_signals:
+    @pytest.mark.plots
+    def test_one_subplot_per_signal(self, signal: Signal) -> None:
+        other = signal._replace(name="other")
+        fig = plot_signals(signal, other, with_scope=False)
+
+        axes = _plot_axes(fig)
+
+        assert isinstance(fig, Figure)
+        assert len(axes) == 2
+        assert all(len(ax.get_lines()) == 1 for ax in axes)
+
+    @pytest.mark.plots
+    def test_tuples_are_overlapped(self, signal: Signal) -> None:
+        other = signal._replace(name="other")
+        fig = plot_signals((signal, other), with_scope=False)
+
+        axes = _plot_axes(fig)
+
+        assert len(axes) == 1
+        assert len(axes[0].get_lines()) == 2
+
+    @pytest.mark.plots
+    def test_unaligned_signals_are_accepted(self, signal: Signal) -> None:
+        # half the sampling period and a different length
+        time = np.arange(37) * 0.5 * signal.get_sampling_period()
+        other = Signal(
+            name="other", values=np.arange(37, dtype=float), time=time
+        )
+
+        fig = plot_signals(signal, other, with_scope=False)
+
+        assert len(_plot_axes(fig)) == 2
+
+    @pytest.mark.plots
+    def test_scope_is_attached(self, signal: Signal) -> None:
+        fig = plot_signals(signal, with_scope=True)
+
+        assert getattr(fig, "_scopes", [])
+
+    def test_raises_on_non_signal(self, signal: Signal) -> None:
+        with pytest.raises(TypeError):
+            plot_signals(signal, "not_a_signal", with_scope=False)
+
+    def test_raises_when_empty(self) -> None:
+        with pytest.raises(ValueError):
+            plot_signals(with_scope=False)
 
 
 class Test_plot_dataset:
