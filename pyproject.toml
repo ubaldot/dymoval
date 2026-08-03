@@ -55,7 +55,9 @@ dev = [
     "sphinx-autodoc-typehints",
     "pytest",
     "mypy",
-    "ruff",
+    # Pinned: the formatter is a pass/fail gate in CI, so an unrelated ruff
+    # release must not be able to turn the pipeline red.
+    "ruff==0.15.2",
     "coverage",
     "grayskull",
     "build",
@@ -81,6 +83,10 @@ exclude = [
     "docs",
     "src/dymoval_tutorial",
     ".*",
+    # ruff only formats Python; keep it that way even if a future
+    # release grows support for other file types.
+    "*.md",
+    "*.ipynb",
 ]
 
 [tool.ruff.lint]
