@@ -37,6 +37,11 @@ sig._plot_phase_standard(...)
 sig._plot_spectrum_amplitude(...)
 ```
 
+All three `Signal._plot_*_standard` primitives funnel through a single
+private `Signal._draw(ax, x, y, xlabel, ylabel, **kwargs)`: it is the only
+place where a `Signal` touches matplotlib, and the only place that tags the
+line with the `line._signal` back-reference the scopes rely on.
+
 and **never** calls the public plotting methods internally.
 
 The same rule holds one level up: `XCorrelation` owns the primitives
@@ -442,6 +447,12 @@ plot_spectrum_compare(ref, *others, ..., mode)      # mode != "amplitude"
 `plot_signals` is the only way to eyeball raw logs *before* a `Dataset`
 exists: it does not require the signals to share a time vector. A tuple of
 signals is drawn on a single subplot.
+
+`plot_compare` and `plot_spectrum_compare` are thin wrappers over the
+private `_compare(...)` skeleton, which owns the dataset checking, label
+resolution, alignment, figure creation and scope attachment. The only
+per-flavour parts are the `draw(ax, signal, label)` callable, the scope
+class and the optional `finish(ax, name)` touch-up.
 
 ---
 

@@ -24,7 +24,7 @@ from .scope import (
     SpectrumScope,
     scope_subplots,
 )
-from .signal import SPECTRUM_MODES, Signal, SpectrumMode
+from .signal import Signal, SpectrumMode, _check_mode
 
 __all__ = ["Dataset", "SIGNAL_KIND"]
 
@@ -344,9 +344,7 @@ class Dataset:
         if not names:
             return list(all_signals.values())
 
-        for name in names:
-            if name not in all_signals:
-                raise KeyError(f"Signal '{name}' not found")
+        self._check_names(names)
 
         return [all_signals[name] for name in names]
 
@@ -639,15 +637,11 @@ class Dataset:
                 else:
                     raise TypeError("Arguments must be str or tuple[str, ...]")
 
-        all_signals = self.all_signals()
-
         for group in groups:
             if not group:
                 raise ValueError("Empty group")
 
-            for name in group:
-                if name not in all_signals:
-                    raise KeyError(f"Signal '{name}' not found")
+            self._check_names(group)
 
         return groups
 
@@ -937,10 +931,7 @@ class Dataset:
         With ``mode="amplitude"`` each group gets a magnitude *and* a
         phase subplot.
         """
-        if mode not in SPECTRUM_MODES:
-            raise ValueError(
-                f"Invalid mode: {mode!r}. Allowed: {list(SPECTRUM_MODES)}"
-            )
+        _check_mode(mode)
 
         return self._plot_spectrum(
             *names,

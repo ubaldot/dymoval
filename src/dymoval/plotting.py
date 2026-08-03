@@ -8,13 +8,14 @@ plotting a bunch of loose signals and comparing datasets.
 
 from __future__ import annotations
 
-from typing import Sequence
+from typing import Any, Callable, Sequence
 
+from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
 from .dataset import Dataset
 from .scope import DatasetScope, SpectrumScope, scope_subplots
-from .signal import SPECTRUM_MODES, Signal, SpectrumMode
+from .signal import Signal, SpectrumMode, _check_mode
 
 __all__ = [
     "plot_signals",
@@ -157,6 +158,52 @@ def _check_datasets(
     return datasets
 
 
+def _compare(
+    reference: Dataset,
+    others: Sequence[Dataset],
+    *,
+    names: Sequence[str],
+    labels: Sequence[str] | None,
+    align: bool,
+    with_scope: bool,
+    draw: Callable[[Axes, Signal, str], Any],
+    scope_cls: type[DatasetScope],
+    finish: Callable[[Axes, str], Any] | None = None,
+) -> Figure:
+    """Shared skeleton of the ``*_compare`` functions.
+
+    ``draw(ax, signal, label)`` is the only per-flavour part, together
+    with the scope class to attach and the optional per-axes
+    ``finish(ax, name)`` touch-up.
+    """
+    datasets = _check_datasets(reference, others)
+    labels_ = _resolve_labels(datasets, labels)
+    names_ = _common_names(datasets, names)
+    datasets = _aligned(datasets, align)
+
+    fig, axes, panel_ax = scope_subplots(
+        len(names_),
+        with_scope=with_scope,
+        figsize=(10, 2.0 * len(names_) + 1),
+        sharex=True,
+    )
+
+    for ax, name in zip(axes, names_):
+        for ds, label in zip(datasets, labels_):
+            draw(ax, ds[name], f"{name} ({label})")
+
+        if finish is not None:
+            finish(ax, name)
+
+        ax.legend()
+        ax.grid(True)
+
+    if panel_ax is not None:
+        scope_cls(fig, axes, panel_ax)
+
+    return fig
+
+
 # ====================================================
 # Comparison
 # ====================================================
@@ -188,30 +235,18 @@ def plot_compare(
     with_scope :
         Attach an interactive scope to the figure.
     """
-    datasets = _check_datasets(reference, others)
-    labels_ = _resolve_labels(datasets, labels)
-    names_ = _common_names(datasets, names)
-    datasets = _aligned(datasets, align)
-
-    fig, axes, panel_ax = scope_subplots(
-        len(names_),
+    return _compare(
+        reference,
+        others,
+        names=names,
+        labels=labels,
+        align=align,
         with_scope=with_scope,
-        figsize=(10, 2.0 * len(names_) + 1),
-        sharex=True,
+        draw=lambda ax, sig, label: sig._plot_standard(ax=ax, label=label),
+        scope_cls=DatasetScope,
+        # the reference dataset dictates the unit shown on the y axis
+        finish=lambda ax, name: ax.set_ylabel(reference[name]._ylabel()),
     )
-
-    for ax, name in zip(axes, names_):
-        for ds, label in zip(datasets, labels_):
-            ds[name]._plot_standard(ax=ax, label=f"{name} ({label})")
-
-        ax.set_ylabel(reference[name]._ylabel())
-        ax.legend()
-        ax.grid(True)
-
-    if panel_ax is not None:
-        DatasetScope(fig, axes, panel_ax)
-
-    return fig
 
 
 def plot_spectrum_compare(
@@ -231,42 +266,29 @@ def plot_spectrum_compare(
     :meth:`dymoval.dataset.Dataset.plot_spectrum` on each dataset instead,
     since the magnitude/phase layout does not overlay meaningfully.
     """
-    if mode not in SPECTRUM_MODES:
-        raise ValueError(
-            f"Invalid mode: {mode!r}. Allowed: {list(SPECTRUM_MODES)}"
-        )
+    _check_mode(mode)
 
     if mode == "amplitude":
         raise ValueError(
             "mode='amplitude' is not supported by plot_spectrum_compare"
         )
 
-    datasets = _check_datasets(reference, others)
-    labels_ = _resolve_labels(datasets, labels)
-    names_ = _common_names(datasets, names)
-    datasets = _aligned(datasets, align)
+    def draw(ax: Axes, sig: Signal, label: str) -> None:
+        sig._plot_spectrum_standard(
+            ax=ax,
+            xscale=xscale,
+            yscale=yscale,
+            mode=mode,
+            label=label,
+        )
 
-    fig, axes, panel_ax = scope_subplots(
-        len(names_),
+    return _compare(
+        reference,
+        others,
+        names=names,
+        labels=labels,
+        align=align,
         with_scope=with_scope,
-        figsize=(10, 2.0 * len(names_) + 1),
-        sharex=True,
+        draw=draw,
+        scope_cls=SpectrumScope,
     )
-
-    for ax, name in zip(axes, names_):
-        for ds, label in zip(datasets, labels_):
-            ds[name]._plot_spectrum_standard(
-                ax=ax,
-                xscale=xscale,
-                yscale=yscale,
-                mode=mode,
-                label=f"{name} ({label})",
-            )
-
-        ax.legend()
-        ax.grid(True)
-
-    if panel_ax is not None:
-        SpectrumScope(fig, axes, panel_ax)
-
-    return fig

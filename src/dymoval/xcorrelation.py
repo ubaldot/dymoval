@@ -224,9 +224,8 @@ class XCorrelation:
             # Default 20 lags
             nlags_from_user = 10 * np.ones((p, q))
 
-        # Let's preserve some immutability
-        R_full = np.empty((p, q), dtype=_rxy)
-        R_downsampled = np.empty((p, q), dtype=_rxy)
+        # Only the trimmed correlation is kept: the full and the
+        # downsampled ones are intermediate results, local to each (ii, jj).
         R_trimmed = np.empty((p, q), dtype=_rxy)
 
         for ii in range(p):
@@ -262,8 +261,6 @@ class XCorrelation:
                     (X[:, ii] - np.mean(X[:, ii])) / np.std(X[:, ii]),
                     (Y[:, jj] - np.mean(Y[:, jj])) / np.std(Y[:, jj]),
                 ) / min(len(X), len(Y))
-
-                R_full[ii, jj] = _rxy(values_full, lags_full)
 
                 # ------ Downsampling -------------------
                 # Close measurements are naturally correlated, and
@@ -309,13 +306,9 @@ class XCorrelation:
                 step = max(1, min(step, nlags_full // nlags_min))
                 indices_downsampled = np.where(lags_full % step == 0)[0]
 
-                values_downsampled = R_full[ii, jj].values[indices_downsampled]
+                values_downsampled = values_full[indices_downsampled]
 
                 lags_downsampled = lags_full[indices_downsampled] // step
-
-                R_downsampled[ii, jj] = _rxy(
-                    values_downsampled, lags_downsampled
-                )
 
                 # ----------- Trim ---------------
                 # Create the half vectors for lags selection
@@ -327,10 +320,10 @@ class XCorrelation:
                     & (lags_downsampled <= nlags_trimmed)
                 )[0]
                 # Trim based on the number of lags
-                values_trimmed = R_downsampled[ii, jj].values[indices_trimmed]
-                lags_trimmed = R_downsampled[ii, jj].lags[indices_trimmed]
-
-                R_trimmed[ii, jj] = _rxy(values_trimmed, lags_trimmed)
+                R_trimmed[ii, jj] = _rxy(
+                    values_downsampled[indices_trimmed],
+                    lags_downsampled[indices_trimmed],
+                )
 
         return R_trimmed
 
@@ -651,7 +644,5 @@ def whiteness_level(
         global_statistic=global_statistic,
         global_weights=global_weights,
     )
-
-    del Rxx
 
     return whiteness_estimate, whiteness_matrix

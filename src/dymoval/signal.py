@@ -43,6 +43,14 @@ _PHASE_MASK_RATIO = 0.05
 _EPS = 1e-12
 
 
+def _check_mode(mode: SpectrumMode) -> None:
+    """Raise if ``mode`` is not a supported spectrum mode."""
+    if mode not in SPECTRUM_MODES:
+        raise ValueError(
+            f"Invalid mode: {mode!r}. Allowed: {list(SPECTRUM_MODES)}"
+        )
+
+
 @dataclass
 class Signal:
     """A single, uniformly sampled signal."""
@@ -265,10 +273,7 @@ class Signal:
         unwrapped, expressed in degrees, and masked (``nan``) wherever the
         magnitude is negligible, since the phase is meaningless there.
         """
-        if mode not in SPECTRUM_MODES:
-            raise ValueError(
-                f"Invalid mode: {mode!r}. Allowed: {list(SPECTRUM_MODES)}"
-            )
+        _check_mode(mode)
 
         freq, y, n, dt = self._compute_fft()
         fs = 1.0 / dt
@@ -326,27 +331,50 @@ class Signal:
     # ================================================
     # Time-domain plotting
     # ================================================
-    def _plot_standard(self, ax: Axes | None = None, **kwargs: Any) -> Axes:
-        """Draw the signal on ``ax`` (created if ``None``)."""
+    def _draw(
+        self,
+        ax: Axes | None,
+        x: np.ndarray | None,
+        y: np.ndarray,
+        xlabel: str,
+        ylabel: str,
+        **kwargs: Any,
+    ) -> Axes:
+        """Draw one curve of this signal on ``ax`` (created if ``None``).
+
+        The single place where a ``Signal`` touches matplotlib: it labels
+        the line with the signal name, tags it with a back-reference so
+        that the scopes can recover names and units, and decorates the
+        axes.
+        """
         if ax is None:
             _, ax = plt.subplots()
 
         kwargs.setdefault("label", self.name)
 
-        if self.time is None:
-            (line,) = ax.plot(self.values, **kwargs)
-            ax.set_xlabel("samples")
-        else:
-            (line,) = ax.plot(self.time, self.values, **kwargs)
-            ax.set_xlabel(f"time [{self.time_unit}]")
+        (line,) = (
+            ax.plot(y, **kwargs) if x is None else ax.plot(x, y, **kwargs)
+        )
 
         # attach metadata so that scopes can recover units and names
         line._signal = self  # type: ignore[attr-defined]
 
-        ax.set_ylabel(self._ylabel())
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
         ax.grid(True)
 
         return ax
+
+    def _plot_standard(self, ax: Axes | None = None, **kwargs: Any) -> Axes:
+        """Draw the signal on ``ax`` (created if ``None``)."""
+        return self._draw(
+            ax,
+            self.time,
+            self.values,
+            "samples" if self.time is None else f"time [{self.time_unit}]",
+            self._ylabel(),
+            **kwargs,
+        )
 
     def _plot_scope(self, **kwargs: Any) -> Figure:
         fig, axes, panel_ax = scope_subplots(figsize=(10, 5))
@@ -383,27 +411,24 @@ class Signal:
         **kwargs: Any,
     ) -> Axes:
         """Draw the magnitude-like spectrum of the signal on ``ax``."""
-        if ax is None:
-            _, ax = plt.subplots()
-
         freq, spectrum, _ = self._compute_spectrum(mode)
 
         if yscale == "db":
             spectrum = self._to_db(spectrum, mode)
 
-        kwargs.setdefault("label", self.name)
-
-        (line,) = ax.plot(freq, spectrum, **kwargs)
-        line._signal = self  # type: ignore[attr-defined]
+        ax = self._draw(
+            ax,
+            freq,
+            spectrum,
+            "Frequency [Hz]",
+            self._spectrum_ylabel(mode, yscale),
+            **kwargs,
+        )
 
         ax.set_xscale(xscale)
 
         if yscale == "log":
             ax.set_yscale("log")
-
-        ax.set_xlabel("Frequency [Hz]")
-        ax.set_ylabel(self._spectrum_ylabel(mode, yscale))
-        ax.grid(True)
 
         return ax
 
@@ -418,15 +443,10 @@ class Signal:
 
         assert phase is not None  # "amplitude" always provides the phase
 
-        kwargs.setdefault("label", self.name)
-
-        (line,) = ax.plot(freq, phase, **kwargs)
-        line._signal = self  # type: ignore[attr-defined]
-
+        ax = self._draw(
+            ax, freq, phase, "Frequency [Hz]", "Phase [deg]", **kwargs
+        )
         ax.set_xscale(xscale)
-        ax.set_xlabel("Frequency [Hz]")
-        ax.set_ylabel("Phase [deg]")
-        ax.grid(True)
 
         return ax
 
@@ -452,14 +472,20 @@ class Signal:
 
         return mag_ax, phase_ax
 
-    def _plot_spectrum_amplitude_scope(
+    def _plot_spectrum_amplitude_figure(
         self,
+        with_scope: bool,
         xscale: str = "linear",
         yscale: str = "linear",
         **kwargs: Any,
     ) -> Figure:
+        """Build the stacked magnitude/phase figure."""
         fig, axes, panel_ax = scope_subplots(
-            2, 1, figsize=(10, 5), sharex=True
+            2,
+            1,
+            with_scope=with_scope,
+            figsize=(10, 5),
+            sharex=True,
         )
         mag_ax, phase_ax = axes
 
@@ -473,8 +499,8 @@ class Signal:
 
         mag_ax.legend()
 
-        assert panel_ax is not None
-        AmplitudeSpectrumScope(fig, mag_ax, phase_ax, panel_ax)
+        if panel_ax is not None:
+            AmplitudeSpectrumScope(fig, mag_ax, phase_ax, panel_ax)
 
         return fig
 
@@ -486,8 +512,8 @@ class Signal:
         **kwargs: Any,
     ) -> Figure:
         if mode == "amplitude":
-            return self._plot_spectrum_amplitude_scope(
-                xscale=xscale, yscale=yscale, **kwargs
+            return self._plot_spectrum_amplitude_figure(
+                True, xscale=xscale, yscale=yscale, **kwargs
             )
 
         fig, axes, panel_ax = scope_subplots(figsize=(10, 4))
@@ -529,19 +555,9 @@ class Signal:
                     "therefore creates its own figure: 'ax' is not allowed."
                 )
 
-            fig, (mag_ax, phase_ax) = plt.subplots(2, 1, sharex=True)
-
-            self._plot_spectrum_amplitude(
-                mag_ax=mag_ax,
-                phase_ax=phase_ax,
-                xscale=xscale,
-                yscale=yscale,
-                **kwargs,
+            return self._plot_spectrum_amplitude_figure(
+                False, xscale=xscale, yscale=yscale, **kwargs
             )
-            mag_ax.legend()
-            fig.tight_layout()
-
-            return fig
 
         return self._plot_spectrum_standard(
             ax=ax, xscale=xscale, yscale=yscale, mode=mode, **kwargs

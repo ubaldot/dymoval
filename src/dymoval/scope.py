@@ -482,10 +482,6 @@ class SignalScope(BaseScope):
         self.signal = signal
         super().__init__(fig, ax, panel_ax)
 
-    @property
-    def ax(self) -> Axes:
-        return self.axes[0]
-
     def _label(self) -> str:
         if self.signal is not None:
             return str(self.signal.name)
@@ -608,13 +604,6 @@ class AmplitudeSpectrumScope(SpectrumScope):
 
         # two cursors per selection, at most two selections
         self._trim_cursors(keep=4)
-
-    def _trim_cursors(self, keep: int) -> None:
-        while len(self.cursor_lines) > keep:
-            self.cursor_lines.pop(0).remove()
-
-        while len(self.cursor_points) > keep:
-            self.cursor_points.pop(0).remove()
 
     def reset(self, redraw: bool = True) -> None:
         self.phases.clear()

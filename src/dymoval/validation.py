@@ -433,22 +433,6 @@ class ValidationSession:
 
         return "\n".join(lines)
 
-    @staticmethod
-    def _weights_str(who: str, weights: np.ndarray | None) -> str:
-        if weights is None:
-            return f"{who}: None\n"
-
-        return f"{who}: Yes (see self._{who.replace(' ', '_')})\n"
-
-    @staticmethod
-    def _nlags_str(nlags: np.ndarray) -> str:
-        flat = nlags.flatten()
-
-        if np.all(flat == flat[0]):
-            return f"num lags: {nlags[0, 0]}\n"
-
-        return f"num lags: \n{nlags}\n"
-
     def __repr__(self) -> str:
         outcomes_head = "         "
         outcomes_body = "Outcome: "
@@ -1006,53 +990,60 @@ class ValidationSession:
         cmap = plt.get_cmap(COLORMAP)
         figs: list[matplotlib.figure.Figure] = []
 
-        def _new_figure(
-            nrows: int, ncols: int, title: str
-        ) -> tuple[matplotlib.figure.Figure, np.ndarray]:
+        def _new_figure(nrows: int, ncols: int, title: str) -> np.ndarray:
             fig, axes = plt.subplots(nrows, ncols, squeeze=False)
             fig.suptitle(title)
             fig.set_size_inches(ncols * ax_width, nrows * ax_height + 1.25)
             fig.set_layout_engine(layout)
             figs.append(fig)
 
-            return fig, axes
+            return axes
+
+        def _plot_per_simulation(
+            tensors: dict[str, XCorrelation],
+            nrows: int,
+            ncols: int,
+            title: str,
+            x_symbol: str,
+            y_symbol: str,
+        ) -> None:
+            """One grid, one color per simulation."""
+            axes = _new_figure(nrows, ncols, title)
+
+            for kk, sim_name in enumerate(sims):
+                tensors[sim_name]._plot_grid(
+                    axes,
+                    x_symbol=x_symbol,
+                    y_symbol=y_symbol,
+                    label=sim_name,
+                    linefmt=matplotlib.colors.to_hex(cmap(kk % cmap.N)),
+                )
 
         # ===============================================================
         # Input auto-correlation
         # ===============================================================
         if plot_input:
-            _, axes = _new_figure(p, p, "Input auto-correlation")
+            axes = _new_figure(p, p, "Input auto-correlation")
             self._Ruu_tensor._plot_grid(axes, x_symbol="u", y_symbol="u")
 
         # ===============================================================
-        # Residuals auto-correlation, one color per simulation
+        # Residuals auto-correlation
         # ===============================================================
-        _, axes = _new_figure(q, q, "Residuals auto-correlation")
-
-        for kk, sim_name in enumerate(sims):
-            color_hex = matplotlib.colors.to_hex(cmap(kk % cmap.N))
-            self._Ree_tensor[sim_name]._plot_grid(
-                axes,
-                x_symbol="eps",
-                y_symbol="eps",
-                label=sim_name,
-                linefmt=color_hex,
-            )
+        _plot_per_simulation(
+            self._Ree_tensor, q, q, "Residuals auto-correlation", "eps", "eps"
+        )
 
         # ===============================================================
         # Input-residuals cross-correlation
         # ===============================================================
-        _, axes = _new_figure(p, q, "Input-residuals cross-correlation")
-
-        for kk, sim_name in enumerate(sims):
-            color_hex = matplotlib.colors.to_hex(cmap(kk % cmap.N))
-            self._Rue_tensor[sim_name]._plot_grid(
-                axes,
-                x_symbol="u",
-                y_symbol="eps",
-                label=sim_name,
-                linefmt=color_hex,
-            )
+        _plot_per_simulation(
+            self._Rue_tensor,
+            p,
+            q,
+            "Input-residuals cross-correlation",
+            "u",
+            "eps",
+        )
 
         return tuple(figs)
 
