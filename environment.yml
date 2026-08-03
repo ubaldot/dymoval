@@ -3,14 +3,13 @@ name: dymoval_dev
 channels:
   - conda-forge
 dependencies:
-  - pandas
+  # Runtime, must mirror [project].dependencies in pyproject.toml
   - matplotlib
-  - mpl-measurements
-  - control
   - scipy
-  - pathlib
+  - control
   - numpy
-  - tomli
+  - h5py
+  # Dev, must mirror [project.optional-dependencies].dev in pyproject.toml
   - sphinx
   - furo
   - sphinx-autodoc-typehints
@@ -18,5 +17,7 @@ dependencies:
   - mypy
   - ruff
   - coverage
-  - h5py
+  - grayskull
+  - python-build
+  - twine
   - pip

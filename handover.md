@@ -602,7 +602,7 @@ beyond adding a new module.
 # Tests
 
 ```bash
-pytest tests -q -m "not open_tutorial"   # 369 tests (~8 s)
+pytest tests -q -m "not open_tutorial"   # 420 tests (~11 s)
 pytest tests -m "not plots"              # skip the plotting tests
 ruff format ./src ./tests && ruff check ./src ./tests
 mypy ./src/dymoval
@@ -634,8 +634,13 @@ expectations of the legacy suite (the `low_pass_filter` reference values,
 the Matlab-computed cross-correlations, the `compute_statistic` and
 `rsquared` references) are reused verbatim.
 
-`manual_tests/test_plots_manual.py` is the interactive smoke script; it
-now also exercises `plot_coverage` and the `ValidationSession` plots.
+`manual_tests/test_plots_manual.py` is the **only** interactive smoke
+script; it walks every plot the package can draw, plus NaN shading and
+the two graphical `trim` pickers (which no automated test can reach).
+`test_manual.py` and `test_plain_python.py` were deleted: they still
+spoke the legacy API (`validate_signals`, `overlap=True`, dict-signals)
+and `norecursedirs = ["manual_tests"]` had been hiding the breakage from
+pytest.
 
 ---
 

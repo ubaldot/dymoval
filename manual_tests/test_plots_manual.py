@@ -94,6 +94,18 @@ dmv.plot_compare(
 )
 
 # ============================================================
+# Missing data
+# ============================================================
+print("-> NaN shading")
+holed = ds.apply(("y0", lambda v: np.where((t > 0.3) & (t < 0.4), np.nan, v)))
+print("   gaps:", holed.nan_intervals()["y0"])
+dmv.plot_compare(
+    holed,
+    holed.remove_nans(),
+    labels=["with gaps (shaded)", "interpolated"],
+)
+
+# ============================================================
 # Comparison
 # ============================================================
 print("-> plot_spectrum_compare")
@@ -124,3 +136,14 @@ vs.plot_residuals()
 
 print("All plots created. Close the windows to exit.")
 plt.show()
+
+# ============================================================
+# Graphical trimming (blocking, one window at a time)
+# ============================================================
+# Zoom on the interval you want to keep, then close the window.
+print("-> Dataset.trim() graphical picking")
+print("   zoom on the interval to keep, then close the window")
+print("   trimmed to:", ds.trim(verbosity=1).time()[[0, -1]])
+
+print("-> ValidationSession.trim() graphical picking")
+vs.trim(verbosity=1)

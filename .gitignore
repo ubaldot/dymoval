@@ -1,16 +1,23 @@
 # Global directories
 __pycache__/
 .ipynb_checkpoints/
+.virtual_documents/
+*.egg-info/
 
 # Root directories
 /.benchmarks/
 /.env/
 /.mypy_cache/
 /.pytest_cache/
+/.ruff_cache/
 /.spyproject/
 /backend/dist/
 /dist/
 /site/
 /docs/build/
+/docs/_build/
 
 /.coverage*
+
+# macOS
+.DS_Store
