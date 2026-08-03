@@ -7,7 +7,6 @@ Created on Thu Jul 14 11:43:21 2022
 """
 
 # from fixture_data import *  # noqa
-import os
 
 import pytest
 

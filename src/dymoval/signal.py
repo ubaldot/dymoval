@@ -1,14 +1,47 @@
+"""The :class:`Signal` class.
+
+``Signal`` is responsible for
+
+- computation (detrend, resample, spectra, ...),
+- *primitive* plotting, i.e. drawing **one** signal on a given axes.
+
+Orchestration, grouping and layout belong to :class:`dymoval.dataset.Dataset`,
+which reuses the private primitives (``_plot_standard``,
+``_plot_spectrum_standard``, ...) and never calls the public plotting
+methods internally.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any, Literal, get_args
+
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.signal import detrend, welch
-from .scope import SignalScope, SpectrumScope
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
+from scipy.interpolate import interp1d
+from scipy.signal import detrend as _detrend
+from scipy.signal import welch
+
+from .scope import AmplitudeSpectrumScope, SignalScope, SpectrumScope
+
+__all__ = ["Signal", "SPECTRUM_MODES"]
+
+SpectrumMode = Literal["amplitude", "power", "psd", "psd_welch"]
+SPECTRUM_MODES: tuple[str, ...] = get_args(SpectrumMode)
+
+#: magnitudes below ``_PHASE_MASK_RATIO * max(magnitude)`` carry no
+#: meaningful phase information and are masked out.
+_PHASE_MASK_RATIO = 0.05
+
+_EPS = 1e-12
 
 
 @dataclass
 class Signal:
+    """A single, uniformly sampled signal."""
+
     name: str
     values: np.ndarray
     time: np.ndarray | None = None
@@ -26,53 +59,58 @@ class Signal:
             if not isinstance(self.time, np.ndarray):
                 raise TypeError(f"{self.name}: time must be numpy array")
 
+            if self.time.ndim != 1:
+                raise ValueError(f"{self.name}: time must be 1D")
+
             if len(self.time) != len(self.values):
                 raise ValueError(
                     f"{self.name}: time and values length mismatch"
                 )
 
-    # ----------------------------
-    # Convenience
-    # ----------------------------
-    def copy(self) -> "Signal":
-        return Signal(
-            name=self.name,
-            values=self.values.copy(),
-            time=None if self.time is None else self.time.copy(),
-            unit=self.unit,
-            time_unit=self.time_unit,
-        )
+    def __len__(self) -> int:
+        return len(self.values)
 
-    def detrend(self) -> "Signal":
-        return Signal(
+    # ================================================
+    # Convenience
+    # ================================================
+    def _replace(self, **changes: Any) -> "Signal":
+        """Return a new ``Signal``, overriding the given fields."""
+        fields: dict[str, Any] = dict(
             name=self.name,
-            values=detrend(self.values),
+            values=self.values,
             time=self.time,
             unit=self.unit,
             time_unit=self.time_unit,
         )
+        fields.update(changes)
 
-    def _compute_fft(self) -> tuple[np.ndarray, np.ndarray, int, float]:
-        dt = self.get_sampling_period()
-        n = len(self.values)
+        return Signal(**fields)
 
-        y = np.fft.rfft(self.values)
-        freq = np.fft.rfftfreq(n, dt)
+    def copy(self) -> "Signal":
+        return self._replace(
+            values=self.values.copy(),
+            time=None if self.time is None else self.time.copy(),
+        )
 
-        return freq, y, n, dt
+    # ================================================
+    # Processing
+    # ================================================
+    def detrend(self) -> "Signal":
+        """Remove the best straight-line fit from the signal."""
+        return self._replace(values=_detrend(self.values))
 
-    # def fft(self) -> tuple[np.ndarray, np.ndarray]:
-    #     if self.time is None:
-    #         raise ValueError(f"{self.name}: time required for FFT")
+    def remove_mean(self) -> "Signal":
+        """Subtract the signal mean."""
+        return self._replace(values=self.values - np.nanmean(self.values))
 
-    #     dt = np.mean(np.diff(self.time))
-    #     freq = fft.fftfreq(len(self.values), d=dt)
-    #     spec = np.abs(fft.fft(self.values))
-
-    #     return freq, spec
+    def remove_constant(self, value: float) -> "Signal":
+        """Subtract a user-defined constant."""
+        return self._replace(values=self.values - value)
 
     def resample(self, new_time: np.ndarray) -> "Signal":
-        from scipy.interpolate import interp1d
+        """Linearly resample the signal on ``new_time``."""
+        if self.time is None:
+            raise ValueError(f"{self.name}: time required for resampling")
 
         f = interp1d(
             self.time,
@@ -82,17 +120,15 @@ class Signal:
             assume_sorted=True,
         )
 
-        return Signal(
-            name=self.name,
-            values=f(new_time),
-            time=new_time,
-            unit=self.unit,
-            time_unit=self.time_unit,
-        )
+        return self._replace(values=f(new_time), time=new_time)
 
     def get_sampling_period(self) -> float:
+        """Return the (uniform) sampling period."""
         if self.time is None:
             raise ValueError(f"{self.name}: time not defined")
+
+        if len(self.time) < 2:
+            raise ValueError(f"{self.name}: at least two samples required")
 
         dt = np.diff(self.time)
 
@@ -104,86 +140,277 @@ class Signal:
 
         return float(np.mean(dt))
 
-    def _plot_standard(self, ax, **kwargs):
+    # ================================================
+    # Frequency domain
+    # ================================================
+    def _compute_fft(self) -> tuple[np.ndarray, np.ndarray, int, float]:
+        dt = self.get_sampling_period()
+        n = len(self.values)
 
+        y = np.fft.rfft(self.values)
+        freq = np.fft.rfftfreq(n, dt)
+
+        return freq, y, n, dt
+
+    def fft(self) -> tuple[np.ndarray, np.ndarray]:
+        """Return ``(frequency, complex one-sided spectrum)``."""
+        freq, y, _, _ = self._compute_fft()
+        return freq, y
+
+    def spectrum(
+        self, mode: SpectrumMode = "psd_welch"
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Return ``(frequency, spectrum)`` for the requested ``mode``."""
+        freq, spectrum, _ = self._compute_spectrum(mode)
+        return freq, spectrum
+
+    def _compute_spectrum(
+        self, mode: SpectrumMode
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
+        """Return ``(freq, spectrum, phase_deg_or_None)``.
+
+        The phase is returned for ``mode="amplitude"`` only. It is
+        unwrapped, expressed in degrees, and masked (``nan``) wherever the
+        magnitude is negligible, since the phase is meaningless there.
+        """
+        if mode not in SPECTRUM_MODES:
+            raise ValueError(
+                f"Invalid mode: {mode!r}. Allowed: {list(SPECTRUM_MODES)}"
+            )
+
+        freq, y, n, dt = self._compute_fft()
+        fs = 1.0 / dt
+
+        if mode == "amplitude":
+            magnitude = np.abs(y)
+
+            phase = np.unwrap(np.angle(y)) * 180.0 / np.pi
+            threshold = _PHASE_MASK_RATIO * np.max(magnitude, initial=0.0)
+            phase = np.where(magnitude > threshold, phase, np.nan)
+
+            return freq, magnitude, phase
+
+        if mode == "power":
+            return freq, np.abs(y) ** 2, None
+
+        if mode == "psd":
+            return freq, (np.abs(y) ** 2) / (n * fs), None
+
+        # psd_welch
+        freq, spectrum = welch(
+            self.values,
+            fs=fs,
+            window="hann",
+            nperseg=min(256, len(self.values)),
+        )
+
+        return freq, spectrum, None
+
+    # ------------------------------------------------
+    # Labels
+    # ------------------------------------------------
+    def _spectrum_ylabel(self, mode: SpectrumMode, yscale: str) -> str:
+        unit = self.unit or ""
+
+        if yscale == "db":
+            return "Amplitude [dB]" if mode == "amplitude" else "Power [dB]"
+
+        if mode == "amplitude":
+            return f"Amplitude [{unit}]" if unit else "Amplitude"
+
+        if mode == "power":
+            return f"Power [{unit}\u00b2]" if unit else "Power"
+
+        return f"PSD [{unit}\u00b2/Hz]" if unit else "PSD"
+
+    def _ylabel(self) -> str:
+        return f"{self.name} [{self.unit}]" if self.unit else self.name
+
+    @staticmethod
+    def _to_db(spectrum: np.ndarray, mode: SpectrumMode) -> np.ndarray:
+        factor = 20.0 if mode == "amplitude" else 10.0
+        return np.asarray(factor * np.log10(np.maximum(spectrum, _EPS)))
+
+    # ================================================
+    # Time-domain plotting
+    # ================================================
+    def _plot_standard(self, ax: Axes | None = None, **kwargs: Any) -> Axes:
+        """Draw the signal on ``ax`` (created if ``None``)."""
         if ax is None:
-            fig, ax = plt.subplots()
+            _, ax = plt.subplots()
+
+        kwargs.setdefault("label", self.name)
 
         if self.time is None:
-            (line,) = ax.plot(self.values, label=self.name, **kwargs)
+            (line,) = ax.plot(self.values, **kwargs)
             ax.set_xlabel("samples")
         else:
-            (line,) = ax.plot(
-                self.time, self.values, label=self.name, **kwargs
-            )
+            (line,) = ax.plot(self.time, self.values, **kwargs)
             ax.set_xlabel(f"time [{self.time_unit}]")
 
-        # attach metadata ✅
-        line._signal = self
+        # attach metadata so that scopes can recover units and names
+        line._signal = self  # type: ignore[attr-defined]
 
-        if self.unit:
-            ax.set_ylabel(f"{self.name} [{self.unit}]")
-        else:
-            ax.set_ylabel(self.name)
-
+        ax.set_ylabel(self._ylabel())
         ax.grid(True)
 
         return ax
 
-    def _plot_scope(self, **kwargs):
-
+    def _plot_scope(self, **kwargs: Any) -> Figure:
         fig = plt.figure(constrained_layout=True, figsize=(10, 5))
         subfigs = fig.subfigures(1, 2, width_ratios=[3.8, 1.2])
 
-        # ---- main axis ----
         ax = subfigs[0].subplots()
+        self._plot_standard(ax=ax, **kwargs)
 
-        if self.time is None:
-            (line,) = ax.plot(self.values, label=self.name, **kwargs)
-            ax.set_xlabel("samples")
-        else:
-            (line,) = ax.plot(
-                self.time, self.values, label=self.name, **kwargs
-            )
-            ax.set_xlabel(f"time [{self.time_unit}]")
-
-        # attach metadata ✅
-        line._signal = self
-
-        if self.unit:
-            ax.set_ylabel(f"{self.name} [{self.unit}]")
-        else:
-            ax.set_ylabel(self.name)
-
-        ax.grid(True)
-
-        # ---- panel axis ----
         panel_ax = subfigs[1].add_subplot()
-        panel_ax.axis("off")
+        panel_ax.set_anchor("N")
 
         SignalScope(fig, ax, panel_ax, self)
 
         return fig
 
-    def plot(self, ax=None, with_scope: bool = True, **kwargs):
+    def plot(
+        self,
+        ax: Axes | None = None,
+        with_scope: bool = True,
+        **kwargs: Any,
+    ) -> Figure | Axes:
+        """Plot the signal, optionally with an interactive scope."""
         if with_scope:
             return self._plot_scope(**kwargs)
+
         return self._plot_standard(ax=ax, **kwargs)
 
-    def _plot_spectrum_scope(self, xscale, yscale, mode):
-        fig = plt.figure(constrained_layout=True, figsize=(10, 4))
+    # ================================================
+    # Frequency-domain plotting
+    # ================================================
+    def _plot_spectrum_standard(
+        self,
+        ax: Axes | None = None,
+        xscale: str = "linear",
+        yscale: str = "linear",
+        mode: SpectrumMode = "psd_welch",
+        **kwargs: Any,
+    ) -> Axes:
+        """Draw the magnitude-like spectrum of the signal on ``ax``."""
+        if ax is None:
+            _, ax = plt.subplots()
 
-        subfigs = fig.subfigures(1, 2, width_ratios=[4, 1.5])
+        freq, spectrum, _ = self._compute_spectrum(mode)
+
+        if yscale == "db":
+            spectrum = self._to_db(spectrum, mode)
+
+        kwargs.setdefault("label", self.name)
+
+        (line,) = ax.plot(freq, spectrum, **kwargs)
+        line._signal = self  # type: ignore[attr-defined]
+
+        ax.set_xscale(xscale)
+
+        if yscale == "log":
+            ax.set_yscale("log")
+
+        ax.set_xlabel("Frequency [Hz]")
+        ax.set_ylabel(self._spectrum_ylabel(mode, yscale))
+        ax.grid(True)
+
+        return ax
+
+    def _plot_phase_standard(
+        self,
+        ax: Axes,
+        xscale: str = "linear",
+        **kwargs: Any,
+    ) -> Axes:
+        """Draw the (masked, unwrapped) phase spectrum on ``ax``."""
+        freq, _, phase = self._compute_spectrum("amplitude")
+
+        assert phase is not None  # "amplitude" always provides the phase
+
+        kwargs.setdefault("label", self.name)
+
+        (line,) = ax.plot(freq, phase, **kwargs)
+        line._signal = self  # type: ignore[attr-defined]
+
+        ax.set_xscale(xscale)
+        ax.set_xlabel("Frequency [Hz]")
+        ax.set_ylabel("Phase [deg]")
+        ax.grid(True)
+
+        return ax
+
+    def _plot_spectrum_amplitude(
+        self,
+        mag_ax: Axes,
+        phase_ax: Axes,
+        xscale: str = "linear",
+        yscale: str = "linear",
+        **kwargs: Any,
+    ) -> tuple[Axes, Axes]:
+        """Draw magnitude *and* phase on the two given axes."""
+        self._plot_spectrum_standard(
+            ax=mag_ax,
+            xscale=xscale,
+            yscale=yscale,
+            mode="amplitude",
+            **kwargs,
+        )
+        self._plot_phase_standard(ax=phase_ax, xscale=xscale, **kwargs)
+
+        mag_ax.set_xlabel("")
+
+        return mag_ax, phase_ax
+
+    def _plot_spectrum_amplitude_scope(
+        self,
+        xscale: str = "linear",
+        yscale: str = "linear",
+        **kwargs: Any,
+    ) -> Figure:
+        fig = plt.figure(constrained_layout=True, figsize=(10, 5))
+        subfigs = fig.subfigures(1, 2, width_ratios=[3.8, 1.2])
+
+        mag_ax, phase_ax = subfigs[0].subplots(2, 1, sharex=True)
+
+        self._plot_spectrum_amplitude(
+            mag_ax=mag_ax,
+            phase_ax=phase_ax,
+            xscale=xscale,
+            yscale=yscale,
+            **kwargs,
+        )
+
+        mag_ax.legend()
+
+        panel_ax = subfigs[1].add_subplot()
+        panel_ax.set_anchor("N")
+
+        AmplitudeSpectrumScope(fig, mag_ax, phase_ax, panel_ax)
+
+        return fig
+
+    def _plot_spectrum_scope(
+        self,
+        xscale: str = "linear",
+        yscale: str = "linear",
+        mode: SpectrumMode = "psd_welch",
+        **kwargs: Any,
+    ) -> Figure:
+        if mode == "amplitude":
+            return self._plot_spectrum_amplitude_scope(
+                xscale=xscale, yscale=yscale, **kwargs
+            )
+
+        fig = plt.figure(constrained_layout=True, figsize=(10, 4))
+        subfigs = fig.subfigures(1, 2, width_ratios=[3.8, 1.2])
 
         ax = subfigs[0].subplots()
 
         self._plot_spectrum_standard(
-            ax=ax,
-            xscale=xscale,
-            yscale=yscale,
-            mode=mode,
+            ax=ax, xscale=xscale, yscale=yscale, mode=mode, **kwargs
         )
-
         ax.legend()
 
         panel_ax = subfigs[1].add_subplot()
@@ -193,92 +420,46 @@ class Signal:
 
         return fig
 
-    def _plot_spectrum_standard(
-        self,
-        ax,
-        xscale,
-        yscale,
-        mode,
-    ):
-        if ax is None:
-            fig, ax = plt.subplots()
-
-        freq, y, n, dt = self._compute_fft()
-        fs = 1 / dt
-
-        if mode == "amplitude":
-            spectrum = np.abs(y)
-        elif mode == "power":
-            spectrum = np.abs(y) ** 2
-        elif mode == "psd":
-            spectrum = (np.abs(y) ** 2) / (n * fs)
-        elif mode == "psd_welch":
-            freq, spectrum = welch(
-                self.values,
-                fs=fs,
-                window="hann",
-                nperseg=min(256, len(self.values)),
-            )
-        else:
-            raise ValueError(f"Invalid mode: {mode}")
-
-        if yscale == "db":
-            eps = 1e-12
-            if mode == "amplitude":
-                spectrum = 20 * np.log10(np.maximum(spectrum, eps))
-            else:
-                spectrum = 10 * np.log10(np.maximum(spectrum, eps))
-
-        (line,) = ax.plot(freq, spectrum, label=self.name)
-        line._signal = self
-
-        ax.set_xscale(xscale)
-
-        if yscale == "log":
-            ax.set_yscale("log")
-
-        ax.set_xlabel("Frequency [Hz]")
-
-        unit = self.unit or ""
-
-        if yscale == "db":
-            if mode == "amplitude":
-                ylabel = "Amplitude [dB]"
-            else:
-                ylabel = "Power [dB]"
-        elif mode == "amplitude":
-            ylabel = f"Amplitude [{unit}]"
-        elif mode == "power":
-            ylabel = f"Power [{unit}²]" if unit else "Power"
-        elif mode == "psd" or mode == "psd_welch":
-            ylabel = f"PSD [{unit}²/Hz]" if unit else "PSD"
-
-        ax.set_ylabel(ylabel)
-        ax.grid(True)
-
-        return ax
-
     def plot_spectrum(
         self,
-        ax=None,
+        ax: Axes | None = None,
         with_scope: bool = True,
-        xscale="linear",
-        yscale="linear",
-        mode="psd_welch",
-        **kwargs,
-    ):
+        xscale: str = "linear",
+        yscale: str = "linear",
+        mode: SpectrumMode = "psd_welch",
+        **kwargs: Any,
+    ) -> Figure | Axes:
+        """Plot the spectrum of the signal.
+
+        With ``mode="amplitude"`` both the magnitude and the phase are
+        shown, stacked vertically.
+        """
         if with_scope:
             return self._plot_spectrum_scope(
-                xscale=xscale,
-                yscale=yscale,
-                mode=mode,
-                **kwargs,
+                xscale=xscale, yscale=yscale, mode=mode, **kwargs
             )
 
+        if mode == "amplitude":
+            if ax is not None:
+                raise ValueError(
+                    "mode='amplitude' draws magnitude and phase and "
+                    "therefore creates its own figure: 'ax' is not allowed."
+                )
+
+            fig, (mag_ax, phase_ax) = plt.subplots(2, 1, sharex=True)
+
+            self._plot_spectrum_amplitude(
+                mag_ax=mag_ax,
+                phase_ax=phase_ax,
+                xscale=xscale,
+                yscale=yscale,
+                **kwargs,
+            )
+            mag_ax.legend()
+            fig.tight_layout()
+
+            return fig
+
         return self._plot_spectrum_standard(
-            ax=ax,
-            xscale=xscale,
-            yscale=yscale,
-            mode=mode,
-            **kwargs,
+            ax=ax, xscale=xscale, yscale=yscale, mode=mode, **kwargs
         )

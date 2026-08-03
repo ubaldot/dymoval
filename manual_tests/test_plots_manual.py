@@ -1,252 +1,91 @@
 # -*- coding: utf-8 -*-
-"""
-Manual test script for Dataset + Signal (NumPy version)
+"""Manual (interactive) smoke test for Signal, Dataset and the scopes.
+
+Run it with an interactive backend::
+
+    python manual_tests/test_plots_manual.py
+
+Click on the curves and press 'r' to reset every scope of a figure.
 """
 
-import numpy as np
-import matplotlib.pyplot as plt
 import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
 
-from dymoval.dataset import Dataset, Signal
-
-plt.ioff()
 matplotlib.use("qtagg")
 
-# ============================================================
-# CONFIGURATION
-# ============================================================
-
-fixture_type = "MIMO"  # ["MIMO", "SISO", "SIMO", "MISO"]
+import dymoval as dmv  # noqa: E402
 
 np.random.seed(0)
 
-
+# ============================================================
+# Signals
+# ============================================================
 t = np.linspace(0, 1, 500)
-y0 = np.sin(2 * np.pi * 5 * t) + 0.2 * np.random.randn(len(t))
 
-s0 = Signal(
-    name="y0",
-    values=y0,
-    time=t,
-    unit="V",
-    time_unit="s",
-)
-
-y1 = np.cos(2 * np.pi * 2 * t) + 0.2 * np.random.randn(len(t))
-s1 = Signal(
-    name="y1",
-    values=y1,
-    time=t,
-    unit="V",
-    time_unit="s",
-)
-
-
-u1 = np.cos(1 * np.pi * 0.5 * t) + 0.2 * np.random.randn(len(t))
-s3 = Signal(
+u1 = dmv.Signal(
     name="u1",
-    values=u1,
+    values=np.cos(2 * np.pi * 0.5 * t) + 0.2 * np.random.randn(len(t)),
     time=t,
     unit="V",
-    time_unit="s",
+)
+y0 = dmv.Signal(
+    name="y0",
+    values=np.sin(2 * np.pi * 5 * t) + 0.2 * np.random.randn(len(t)) + 3.0,
+    time=t,
+    unit="m",
+)
+y1 = dmv.Signal(
+    name="y1",
+    values=np.cos(2 * np.pi * 2 * t) + 0.2 * np.random.randn(len(t)),
+    time=t,
+    unit="m",
 )
 
-ds = Dataset.from_signals(inputs=[s3], outputs=[s1, s0])
-
-# %% ============================================================
-# SIGNAL GENERATION
-# ============================================================
-
-
-def make_signal(name, dt, values):  # type: ignore
-    t = np.arange(len(values)) * dt
-    return name, t, values
-
-
-nan_block = np.full(200, np.nan)
-
-# ---- Inputs
-input_defs = [
-    (
-        "u1",
-        0.01,
-        np.hstack(
-            (10 * np.random.rand(50), nan_block, 5 * np.random.rand(200))
-        ),
-    ),
-    (
-        "u2",
-        0.05,
-        np.hstack(
-            (
-                15 * np.random.rand(80),
-                nan_block[:50],
-                30 * np.random.rand(100),
-            )
-        ),
-    ),
-    (
-        "u3",
-        0.1,
-        np.hstack((np.random.rand(100), nan_block, np.random.rand(80))),
-    ),
-]
-
-# ---- Outputs
-output_defs = [
-    (
-        "y1",
-        0.1,
-        np.hstack((np.random.rand(120), nan_block, np.random.rand(150))),
-    ),
-    (
-        "y2",
-        0.1,
-        np.hstack((np.random.rand(200), nan_block[:80], np.random.rand(100))),
-    ),
-    (
-        "y3",
-        0.1,
-        np.hstack((np.random.rand(50), nan_block[:120], np.random.rand(50))),
-    ),
-    (
-        "y4",
-        0.1,
-        np.hstack((np.random.rand(70), nan_block[:60], np.random.rand(90))),
-    ),
-]
+ds = dmv.Dataset.from_signals(inputs=[u1], outputs=[y0, y1])
 
 # ============================================================
-# BUILD DATASET (WITH RESAMPLING)
+# Signal
 # ============================================================
+print("-> Signal.plot()")
+y0.plot(with_scope=False)
+y0.plot(with_scope=True)
 
-target_dt = 0.1
-t_end = 40.0
-common_time = np.arange(0, t_end, target_dt)
+print("-> Signal.plot_spectrum()")
+for mode in dmv.SPECTRUM_MODES:
+    y0.plot_spectrum(mode=mode, with_scope=True)
 
-
-def build_dataset(defs):  # type: ignore
-    data = {}
-
-    for name, dt, values in defs:
-        t = np.arange(len(values)) * dt
-
-        # simple resampling (manual, mimics Dataset.resample testing)
-        valid = ~np.isnan(values)
-        if np.sum(valid) < 2:
-            continue
-
-        interp = np.interp(
-            common_time,
-            t[valid],
-            values[valid],
-        )
-
-        data[name] = interp
-
-    return Dataset(common_time, data)
-
-
-ds_inputs = build_dataset(input_defs)
-ds_outputs = build_dataset(output_defs)
-
-# %% Merge datasets
-ds = Dataset(
-    time=common_time,
-    data={**ds_inputs.data, **ds_outputs.data},
+# ============================================================
+# Processing
+# ============================================================
+print("-> remove_mean / remove_constant / detrend")
+dmv.plot_compare(
+    ds,
+    ds.remove_mean(),
+    ds.remove_constant({"y0": 3.0}),
+    ds.detrend(),
+    labels=["raw", "mean removed", "constant removed", "detrended"],
 )
 
-input_names = [k for k in ds_inputs.data]
-output_names = [k for k in ds_outputs.data]
-
-# %% ============================================================
-# APPLY FIXTURE TYPE
 # ============================================================
+# Dataset
+# ============================================================
+print("-> Dataset.plot() with grouping")
+ds.plot(("u1", "y1"), "y0", with_scope=False)
+ds.plot(("u1", "y1"), "y0", with_scope=True)
 
-if fixture_type == "SISO":
-    input_names = input_names[:1]
-    output_names = output_names[:1]
+print("-> Dataset.plot_spectrum() with grouping")
+for mode in dmv.SPECTRUM_MODES:
+    ds.plot_spectrum(("u1", "y1"), "y0", mode=mode, with_scope=True)
 
-elif fixture_type == "MISO":
-    output_names = output_names[:1]
-
-elif fixture_type == "SIMO":
-    input_names = input_names[:1]
-
-selected = input_names + output_names
-ds = Dataset(common_time, {k: ds.data[k] for k in selected})
+print("-> Dataset.plot_xy()")
+ds.plot_xy("u1", "y1")
 
 # ============================================================
-# TEST: BASIC PLOT
+# Comparison
 # ============================================================
+print("-> plot_spectrum_compare")
+dmv.plot_spectrum_compare(ds, ds.detrend(), labels=["raw", "detrended"])
 
-print("-> plot()")
-ds.plot(*selected)
-
-# overlay
-ds.plot(*selected, overlay=True)
-
-plt.pause(1)
-
-
-# ============================================================
-# TEST: COMPARE DATASETS (simulate output)
-# ============================================================
-
-print("-> compare")
-
-# create synthetic "processed" dataset
-ds_out = ds.detrend()
-
-ds.plot_compare(ds_out, *selected)
-
-plt.pause(1)
-
-
-# ============================================================
-# TEST: RESAMPLING
-# ============================================================
-
-print("-> resample")
-
-new_time = np.arange(0, common_time[-1], 0.05)
-ds_resampled = ds.resample(new_time)
-
-ds.plot_compare(ds_resampled, *selected)
-
-plt.pause(1)
-
-
-# ============================================================
-# TEST: FFT / SPECTRUM
-# ============================================================
-
-print("-> FFT")
-
-spec = ds.fft()
-
-fig, ax = plt.subplots()
-
-for name, (freq, mag) in spec.items():
-    ax.plot(freq, mag, label=name)
-
-ax.set_title("Spectrum")
-ax.legend()
-plt.pause(1)
-
-
-# ============================================================
-# TEST: Interactive Scope (manual)
-# ============================================================
-
-print("-> scope")
-
-scope = ds.scope(*selected)
-# manual interaction (blocking GUI)
-
-
-# ============================================================
-# DONE
-# ============================================================
-
-print("All tests executed.")
+print("All plots created. Close the windows to exit.")
+plt.show()
