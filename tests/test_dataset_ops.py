@@ -364,6 +364,59 @@ class Test_trim:
 
 
 # ============================================================
+# Missing data
+# ============================================================
+@pytest.fixture
+def nan_dataset(sine_dataset: Dataset) -> Dataset:
+    def poke(values: np.ndarray) -> np.ndarray:
+        out = values.copy()
+        out[10:13] = np.nan
+        return out
+
+    return sine_dataset.apply(("u1", poke))
+
+
+class Test_nans:
+    def test_has_nans(
+        self, sine_dataset: Dataset, nan_dataset: Dataset
+    ) -> None:
+        assert not sine_dataset.has_nans()
+        assert nan_dataset.has_nans()
+
+    def test_nan_intervals(self, nan_dataset: Dataset) -> None:
+        intervals = nan_dataset.nan_intervals()
+
+        assert set(intervals) == set(nan_dataset.names())
+        assert len(intervals["u1"]) == 1
+        assert np.allclose(intervals["u1"][0], (1.0, 1.2))
+        assert intervals["y1"] == []
+
+    def test_remove_nans(self, nan_dataset: Dataset) -> None:
+        out = nan_dataset.remove_nans()
+
+        assert not out.has_nans()
+        assert len(out.time()) == len(nan_dataset.time())
+
+    def test_remove_nans_selection(self, nan_dataset: Dataset) -> None:
+        assert not nan_dataset.remove_nans("u1").has_nans()
+        assert nan_dataset.remove_nans("y1").has_nans()
+
+    def test_drop_is_rejected(self, nan_dataset: Dataset) -> None:
+        with pytest.raises(ValueError):
+            nan_dataset.remove_nans(fill="drop")
+
+    def test_unknown_name_raises(self, nan_dataset: Dataset) -> None:
+        with pytest.raises(KeyError):
+            nan_dataset.remove_nans("potato")
+
+    def test_plot_shades_the_gaps(self, nan_dataset: Dataset) -> None:
+        fig = nan_dataset.plot()
+        patches = sum(len(ax.patches) for ax in fig.get_axes())
+
+        assert patches == 1
+
+
+# ============================================================
 # Coverage
 # ============================================================
 class Test_coverage:

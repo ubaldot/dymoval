@@ -23,6 +23,7 @@ from .scope import (
     DatasetScope,
     Layout,
     SpectrumScope,
+    _pick_time_interval,
     scope_subplots,
 )
 from .signal import Signal, SpectrumMode, _check_mode
@@ -582,19 +583,93 @@ class Dataset:
         self,
         tin: float | None = None,
         tout: float | None = None,
+        *names: str,
         shift_to_zero: bool = True,
+        verbosity: int = 0,
+        **kwargs: Any,
     ) -> Self:
         """Keep the samples with ``tin <= time <= tout``.
 
         ``None`` means "from the beginning" / "until the end". When
         ``shift_to_zero`` is set the resulting time vector starts at 0.
+
+        If *neither* ``tin`` nor ``tout`` is passed then the interval is
+        picked graphically: the dataset is plotted and the interval is
+        read from the x-limits of the figure when it gets closed, so
+        just zoom on the region of interest and close the window.
+        ``names`` selects which signals to display while picking and
+        ``**kwargs`` are forwarded to :meth:`plot`; both are ignored
+        otherwise.
         """
+        if tin is None and tout is None:  # pragma: no cover
+            time = self.time()
+            tin, tout = _pick_time_interval(
+                self.plot(*names, **kwargs),
+                float(time[0]),
+                float(time[-1]),
+                title="Trim the dataset.",
+                verbosity=verbosity,
+            )
+
+        if verbosity != 0:
+            print(
+                f"\n tin = {tin}{self.time_unit()}  tout = {tout}{self.time_unit()}"
+            )
+
         return self._map(
             lambda sig: sig.trim(tin, tout, shift_to_zero=shift_to_zero)
         )
 
     def resample(self, new_time: np.ndarray) -> Self:
         return self._map(lambda sig: sig.resample(new_time))
+
+    # ================================================
+    # Missing data
+    # ================================================
+    def has_nans(self) -> bool:
+        """Whether any signal holds at least one ``NaN``."""
+        return any(sig.has_nans() for sig in self.all_signals().values())
+
+    def nan_intervals(self) -> dict[str, list[tuple[float, float]]]:
+        """Return ``{name: [(start, end), ...]}`` of the gaps in the data.
+
+        Signals without any ``NaN`` map to an empty list.
+        """
+        return {
+            name: sig.nan_intervals()
+            for name, sig in self.all_signals().items()
+        }
+
+    def remove_nans(
+        self,
+        *names: str,
+        fill: Literal["interpolate", "drop"] = "interpolate",
+        **kwargs: Any,
+    ) -> Self:
+        """Get rid of the ``NaN`` samples of the selected signals.
+
+        Without arguments every signal is cleaned, otherwise only the
+        named ones. See :meth:`dymoval.signal.Signal.remove_nans` for the
+        meaning of ``fill``.
+
+        Note
+        ----
+        ``fill="drop"`` would remove samples of some signals and not of
+        others, breaking the common time vector that defines a
+        ``Dataset``, and is therefore rejected here. Drop the ``NaN``\\ s
+        on the individual :class:`dymoval.signal.Signal` *before* building
+        the ``Dataset`` instead.
+        """
+        if fill == "drop":
+            raise ValueError(
+                "fill='drop' would break the common time vector of the "
+                "dataset. Use fill='interpolate', or drop the NaNs on the "
+                "single signals before building the Dataset."
+            )
+
+        return self._map(
+            lambda sig: sig.remove_nans(fill=fill, **kwargs), names
+        )
 
     def align(
         self, other: "Dataset", how: str = "intersection"
@@ -636,17 +711,24 @@ class Dataset:
     # ================================================
     # Frequency domain
     # ================================================
-    def fft(self) -> dict[str, tuple[np.ndarray, np.ndarray]]:
-        """Return ``{name: (freq, complex spectrum)}``."""
-        return {name: sig.fft() for name, sig in self.all_signals().items()}
+    def fft(self, *names: str) -> dict[str, tuple[np.ndarray, np.ndarray]]:
+        """Return ``{name: (freq, complex spectrum)}``.
+
+        Without arguments every signal is transformed, otherwise only the
+        named ones.
+        """
+        return {sig.name: sig.fft() for sig in self._select_signals(names)}
 
     def spectrum(
-        self, mode: SpectrumMode = "psd_welch"
+        self, *names: str, mode: SpectrumMode = "psd_welch"
     ) -> dict[str, tuple[np.ndarray, np.ndarray]]:
-        """Return ``{name: (freq, spectrum)}`` for the requested mode."""
+        """Return ``{name: (freq, spectrum)}`` for the requested mode.
+
+        Without arguments every signal is transformed, otherwise only the
+        named ones.
+        """
         return {
-            name: sig.spectrum(mode)
-            for name, sig in self.all_signals().items()
+            sig.name: sig.spectrum(mode) for sig in self._select_signals(names)
         }
 
     # ================================================

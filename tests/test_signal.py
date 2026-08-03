@@ -243,6 +243,78 @@ class Test_trim:
 
 
 # ============================================================
+# Missing data
+# ============================================================
+class Test_nans:
+    @staticmethod
+    def _sig(values: list[float]) -> Signal:
+        return Signal(
+            "s", np.array(values), time=np.arange(len(values), dtype=float)
+        )
+
+    def test_no_nans(self) -> None:
+        sig = self._sig([1.0, 2.0, 3.0])
+
+        assert not sig.has_nans()
+        assert sig.nan_intervals() == []
+
+    def test_single_interval(self) -> None:
+        sig = self._sig([1.0, np.nan, np.nan, 4.0])
+
+        assert sig.has_nans()
+        assert sig.nan_intervals() == [(1.0, 2.0)]
+
+    def test_isolated_nan_is_degenerate(self) -> None:
+        assert self._sig([1.0, np.nan, 3.0]).nan_intervals() == [(1.0, 1.0)]
+
+    def test_several_intervals(self) -> None:
+        sig = self._sig([np.nan, 2.0, np.nan, np.nan, 5.0, np.nan])
+
+        assert sig.nan_intervals() == [(0.0, 0.0), (2.0, 3.0), (5.0, 5.0)]
+
+    def test_intervals_without_time_are_samples(self) -> None:
+        sig = Signal("s", np.array([1.0, np.nan, 3.0]))
+
+        assert sig.nan_intervals() == [(1.0, 1.0)]
+
+    def test_interpolate(self) -> None:
+        out = self._sig([1.0, np.nan, np.nan, 4.0]).remove_nans()
+
+        assert not out.has_nans()
+        np.testing.assert_allclose(out.values, [1.0, 2.0, 3.0, 4.0])
+
+    def test_interpolate_holds_the_edges(self) -> None:
+        out = self._sig([np.nan, 2.0, 3.0, np.nan]).remove_nans()
+
+        np.testing.assert_allclose(out.values, [2.0, 2.0, 3.0, 3.0])
+
+    def test_drop(self) -> None:
+        out = self._sig([1.0, np.nan, 3.0]).remove_nans(fill="drop")
+
+        np.testing.assert_allclose(out.values, [1.0, 3.0])
+        assert out.time is not None
+        np.testing.assert_allclose(out.time, [0.0, 2.0])
+
+    def test_all_nans_raises(self) -> None:
+        with pytest.raises(ValueError):
+            self._sig([np.nan, np.nan]).remove_nans()
+
+    def test_bad_fill_raises(self) -> None:
+        with pytest.raises(ValueError):
+            self._sig([1.0, np.nan]).remove_nans(fill="banana")  # type: ignore[arg-type]
+
+    def test_shading(self) -> None:
+        ax = self._sig([1.0, np.nan, np.nan, 4.0])._plot_standard()
+
+        assert len(ax.patches) == 1
+
+    def test_shading_can_be_disabled(self) -> None:
+        sig = self._sig([1.0, np.nan, np.nan, 4.0])
+
+        assert len(sig._plot_standard(shade_nans=False).patches) == 0
+
+
+# ============================================================
 # Frequency domain
 # ============================================================
 class Test_spectrum:

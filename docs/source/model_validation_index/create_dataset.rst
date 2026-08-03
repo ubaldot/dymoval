@@ -91,11 +91,31 @@ axis:
 .. figure:: ../figures/CreateDatasetTrimmed.png
    :scale: 100%
 
-The same method exists on a single :ref:`Signal <signal>`. Trimming *before*
-building the :ref:`Dataset <Dataset>` is in fact the recommended way of
-getting rid of the ``NaN`` samples that loggers leave at the beginning and at
-the end of a recording — once inside a :ref:`Dataset <Dataset>` they would be
-spread around by the resampling.
+The same method exists on a single :ref:`Signal <signal>`.
+
+Calling ``ds.trim()`` with *no* time interval opens the dataset plot and lets
+you pick the interval graphically: zoom on the region you want to keep, then
+close the window. Pass signal names to plot only some of them, e.g.
+``ds.trim("room temperature")``.
+
+Missing data
+------------
+
+Loggers routinely leave ``NaN`` samples at the beginning, at the end, or in
+the middle of a recording. Locate them with ``ds.nan_intervals()`` — they are
+also shaded in every time plot — and fill them by interpolation with
+
+.. code::
+
+   ds_clean = ds.remove_nans()
+
+Gaps at the very beginning or at the very end have no left/right neighbour to
+interpolate between and are simply held constant, so a long one is better
+trimmed away than interpolated. Since a :ref:`Dataset <Dataset>` requires a
+common, uniformly sampled time vector, dropping the ``NaN`` samples outright
+is only possible on a single :ref:`Signal <signal>`
+(``sig.remove_nans(fill="drop")``), before the :ref:`Dataset <Dataset>` is
+built.
 
 .. note::
 

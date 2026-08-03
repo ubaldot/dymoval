@@ -241,6 +241,106 @@ class Signal:
         return float(np.mean(dt))
 
     # ================================================
+    # Missing data
+    # ================================================
+    def has_nans(self) -> bool:
+        """Whether the signal holds at least one ``NaN``."""
+        return bool(np.isnan(self.values).any())
+
+    def nan_intervals(self) -> list[tuple[float, float]]:
+        """Return the ``[start, end]`` intervals where the signal is ``NaN``.
+
+        Intervals are closed and expressed on the signal time vector, or in
+        samples when ``time`` is ``None``. A ``NaN`` sitting alone gives a
+        degenerate interval whose bounds are equal.
+
+        Example
+        -------
+        >>> Signal("s", np.array([1.0, np.nan, np.nan, 4.0])).nan_intervals()
+        [(1.0, 2.0)]
+        """
+        mask = np.isnan(self.values)
+
+        if not mask.any():
+            return []
+
+        x = (
+            np.arange(len(self.values), dtype=float)
+            if self.time is None
+            else self.time
+        )
+
+        # boundaries of the runs of True
+        padded = np.concatenate(([False], mask, [False]))
+        edges = np.flatnonzero(np.diff(padded.astype(np.int8)))
+
+        return [
+            (float(x[start]), float(x[stop - 1]))
+            for start, stop in zip(edges[::2], edges[1::2])
+        ]
+
+    def remove_nans(
+        self,
+        fill: Literal["interpolate", "drop"] = "interpolate",
+        **kwargs: Any,
+    ) -> "Signal":
+        """Get rid of the ``NaN`` samples.
+
+        Parameters
+        ----------
+        fill:
+            - ``"interpolate"`` replaces each ``NaN`` with a linear
+              interpolation of its neighbours. Leading and trailing
+              ``NaN``\\ s, having no neighbour on one side, are held
+              constant at the closest valid sample.
+            - ``"drop"`` removes the ``NaN`` samples altogether. The time
+              vector then stops being uniformly sampled, so the result
+              cannot be used to build a :class:`dymoval.dataset.Dataset`
+              before being resampled.
+        **kwargs:
+            Forwarded to ``numpy.interp`` when interpolating.
+
+        Note
+        ----
+        Interpolating is the safe choice for a signal that must keep its
+        uniform sampling, which is what a ``Dataset`` requires.
+        """
+        if fill not in ("interpolate", "drop"):
+            raise ValueError(
+                f"{self.name}: 'fill' must be 'interpolate' or 'drop', "
+                f"got {fill!r}"
+            )
+
+        mask = np.isnan(self.values)
+
+        if not mask.any():
+            return self.copy()
+
+        if mask.all():
+            raise ValueError(f"{self.name}: all the samples are NaN")
+
+        if fill == "drop":
+            return self._replace(
+                values=self.values[~mask],
+                time=None if self.time is None else self.time[~mask],
+            )
+
+        x = (
+            np.arange(len(self.values), dtype=float)
+            if self.time is None
+            else self.time
+        )
+
+        values = self.values.copy()
+        # np.interp holds the end values constant outside the valid range,
+        # which is exactly the wanted behaviour for leading/trailing NaNs.
+        values[mask] = np.interp(
+            x[mask], x[~mask], self.values[~mask], **kwargs
+        )
+
+        return self._replace(values=values)
+
+    # ================================================
     # Frequency domain
     # ================================================
     def _compute_fft(self) -> tuple[np.ndarray, np.ndarray, int, float]:
@@ -365,9 +465,28 @@ class Signal:
 
         return ax
 
-    def _plot_standard(self, ax: Axes | None = None, **kwargs: Any) -> Axes:
-        """Draw the signal on ``ax`` (created if ``None``)."""
-        return self._draw(
+    def _shade_nans(
+        self, ax: Axes, color: Any = None, alpha: float = 0.2, **kwargs: Any
+    ) -> Axes:
+        """Shade on ``ax`` the time intervals where the signal is ``NaN``.
+
+        A *primitive*: it draws this signal only, on axes owned by the
+        caller. ``color`` defaults to the color of the last line drawn.
+        """
+        for start, stop in self.nan_intervals():
+            ax.axvspan(start, stop, color=color, alpha=alpha, **kwargs)
+
+        return ax
+
+    def _plot_standard(
+        self, ax: Axes | None = None, shade_nans: bool = True, **kwargs: Any
+    ) -> Axes:
+        """Draw the signal on ``ax`` (created if ``None``).
+
+        Gaps in the data are shaded with the color of the curve, unless
+        ``shade_nans`` is unset.
+        """
+        ax = self._draw(
             ax,
             self.time,
             self.values,
@@ -375,6 +494,11 @@ class Signal:
             self._ylabel(),
             **kwargs,
         )
+
+        if shade_nans:
+            self._shade_nans(ax, color=ax.get_lines()[-1].get_color())
+
+        return ax
 
     def _plot_scope(self, **kwargs: Any) -> Figure:
         fig, axes, panel_ax = scope_subplots(figsize=(10, 5))

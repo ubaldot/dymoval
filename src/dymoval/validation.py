@@ -23,7 +23,7 @@ from .config import (
     XCorr_Statistic_type,
 )
 from .dataset import Dataset
-from .scope import DatasetScope, Layout, scope_subplots
+from .scope import DatasetScope, Layout, _pick_time_interval, scope_subplots
 from .signal import Signal
 from .statistics import rsquared
 from .utils import (
@@ -1084,52 +1084,6 @@ class ValidationSession:
             method.
         """
 
-        def _graph_selection(
-            vs: Self,
-            **kwargs: Any,
-        ) -> tuple[float, float]:  # pragma: no cover
-            # Select the time interval graphically.
-            # OBS! This part cannot be automatically tested because it
-            # requires manual action from the user (resize window).
-            figure = vs.plot_simulations(**kwargs)
-            axes = figure.get_axes()
-
-            time = vs._Dataset.time()
-            selection = {"tin": float(time[0]), "tout": float(time[-1])}
-
-            def update_time_interval(ax):  # type:ignore
-                time_interval = ax.get_xlim()
-                selection["tin"], selection["tout"] = time_interval
-                selection["tin"] = max(selection["tin"], 0.0)
-                selection["tout"] = max(selection["tout"], 0.0)
-                print(
-                    f"Updated time interval: {selection['tin']} to "
-                    f"{selection['tout']}"
-                )
-
-            cid = axes[0].callbacks.connect(
-                "xlim_changed", update_time_interval
-            )
-            fig = axes[0].get_figure()
-            assert fig is not None
-
-            fig.suptitle("Trim the simulation results.")
-
-            try:
-                while fig in [plt.figure(num) for num in plt.get_fignums()]:
-                    plt.pause(0.1)
-            except Exception as e:
-                print(f"An error occurred {e}")
-            finally:
-                fig.clear()
-                manager = fig.canvas.manager
-                if manager is not None:
-                    manager.destroy()
-
-            axes[0].remove_callback(cid)
-
-            return selection["tin"], selection["tout"]
-
         # =============================================
         # Trim ValidationSession main function
         # =============================================
@@ -1137,7 +1091,13 @@ class ValidationSession:
         time = vs._Dataset.time()
 
         if tin is None and tout is None:  # pragma: no cover
-            tin_sel, tout_sel = _graph_selection(self, **kwargs)
+            tin_sel, tout_sel = _pick_time_interval(
+                self.plot_simulations(**kwargs),
+                float(time[0]),
+                float(time[-1]),
+                title="Trim the simulation results.",
+                verbosity=verbosity,
+            )
         else:
             tin_sel = float(time[0]) if tin is None else tin
             tout_sel = float(time[-1]) if tout is None else tout

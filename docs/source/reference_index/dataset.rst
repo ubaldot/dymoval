@@ -50,6 +50,7 @@ nothing is ever modified in-place.
    Signal.remove_mean
    Signal.remove_constant
    Signal.low_pass_filter
+   Signal.remove_nans
    Signal.apply
    Signal.copy
 
@@ -59,6 +60,8 @@ nothing is ever modified in-place.
    Signal.get_sampling_period
    Signal.fft
    Signal.spectrum
+   Signal.has_nans
+   Signal.nan_intervals
 
 .. rubric:: Plotting methods
 .. autosummary::
@@ -99,10 +102,12 @@ pick the grid yourself.
 
 .. warning::
 
-   Building a :ref:`Dataset <Dataset>` interpolates. Trim away leading and
-   trailing ``NaN`` samples with :py:meth:`Signal.trim
-   <dymoval.signal.Signal.trim>` **before** calling a factory, otherwise the
-   ``NaN``\ s spread to the interpolated samples.
+   Building a :ref:`Dataset <Dataset>` interpolates, and interpolating
+   through a ``NaN`` spreads it to the neighbouring samples. Call
+   :py:meth:`Signal.remove_nans <dymoval.signal.Signal.remove_nans>` on the
+   signals **before** calling a factory, or
+   :py:meth:`Dataset.remove_nans <dymoval.dataset.Dataset.remove_nans>`
+   afterwards if the gaps are short enough to be interpolated away.
 
 .. rubric:: Fields
 .. autosummary::
@@ -136,6 +141,7 @@ pick the grid yourself.
    Dataset.remove_mean
    Dataset.remove_constant
    Dataset.low_pass_filter
+   Dataset.remove_nans
    Dataset.apply
    Dataset.pipe
    Dataset.add_input
@@ -152,6 +158,8 @@ As for :ref:`Signals <signal>`, each of these returns a new :ref:`Dataset
    Dataset.fft
    Dataset.spectrum
    Dataset.coverage
+   Dataset.has_nans
+   Dataset.nan_intervals
 
 .. rubric:: Plotting methods
 .. autosummary::

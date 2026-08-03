@@ -481,6 +481,70 @@ class and the optional `finish(ax, name)` touch-up.
 
 ---
 
+# Missing data
+
+`NaN` handling lives in the primitive layer and is mirrored by the
+orchestrator, like every other processing method.
+
+```python
+sig.has_nans()                     # bool
+sig.nan_intervals()                # [(t_start, t_end), ...], closed
+sig.remove_nans(fill="interpolate")  # or fill="drop"
+```
+
+- `nan_intervals` detects the runs of `NaN` with
+  `np.flatnonzero(np.diff(padded_mask))` and returns **closed** intervals
+  on the time vector, falling back to sample indices when `time is None`.
+  A lone `NaN` gives a degenerate interval whose bounds are equal.
+- `fill="interpolate"` uses `np.interp`, which conveniently holds the
+  end values constant outside the valid range — exactly what is wanted
+  for leading/trailing `NaN`s, which have no neighbour on one side.
+- `fill="drop"` deletes the samples. This breaks the uniform sampling,
+  so **`Dataset.remove_nans` rejects it** with a `ValueError`: dropping
+  samples of one signal and not of another would destroy the common time
+  vector that defines a `Dataset`. Drop on the single `Signal`s before
+  building the `Dataset`.
+- `remove_nans` raises if *every* sample is `NaN`, and returns a copy
+  (not `self`) when there is nothing to do.
+
+On the `Dataset` side, `remove_nans(*names, fill=...)` goes through the
+usual `_map` helper so the selection semantics match `detrend` and
+friends, while `nan_intervals()` returns `{name: [(start, end), ...]}`.
+
+**Shading.** `Signal._shade_nans(ax, color, alpha=0.2)` is a primitive
+that `axvspan`s each interval, and `Signal._plot_standard` calls it by
+default (`shade_nans=True`) using the color of the line it has just
+drawn. Since every time-domain plot in the package — `Signal.plot`,
+`Dataset.plot`, `plot_signals`, `plot_dataset`, `plot_compare`,
+`ValidationSession.plot_simulations` — funnels through
+`_plot_standard`, gaps are shaded everywhere for free. The legacy code
+instead matched lines to signals by substring-searching the legend
+labels, which was fragile; that is gone.
+
+---
+
+# Graphical time-interval picking
+
+`scope._pick_time_interval(fig, tin, tout, title, verbosity)` is the
+single implementation: it connects an `xlim_changed` callback on the
+first axes, blocks on `plt.pause(0.1)` until the figure is closed, and
+returns the last x-limits seen (clipped at 0), or the passed defaults if
+the user never zoomed. It is `# pragma: no cover` — it needs a human.
+
+Both `Dataset.trim` and `ValidationSession.trim` call it when **neither**
+`tin` **nor** `tout` is given. `Dataset.trim`'s signature is
+
+```python
+trim(tin=None, tout=None, *names, shift_to_zero=True, verbosity=0, **kwargs)
+```
+
+`names`/`kwargs` only select and style what is displayed while picking.
+Note `tin`/`tout` stay **positional** because `ValidationSession.trim`
+calls `vs._Dataset.trim(tin_sel, tout_sel)`, and `shift_to_zero` became
+keyword-only.
+
+---
+
 # Removed APIs
 
 ```python
@@ -505,15 +569,15 @@ docs.
 
 | legacy feature                                | status |
 | --------------------------------------------- | ------ |
-| `Dataset.remove_NaNs`, `_nan_intervals`, NaN shading in plots | **not ported.** There is zero NaN handling in the new core. Trim leading/trailing NaNs with `Signal.trim` *before* building a `Dataset`, otherwise the resampling interpolation spreads them. Open decision. |
-| `change_axes_layout(fig, nrows, ncols)`       | **not ported**, no replacement. |
+| `change_axes_layout(fig, nrows, ncols)`       | **not ported, by decision.** It had zero call sites in the legacy tree, and it was lossy: it `remove()`d every existing axes — throwing their contents away — before adding an empty grid. The modern one-liner is `fig.clear(); axes = fig.subplots(nrows, ncols)`, or `fig.subplot_mosaic` for anything fancier. |
 | `Dataset.excluded_signals`                    | dropped on purpose: the factories interpolate instead of excluding. |
-| graphical `tin`/`tout` picking in `Dataset.trim` | survives only in `ValidationSession.trim`. |
-| `Dataset.fft(*signals)` per-signal selection  | the new `fft()` takes no arguments and returns every signal. |
 | `validate_signals`, `validate_dataframe`, DataFrame construction | dropped on purpose: the factories validate. |
 | `overlap=True`                                | replaced by tuple grouping, e.g. `ds.plot(("u1", "y1"))`. |
 | `compare_datasets(kind=...)`                  | split into `plot_compare` / `plot_spectrum_compare` / `plot_coverage_compare`. |
 | `plotxy(*signal_pairs)`, `layout`/`ax_height`/`ax_width`, line styling | **ported** — see *Figure geometry* above. |
+| `Dataset.remove_NaNs`, `_nan_intervals`, NaN shading | **ported** — see *Missing data* above. |
+| graphical `tin`/`tout` picking in `Dataset.trim` | **ported** — shared with `ValidationSession.trim` via `scope._pick_time_interval`. |
+| `Dataset.fft(*signals)` per-signal selection  | **ported**, and `spectrum(*names, mode=...)` too. |
 
 ---
 

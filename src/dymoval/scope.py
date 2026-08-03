@@ -94,6 +94,62 @@ def scope_subplots(
     return fig, axes, panel_ax
 
 
+def _pick_time_interval(
+    fig: Figure,
+    tin: float,
+    tout: float,
+    title: str = "Trim the data.",
+    verbosity: int = 0,
+) -> tuple[float, float]:  # pragma: no cover
+    """Let the user pick a time interval by zooming on ``fig``.
+
+    The interval is read from the x-limits of the first axes, which the
+    user adjusts with the matplotlib pan/zoom tools. The call blocks
+    until the figure is closed and then returns the last limits seen,
+    clipped to non-negative values. ``tin``/``tout`` are the values
+    returned if the user never zooms.
+
+    Note
+    ----
+    This cannot be covered by automated tests since it requires manual
+    interaction.
+    """
+    axes = fig.get_axes()
+
+    if not axes:
+        raise ValueError("Cannot pick a time interval on an empty figure.")
+
+    selection = {"tin": float(tin), "tout": float(tout)}
+
+    def update_time_interval(ax: Axes) -> None:
+        left, right = ax.get_xlim()
+        selection["tin"] = max(float(left), 0.0)
+        selection["tout"] = max(float(right), 0.0)
+
+        if verbosity != 0:
+            print(
+                f"Updated time interval: {selection['tin']} to "
+                f"{selection['tout']}"
+            )
+
+    cid = axes[0].callbacks.connect("xlim_changed", update_time_interval)
+    fig.suptitle(title)
+
+    try:
+        while fig in [plt.figure(num) for num in plt.get_fignums()]:
+            plt.pause(0.1)
+    except Exception as e:
+        print(f"An error occurred {e}")
+    finally:
+        axes[0].remove_callback(cid)
+        fig.clear()
+        manager = fig.canvas.manager
+        if manager is not None:
+            manager.destroy()
+
+    return selection["tin"], selection["tout"]
+
+
 def _fmt(value: float | None, unit: str = "") -> str:
     """Format a number for the info panel."""
     if value is None or np.isnan(value):

@@ -396,9 +396,22 @@ class Test_spectrum:
             assert freq.shape == y.shape
 
     def test_spectrum(self, dataset: Dataset) -> None:
-        out = dataset.spectrum("psd_welch")
+        out = dataset.spectrum(mode="psd_welch")
 
         assert set(out) == set(dataset.names())
+
+    def test_fft_selection(self, dataset: Dataset) -> None:
+        assert set(dataset.fft("u1", "y1")) == {"u1", "y1"}
+
+    def test_spectrum_selection(self, dataset: Dataset) -> None:
+        assert set(dataset.spectrum("y0", mode="amplitude")) == {"y0"}
+
+    def test_unknown_name_raises(self, dataset: Dataset) -> None:
+        with pytest.raises(KeyError):
+            dataset.fft("potato")
+
+        with pytest.raises(KeyError):
+            dataset.spectrum("potato")
 
 
 # ============================================================
