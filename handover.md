@@ -77,6 +77,9 @@ copy()
 detrend()
 remove_mean()            # subtracts the signal mean
 remove_constant(value)   # subtracts a user-defined constant
+apply(func, unit=None)   # vectorized call, element-wise fallback
+low_pass_filter(cutoff)  # first-order IIR
+trim(tin, tout, shift_to_zero=True)
 resample(new_time)
 get_sampling_period()
 
@@ -89,6 +92,16 @@ plot_spectrum(ax=None, with_scope=True, xscale, yscale, mode)
 
 Every plotted line carries `line._signal`, so scopes can recover the
 signal name and units.
+
+`low_pass_filter` reproduces the legacy first-order recursion exactly:
+
+```text
+alpha = cutoff / fs
+y[0]   = u[0]
+y[k+1] = (1 - alpha) * y[k] + alpha * u[k]
+```
+
+with `0 < cutoff < fs`.
 
 ---
 
@@ -103,23 +116,60 @@ meta: dict | None
 ## Validation
 
 - non empty, no duplicated names across inputs/outputs
-- all signals have `time`
+- all signals have `time` and at least 2 samples
 - same sampling period, same length, same time vector
+- one single `time_unit` shared by every signal
+
+The plain `Dataset(...)` constructor is **strict**: it never repairs
+anything, it only validates.
 
 ## Construction
 
 ```python
-Dataset.from_signals(inputs=[...], outputs=[...])
-Dataset.from_dict({"inputs": [...], "outputs": [...]})
+Dataset.from_signals(inputs=[...], outputs=[...], target_sampling_period=None)
+Dataset.from_dict({"inputs": [...], "outputs": [...]}, target_sampling_period=None)
 ```
+
+The **factories** harmonize: signals living on different grids are
+resampled (interpolated) onto a common uniform grid
+
+```text
+dt   = target_sampling_period or max(sampling periods)
+span = [max(t_start), min(t_end)]      # intersection => no extrapolation
+```
+
+`Dataset._common_time()` returns `None` when the signals already agree, so
+the original time array is preserved bit-exactly.
+
+> This replaces the legacy `_fix_sampling_periods()`, which decimated
+> (`values[::N]`) only when the ratio was an integer and **excluded** the
+> other signals. Non-integer ratios are now supported and
+> `excluded_signals` no longer exists.
 
 ## API
 
 ```python
+# introspection
+time_unit()
+kind_of(name)              # "INPUT" | "OUTPUT"
+signal_list()              # [(kind, name, unit), ...]
+to_signals()               # flat list[Signal]
+dataset_values()           # (time, U, Y) as plain ndarrays
+repr(ds)
+
+# structure
+add_input(*signals)        # resampled onto the dataset time grid
+add_output(*signals)
+remove_signals(*names)     # may not empty the dataset
+
+# processing (all immutable)
 copy()
-detrend()
-remove_mean()
+detrend(*names)            # no name => every signal
+remove_mean(*names)
 remove_constant(value | {name: value})
+apply((name, func[, unit]), ...)
+low_pass_filter((name, fc), ...)
+trim(tin=None, tout=None, shift_to_zero=True)
 resample(new_time)
 align(other, how="intersection" | "union")
 pipe(func)
@@ -127,13 +177,29 @@ pipe(func)
 fft()
 spectrum(mode)
 
+# coverage
+coverage()                 # (u_mean, u_cov, y_mean, y_cov)
+plot_coverage(*names, nbins=100, ...)
+
+# plotting
 plot(*groups, with_scope=True)
 plot_xy(x_name, y_name, ax=None)
 plot_spectrum(*groups, with_scope=True, xscale, yscale, mode)
 ```
 
+`SIGNAL_KIND = ("INPUT", "OUTPUT")` is exported by the package.
+
 `align()` always returns a **uniform** time vector built with the sampling
 period of `self`, so the resulting datasets stay valid.
+
+### Deliberate differences from the legacy implementation
+
+| legacy                                     | new                                       |
+| ------------------------------------------ | ----------------------------------------- |
+| `remove_offset`                            | `remove_constant`                          |
+| `remove_signals` required ≥1 input **and** ≥1 output | only forbids emptying the dataset |
+| `add_signal` truncated / NaN-padded        | `add_input`/`add_output` resample          |
+| `_fix_sampling_periods` + `excluded_signals` | factory harmonization by interpolation   |
 
 ---
 
@@ -276,7 +342,7 @@ occurrences live only in the legacy `validation.py` / `dataset_old.py`.
 # Tests
 
 ```bash
-pytest tests -q                     # 151 tests
+pytest tests -q                     # 232 tests
 pytest tests -m "not plots"         # skip the plotting tests
 ruff format ./src ./tests && ruff check ./src ./tests
 mypy ./src/dymoval/{signal,dataset,scope,plotting,__init__}.py
@@ -285,14 +351,20 @@ mypy ./src/dymoval/{signal,dataset,scope,plotting,__init__}.py
 Files:
 
 ```text
-tests/conftest.py       # Agg backend + Signal/Dataset fixtures
+tests/conftest.py         # Agg backend + Signal/Dataset fixtures
 tests/test_signal.py
-tests/test_dataset.py
-tests/test_scope.py     # synthetic click/key events
+tests/test_dataset.py     # construction, validation, harmonization
+tests/test_dataset_ops.py # structure editing, processing, coverage
+tests/test_scope.py       # synthetic click/key events
 tests/test_plotting.py
 tests/test_utils.py
-tests/legacy/           # pandas-era suite, not collected
+tests/legacy/             # pandas-era suite, not collected
 ```
+
+The fixtures `sine_dataset` and `ones_dataset` are ports of the legacy
+`sine_dataframe` / `constant_ones_dataframe`, so the numerical
+expectations of the legacy suite (notably the `low_pass_filter` reference
+values) are reused verbatim.
 
 `manual_tests/test_plots_manual.py` is the interactive smoke script.
 

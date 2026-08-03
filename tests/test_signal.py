@@ -123,6 +123,126 @@ class Test_processing:
 
 
 # ============================================================
+# apply / low_pass_filter / trim
+# ============================================================
+class Test_apply:
+    def test_vectorized(self, signal: Signal) -> None:
+        out = signal.apply(np.square, unit="V^2")
+
+        assert np.allclose(out.values, signal.values**2)
+        assert out.unit == "V^2"
+        assert out.name == signal.name
+
+    def test_unit_is_kept_by_default(self, signal: Signal) -> None:
+        assert signal.apply(lambda x: 2 * x).unit == "V"
+
+    def test_scalar_function(self, signal: Signal) -> None:
+        out = signal.apply(lambda x: float(x) + 1.0)
+
+        assert np.allclose(out.values, signal.values + 1.0)
+
+    def test_shape_changing_function_falls_back(self, signal: Signal) -> None:
+        # wrong output shape => element-wise fallback, which here fails too
+        with pytest.raises((TypeError, IndexError)):
+            signal.apply(lambda x: x[:2])
+
+    def test_reducing_function_is_applied_element_wise(
+        self, signal: Signal
+    ) -> None:
+        # np.sum() would collapse the array, so the element-wise fallback
+        # kicks in and np.sum(scalar) is the identity
+        out = signal.apply(np.sum)
+
+        assert np.allclose(out.values, signal.values)
+
+
+class Test_low_pass_filter:
+    def test_recursion(self) -> None:
+        t = np.arange(0.0, 1.0, 0.1)
+        sig = Signal(name="u", values=np.arange(10.0), time=t)
+
+        out = sig.low_pass_filter(1.0)
+
+        fs = 10.0
+        alpha = 1.0 / fs
+        expected = np.empty(10)
+        expected[0] = 0.0
+
+        for k in range(9):
+            expected[k + 1] = (1 - alpha) * expected[k] + alpha * k
+
+        assert np.allclose(out.values, expected)
+        assert out.name == "u"
+
+    def test_dc_gain_is_one(self) -> None:
+        t = np.arange(0.0, 100.0, 0.1)
+        sig = Signal(name="u", values=np.full_like(t, 5.0), time=t)
+
+        assert np.allclose(sig.low_pass_filter(1.0).values, 5.0)
+
+    def test_attenuates_high_frequencies(self) -> None:
+        t = np.arange(0.0, 10.0, 0.01)
+        sig = Signal(
+            name="u", values=np.sin(2 * np.pi * 40 * t), time=t, unit="V"
+        )
+
+        out = sig.low_pass_filter(1.0)
+
+        assert np.max(np.abs(out.values)) < 0.2
+
+    @pytest.mark.parametrize("cutoff", [0.0, -1.0])
+    def test_non_positive_cutoff(self, signal: Signal, cutoff: float) -> None:
+        with pytest.raises(ValueError):
+            signal.low_pass_filter(cutoff)
+
+    def test_cutoff_above_sampling_frequency(self, signal: Signal) -> None:
+        fs = 1.0 / signal.get_sampling_period()
+
+        with pytest.raises(ValueError):
+            signal.low_pass_filter(fs)
+
+
+class Test_trim:
+    def test_nominal(self) -> None:
+        t = np.arange(0.0, 1.0, 0.1)
+        sig = Signal(name="u", values=np.arange(10.0), time=t)
+
+        out = sig.trim(0.2, 0.5)
+
+        assert np.allclose(out.values, [2.0, 3.0, 4.0, 5.0])
+        assert np.isclose(out.time[0], 0.0)
+
+    def test_without_shift(self) -> None:
+        t = np.arange(0.0, 1.0, 0.1)
+        sig = Signal(name="u", values=np.arange(10.0), time=t)
+
+        out = sig.trim(0.2, 0.5, shift_to_zero=False)
+
+        assert np.isclose(out.time[0], 0.2)
+
+    def test_open_ended(self) -> None:
+        t = np.arange(0.0, 1.0, 0.1)
+        sig = Signal(name="u", values=np.arange(10.0), time=t)
+
+        assert len(sig.trim(tout=0.5)) == 6
+        assert len(sig.trim(tin=0.5)) == 5
+
+    def test_reversed(self, signal: Signal) -> None:
+        with pytest.raises(ValueError):
+            signal.trim(2.0, 1.0)
+
+    def test_empty(self, signal: Signal) -> None:
+        with pytest.raises(ValueError):
+            signal.trim(100.0, 200.0)
+
+    def test_without_time(self) -> None:
+        sig = Signal(name="u", values=np.zeros(4))
+
+        with pytest.raises(ValueError):
+            sig.trim(0.0, 1.0)
+
+
+# ============================================================
 # Frequency domain
 # ============================================================
 class Test_spectrum:

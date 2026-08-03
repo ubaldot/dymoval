@@ -14,7 +14,7 @@ methods internally.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal, get_args
+from typing import Any, Callable, Literal, get_args
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -106,6 +106,93 @@ class Signal:
     def remove_constant(self, value: float) -> "Signal":
         """Subtract a user-defined constant."""
         return self._replace(values=self.values - value)
+
+    def apply(
+        self, func: Callable[[Any], Any], unit: str | None = None
+    ) -> "Signal":
+        """Apply ``func`` to the signal values.
+
+        ``func`` is tried on the whole array first (vectorized) and falls
+        back to an element-wise evaluation. ``unit`` overrides the signal
+        unit, since a transformation usually changes it.
+        """
+        try:
+            values = np.asarray(func(self.values), dtype=float)
+
+            if values.shape != self.values.shape:
+                raise ValueError
+        except (ValueError, TypeError):
+            values = np.array(
+                [float(func(v)) for v in self.values], dtype=float
+            )
+
+        return self._replace(
+            values=values, unit=self.unit if unit is None else unit
+        )
+
+    def low_pass_filter(self, cutoff: float) -> "Signal":
+        """Filter the signal with a first-order low-pass filter.
+
+        ``cutoff`` is expressed in Hz and must satisfy
+        ``0 < cutoff < 1 / sampling_period``.
+        """
+        fs = 1.0 / self.get_sampling_period()
+
+        if cutoff <= 0:
+            raise ValueError(
+                f"{self.name}: cut-off frequency must be positive."
+            )
+
+        if cutoff >= fs:
+            raise ValueError(
+                f"{self.name}: cut-off frequency must be smaller than the "
+                f"sampling frequency ({fs})."
+            )
+
+        u = self.values
+        y = np.empty_like(u, dtype=float)
+
+        alpha = cutoff / fs
+        y[0] = u[0]
+
+        for k in range(len(u) - 1):
+            y[k + 1] = (1.0 - alpha) * y[k] + alpha * u[k]
+
+        return self._replace(values=y)
+
+    def trim(
+        self,
+        tin: float | None = None,
+        tout: float | None = None,
+        shift_to_zero: bool = True,
+    ) -> "Signal":
+        """Keep the samples with ``tin <= time <= tout``.
+
+        ``None`` means "from the beginning" / "until the end". When
+        ``shift_to_zero`` is set the resulting time vector starts at 0.
+        """
+        if self.time is None:
+            raise ValueError(f"{self.name}: time required for trimming")
+
+        t_start = self.time[0] if tin is None else tin
+        t_end = self.time[-1] if tout is None else tout
+
+        if t_end < t_start:
+            raise ValueError(f"{self.name}: tin must be smaller than tout")
+
+        mask = (self.time >= t_start) & (self.time <= t_end)
+
+        if not np.any(mask):
+            raise ValueError(
+                f"{self.name}: no samples in [{t_start}, {t_end}]"
+            )
+
+        time = self.time[mask]
+
+        if shift_to_zero:
+            time = time - time[0]
+
+        return self._replace(values=self.values[mask], time=time)
 
     def resample(self, new_time: np.ndarray) -> "Signal":
         """Linearly resample the signal on ``new_time``."""

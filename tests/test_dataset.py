@@ -62,31 +62,137 @@ class Test_construction:
         with pytest.raises(ValueError):
             Dataset.from_signals(inputs=[bad])
 
-    def test_length_mismatch(self, time: np.ndarray) -> None:
-        short = time[:10]
+    def test_too_few_samples(self) -> None:
+        t = np.array([0.0])
+        bad = Signal(name="u", values=np.zeros(1), time=t)
 
         with pytest.raises(ValueError):
-            Dataset.from_signals(
-                inputs=[_sig("u", time)], outputs=[_sig("y", short)]
-            )
+            Dataset.from_signals(inputs=[bad])
 
-    def test_sampling_period_mismatch(self, time: np.ndarray) -> None:
-        with pytest.raises(ValueError):
-            Dataset.from_signals(
-                inputs=[_sig("u", time)], outputs=[_sig("y", 2 * time)]
-            )
+    def test_time_unit_must_be_consistent(self, time: np.ndarray) -> None:
+        u = Signal(name="u", values=np.zeros_like(time), time=time)
+        y = Signal(
+            name="y",
+            values=np.zeros_like(time),
+            time=time,
+            time_unit="ms",
+        )
 
-    def test_not_aligned(self, time: np.ndarray) -> None:
         with pytest.raises(ValueError):
-            Dataset.from_signals(
-                inputs=[_sig("u", time)], outputs=[_sig("y", time + 100.0)]
-            )
+            Dataset.from_signals(inputs=[u], outputs=[y])
 
     def test_outputs_only(self, time: np.ndarray) -> None:
         ds = Dataset.from_signals(outputs=[_sig("y", time)])
 
         assert ds.time() is not None
         assert ds.input_names() == []
+
+
+# ============================================================
+# The constructor itself stays strict
+# ============================================================
+class Test_constructor_is_strict:
+    def test_length_mismatch(self, time: np.ndarray) -> None:
+        with pytest.raises(ValueError):
+            Dataset(
+                inputs={"u": _sig("u", time)},
+                outputs={"y": _sig("y", time[:10])},
+            )
+
+    def test_sampling_period_mismatch(self, time: np.ndarray) -> None:
+        with pytest.raises(ValueError):
+            Dataset(
+                inputs={"u": _sig("u", time)},
+                outputs={"y": _sig("y", 2 * time)},
+            )
+
+    def test_not_aligned(self, time: np.ndarray) -> None:
+        with pytest.raises(ValueError):
+            Dataset(
+                inputs={"u": _sig("u", time)},
+                outputs={"y": _sig("y", time + 100.0)},
+            )
+
+    def test_key_must_match_signal_name(self, time: np.ndarray) -> None:
+        with pytest.raises(ValueError):
+            Dataset(inputs={"wrong": _sig("u", time)})
+
+
+# ============================================================
+# Harmonization on construction (was _fix_sampling_periods)
+# ============================================================
+class Test_harmonization:
+    def test_different_sampling_periods(self) -> None:
+        t_fast = np.arange(0, 10, 0.01)
+        t_slow = np.arange(0, 10, 0.1)
+
+        u = Signal(name="u", values=np.sin(t_fast), time=t_fast)
+        y = Signal(name="y", values=np.cos(t_slow), time=t_slow)
+
+        ds = Dataset.from_signals(inputs=[u], outputs=[y])
+
+        # everybody is brought to the SLOWEST sampling period
+        assert np.isclose(ds.get_sampling_period(), 0.1)
+        assert len(ds["u"]) == len(ds["y"])
+        assert np.allclose(ds["y"].values, np.cos(ds.time()), atol=1e-9)
+
+    def test_non_integer_ratio_is_supported(self) -> None:
+        # the legacy implementation had to EXCLUDE such signals
+        t1 = np.arange(0, 10, 0.01)
+        t2 = np.arange(0, 10, 0.017)
+
+        u = Signal(name="u", values=np.sin(t1), time=t1)
+        y = Signal(name="y", values=np.sin(t2), time=t2)
+
+        ds = Dataset.from_signals(inputs=[u], outputs=[y])
+
+        assert np.isclose(ds.get_sampling_period(), 0.017)
+        assert set(ds.names()) == {"u", "y"}
+
+    def test_explicit_target_sampling_period(self, time: np.ndarray) -> None:
+        ds = Dataset.from_signals(
+            inputs=[_sig("u", time)],
+            outputs=[_sig("y", time)],
+            target_sampling_period=0.05,
+        )
+
+        assert np.isclose(ds.get_sampling_period(), 0.05)
+
+    @pytest.mark.parametrize("target", [-0.1, 0.0, "potato", True])
+    def test_invalid_target(self, time: np.ndarray, target: object) -> None:
+        with pytest.raises(ValueError):
+            Dataset.from_signals(
+                inputs=[_sig("u", time)],
+                target_sampling_period=target,  # type: ignore[arg-type]
+            )
+
+    def test_time_vector_is_preserved_when_already_aligned(
+        self, dataset: Dataset, time: np.ndarray
+    ) -> None:
+        assert np.allclose(dataset.time(), time)
+        assert len(dataset.time()) == len(time)
+
+    def test_grid_spans_the_common_interval(self) -> None:
+        t1 = np.arange(0.0, 10.0, 0.1)
+        t2 = np.arange(3.0, 20.0, 0.1)
+
+        u = Signal(name="u", values=np.sin(t1), time=t1)
+        y = Signal(name="y", values=np.sin(t2), time=t2)
+
+        ds = Dataset.from_signals(inputs=[u], outputs=[y])
+
+        assert np.isclose(ds.time()[0], 3.0)
+        assert ds.time()[-1] <= 9.9 + 1e-9
+
+    def test_no_overlap(self) -> None:
+        t1 = np.arange(0.0, 1.0, 0.1)
+        t2 = np.arange(100.0, 101.0, 0.1)
+
+        u = Signal(name="u", values=np.sin(t1), time=t1)
+        y = Signal(name="y", values=np.sin(t2), time=t2)
+
+        with pytest.raises(ValueError):
+            Dataset.from_signals(inputs=[u], outputs=[y])
 
 
 # ============================================================

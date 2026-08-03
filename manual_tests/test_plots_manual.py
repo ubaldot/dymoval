@@ -81,6 +81,18 @@ for mode in dmv.SPECTRUM_MODES:
 print("-> Dataset.plot_xy()")
 ds.plot_xy("u1", "y1")
 
+print("-> Dataset.plot_coverage()")
+ds.plot_coverage()
+ds.plot_coverage("u1", "y1", nbins=50)
+
+print("-> Dataset.trim() / low_pass_filter() / apply()")
+dmv.plot_compare(
+    ds,
+    ds.low_pass_filter(("u1", 1.0), ("y1", 1.5)),
+    ds.apply(("u1", np.abs)),
+    labels=["raw", "low-pass filtered", "abs(u1)"],
+)
+
 # ============================================================
 # Comparison
 # ============================================================

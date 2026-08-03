@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable, Self, Sequence
+from typing import Any, Callable, Iterable, Literal, Self, Sequence, get_args
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -21,10 +21,14 @@ from matplotlib.figure import Figure
 from .scope import AmplitudeSpectrumScope, DatasetScope, SpectrumScope
 from .signal import SPECTRUM_MODES, Signal, SpectrumMode
 
-__all__ = ["Dataset"]
+__all__ = ["Dataset", "SIGNAL_KIND"]
 
 #: color used when a single *output* signal is plotted alone
 _OUTPUT_COLOR = "green"
+_INPUT_COLOR = "blue"
+
+SignalKind = Literal["INPUT", "OUTPUT"]
+SIGNAL_KIND: tuple[str, ...] = get_args(SignalKind)
 
 Group = tuple[str, ...]
 
@@ -61,6 +65,13 @@ class Dataset:
                     f"Key '{name}' does not match signal name '{sig.name}'"
                 )
 
+        time_units = {sig.time_unit for sig in all_signals}
+        if len(time_units) > 1:
+            raise ValueError(
+                f"All the signals must share the same time unit, "
+                f"got {sorted(str(u) for u in time_units)}"
+            )
+
         ref = all_signals[0]
 
         if ref.time is None:
@@ -87,6 +98,74 @@ class Dataset:
                 raise ValueError(f"{sig.name} is not aligned")
 
     # ================================================
+    # Harmonization
+    # ================================================
+    @staticmethod
+    def _common_time(
+        signals: Sequence[Signal], target_sampling_period: float | None
+    ) -> np.ndarray | None:
+        """Return the time vector every signal must share.
+
+        ``None`` means "the signals already agree, leave them alone".
+        The grid spans the time interval covered by **all** the signals,
+        so that resampling never extrapolates.
+        """
+        for sig in signals:
+            if sig.time is None:
+                raise ValueError(f"{sig.name}: missing time")
+
+            if len(sig.time) < 2:
+                raise ValueError(f"{sig.name}: at least two samples required")
+
+        if target_sampling_period is not None:
+            if (
+                isinstance(target_sampling_period, bool)
+                or not isinstance(target_sampling_period, (int, float))
+                or target_sampling_period <= 0
+            ):
+                raise ValueError(
+                    "'target_sampling_period' must be a positive number"
+                )
+
+        periods = [sig.get_sampling_period() for sig in signals]
+        ref_time = signals[0].time
+        assert ref_time is not None
+
+        already_aligned = all(
+            sig.time is not None
+            and len(sig.time) == len(ref_time)
+            and np.allclose(sig.time, ref_time)
+            for sig in signals
+        )
+
+        if already_aligned and (
+            target_sampling_period is None
+            or np.isclose(target_sampling_period, periods[0])
+        ):
+            return None
+
+        # Downsample everybody to the slowest signal, unless the user
+        # asked for a specific sampling period.
+        dt = (
+            float(np.max(periods))
+            if target_sampling_period is None
+            else float(target_sampling_period)
+        )
+
+        t_start = max(float(sig.time[0]) for sig in signals)  # type: ignore[index]
+        t_end = min(float(sig.time[-1]) for sig in signals)  # type: ignore[index]
+
+        n_samples = int(np.floor((t_end - t_start) / dt)) + 1
+
+        if n_samples < 2:
+            raise ValueError(
+                "The signals do not share a long enough time interval "
+                f"(from {t_start} to {t_end} with dt={dt})"
+            )
+
+        return t_start + np.arange(n_samples) * dt
+
+    # ================================================
     # Constructors
     # ================================================
     @classmethod
@@ -94,8 +173,16 @@ class Dataset:
         cls,
         data: dict[str, Sequence[Signal]],
         meta: dict[str, Any] | None = None,
+        target_sampling_period: float | None = None,
     ) -> "Dataset":
-        """Build a ``Dataset`` from ``{"inputs": [...], "outputs": [...]}``."""
+        """Build a ``Dataset`` from ``{"inputs": [...], "outputs": [...]}``.
+
+        Signals that do not already share a time vector are resampled on a
+        common uniform grid. By default the grid uses the **largest**
+        sampling period (the slowest signal) and spans the time interval
+        covered by every signal, so that no extrapolation takes place.
+        Pass ``target_sampling_period`` to choose the grid explicitly.
+        """
         allowed = {"inputs", "outputs"}
 
         if not set(data).issubset(allowed):
@@ -115,11 +202,20 @@ class Dataset:
 
             return result
 
-        return cls(
-            inputs=to_dict(data.get("inputs", [])),
-            outputs=to_dict(data.get("outputs", [])),
-            meta=meta,
-        )
+        inputs = to_dict(data.get("inputs", []))
+        outputs = to_dict(data.get("outputs", []))
+        all_signals = [*inputs.values(), *outputs.values()]
+
+        if not all_signals:
+            raise ValueError("Dataset cannot be empty")
+
+        new_time = cls._common_time(all_signals, target_sampling_period)
+
+        if new_time is not None:
+            inputs = {k: v.resample(new_time) for k, v in inputs.items()}
+            outputs = {k: v.resample(new_time) for k, v in outputs.items()}
+
+        return cls(inputs=inputs, outputs=outputs, meta=meta)
 
     @classmethod
     def from_signals(
@@ -127,10 +223,12 @@ class Dataset:
         inputs: Sequence[Signal] | None = None,
         outputs: Sequence[Signal] | None = None,
         meta: dict[str, Any] | None = None,
+        target_sampling_period: float | None = None,
     ) -> "Dataset":
         return cls.from_dict(
             {"inputs": list(inputs or []), "outputs": list(outputs or [])},
             meta=meta,
+            target_sampling_period=target_sampling_period,
         )
 
     # ================================================
@@ -168,6 +266,70 @@ class Dataset:
     def get_sampling_period(self) -> float:
         return next(iter(self.all_signals().values())).get_sampling_period()
 
+    def time_unit(self) -> str | None:
+        return next(iter(self.all_signals().values())).time_unit
+
+    def kind_of(self, name: str) -> SignalKind:
+        """Return whether ``name`` is an ``"INPUT"`` or an ``"OUTPUT"``."""
+        if name in self.inputs:
+            return "INPUT"
+
+        if name in self.outputs:
+            return "OUTPUT"
+
+        raise KeyError(f"Signal '{name}' not found")
+
+    def signal_list(self) -> list[tuple[SignalKind, str, str]]:
+        """Return ``[(kind, name, unit), ...]``, inputs first."""
+        groups: list[tuple[SignalKind, dict[str, Signal]]] = [
+            ("INPUT", self.inputs),
+            ("OUTPUT", self.outputs),
+        ]
+
+        return [
+            (kind, sig.name, sig.unit or "")
+            for kind, signals in groups
+            for sig in signals.values()
+        ]
+
+    def to_signals(self) -> dict[SignalKind, list[Signal]]:
+        """Return ``{"INPUT": [...], "OUTPUT": [...]}`` with copies."""
+        return {
+            "INPUT": [sig.copy() for sig in self.inputs.values()],
+            "OUTPUT": [sig.copy() for sig in self.outputs.values()],
+        }
+
+    def dataset_values(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Return ``(time, inputs, outputs)`` as numpy arrays.
+
+        ``inputs`` and ``outputs`` are 2-D ``(n_samples, n_signals)``,
+        except when the dataset holds a single input (resp. output), in
+        which case the corresponding array is 1-D.
+        """
+
+        def stack(signals: dict[str, Signal]) -> np.ndarray:
+            if not signals:
+                return np.empty((len(self.time()), 0))
+
+            values = [sig.values for sig in signals.values()]
+
+            return values[0] if len(values) == 1 else np.column_stack(values)
+
+        return self.time(), stack(self.inputs), stack(self.outputs)
+
+    def __repr__(self) -> str:
+        lines = [
+            f"Dataset: {len(self.inputs)} input(s), "
+            f"{len(self.outputs)} output(s), "
+            f"{len(self.time())} samples, "
+            f"dt = {self.get_sampling_period():.6g} {self.time_unit()}"
+        ]
+
+        for kind, name, unit in self.signal_list():
+            lines.append(f"  {kind:<6} {name} [{unit}]")
+
+        return "\n".join(lines)
+
     # ================================================
     # Internal helpers
     # ================================================
@@ -183,11 +345,122 @@ class Dataset:
 
         return [all_signals[name] for name in names]
 
-    def _map(self, func: Callable[[Signal], Signal]) -> Self:
-        """Apply ``func`` to every signal and return a new ``Dataset``."""
+    def _check_names(self, names: Sequence[str]) -> None:
+        not_found = [name for name in names if name not in self.all_signals()]
+
+        if not_found:
+            raise KeyError(
+                f"Signal(s) {sorted(not_found)} not found. "
+                f"Available: {self.names()}"
+            )
+
+    def _map(
+        self,
+        func: Callable[[Signal], Signal],
+        names: Sequence[str] | None = None,
+    ) -> Self:
+        """Apply ``func`` to the selected signals, return a new ``Dataset``.
+
+        ``names=None`` (or empty) applies ``func`` to every signal.
+        """
+        if names:
+            self._check_names(names)
+            selected = set(names)
+        else:
+            selected = set(self.all_signals())
+
+        def apply(sig: Signal) -> Signal:
+            return func(sig) if sig.name in selected else sig.copy()
+
         return type(self)(
-            inputs={k: func(v) for k, v in self.inputs.items()},
-            outputs={k: func(v) for k, v in self.outputs.items()},
+            inputs={k: apply(v) for k, v in self.inputs.items()},
+            outputs={k: apply(v) for k, v in self.outputs.items()},
+            meta=deepcopy(self.meta),
+        )
+
+    def _pairs(
+        self, pairs: Sequence[tuple[str, Any]], what: str
+    ) -> dict[str, Any]:
+        """Validate and flatten ``(name, value)`` argument tuples."""
+        result: dict[str, Any] = {}
+
+        for item in pairs:
+            if not isinstance(item, tuple) or len(item) < 2:
+                raise TypeError(
+                    f"Arguments must be ('signal_name', {what}) tuples"
+                )
+
+            result[item[0]] = item[1:] if len(item) > 2 else item[1]
+
+        self._check_names(list(result))
+
+        return result
+
+    # ================================================
+    # Structure
+    # ================================================
+    def _add_signals(self, kind: SignalKind, *signals: Signal) -> Self:
+        if not signals:
+            return self.copy()
+
+        existing = set(self.all_signals())
+        seen: set[str] = set()
+
+        for sig in signals:
+            if not isinstance(sig, Signal):
+                raise TypeError("All elements must be Signal instances")
+
+            if sig.name in existing or sig.name in seen:
+                raise KeyError(f"Signal '{sig.name}' already exists")
+
+            seen.add(sig.name)
+
+        new_time = self.time()
+        added = {sig.name: sig.resample(new_time) for sig in signals}
+
+        inputs = {k: v.copy() for k, v in self.inputs.items()}
+        outputs = {k: v.copy() for k, v in self.outputs.items()}
+
+        if kind == "INPUT":
+            inputs.update(added)
+        else:
+            outputs.update(added)
+
+        return type(self)(
+            inputs=inputs, outputs=outputs, meta=deepcopy(self.meta)
+        )
+
+    def add_input(self, *signals: Signal) -> Self:
+        """Return a new ``Dataset`` with extra input signals.
+
+        The added signals are resampled on the dataset time vector.
+        """
+        return self._add_signals("INPUT", *signals)
+
+    def add_output(self, *signals: Signal) -> Self:
+        """Return a new ``Dataset`` with extra output signals."""
+        return self._add_signals("OUTPUT", *signals)
+
+    def remove_signals(self, *names: str) -> Self:
+        """Return a new ``Dataset`` without the given signals."""
+        self._check_names(names)
+
+        removed = set(names)
+
+        if removed >= set(self.all_signals()):
+            raise ValueError(
+                "Cannot remove every signal: the dataset would be empty"
+            )
+
+        return type(self)(
+            inputs={
+                k: v.copy() for k, v in self.inputs.items() if k not in removed
+            },
+            outputs={
+                k: v.copy()
+                for k, v in self.outputs.items()
+                if k not in removed
+            },
             meta=deepcopy(self.meta),
         )
 
@@ -197,12 +470,12 @@ class Dataset:
     def copy(self) -> Self:
         return self._map(lambda sig: sig.copy())
 
-    def detrend(self) -> Self:
-        return self._map(lambda sig: sig.detrend())
+    def detrend(self, *names: str) -> Self:
+        return self._map(lambda sig: sig.detrend(), names)
 
-    def remove_mean(self) -> Self:
-        """Subtract the mean of every signal."""
-        return self._map(lambda sig: sig.remove_mean())
+    def remove_mean(self, *names: str) -> Self:
+        """Subtract the mean of the selected signals (all by default)."""
+        return self._map(lambda sig: sig.remove_mean(), names)
 
     def remove_constant(self, value: float | dict[str, float]) -> Self:
         """Subtract a constant from every signal.
@@ -212,16 +485,64 @@ class Dataset:
         mapping are left untouched.
         """
         if isinstance(value, dict):
-            unknown = set(value) - set(self.all_signals())
-
-            if unknown:
-                raise KeyError(f"Unknown signals: {sorted(unknown)}")
+            self._check_names(list(value))
 
             return self._map(
                 lambda sig: sig.remove_constant(value.get(sig.name, 0.0))
             )
 
         return self._map(lambda sig: sig.remove_constant(value))
+
+    def apply(self, *signal_function_unit: tuple[Any, ...]) -> Self:
+        """Apply a function to the given signals.
+
+        Each argument is a ``(name, func)`` or ``(name, func, new_unit)``
+        tuple::
+
+            ds.apply(("u1", np.square, "V^2"), ("y1", lambda x: 2 * x))
+        """
+        spec = self._pairs(signal_function_unit, "func[, unit]")
+
+        def transform(sig: Signal) -> Signal:
+            item = spec[sig.name]
+
+            if isinstance(item, tuple):
+                func, unit = item[0], item[1]
+            else:
+                func, unit = item, None
+
+            return sig.apply(func, unit)
+
+        return self._map(transform, list(spec))
+
+    def low_pass_filter(self, *signals_cutoffs: tuple[str, float]) -> Self:
+        """Low-pass filter the given signals.
+
+        Each argument is a ``(name, cutoff_hz)`` tuple::
+
+            ds.low_pass_filter(("u1", 10.0), ("y1", 2.5))
+        """
+        cutoffs = self._pairs(signals_cutoffs, "cutoff")
+
+        return self._map(
+            lambda sig: sig.low_pass_filter(float(cutoffs[sig.name])),
+            list(cutoffs),
+        )
+
+    def trim(
+        self,
+        tin: float | None = None,
+        tout: float | None = None,
+        shift_to_zero: bool = True,
+    ) -> Self:
+        """Keep the samples with ``tin <= time <= tout``.
+
+        ``None`` means "from the beginning" / "until the end". When
+        ``shift_to_zero`` is set the resulting time vector starts at 0.
+        """
+        return self._map(
+            lambda sig: sig.trim(tin, tout, shift_to_zero=shift_to_zero)
+        )
 
     def resample(self, new_time: np.ndarray) -> Self:
         return self._map(lambda sig: sig.resample(new_time))
@@ -422,6 +743,86 @@ class Dataset:
         ax.legend()
 
         return ax
+
+    # ================================================
+    # Coverage
+    # ================================================
+    @staticmethod
+    def _stats(
+        signals: dict[str, Signal],
+    ) -> tuple[np.ndarray, np.ndarray]:
+        if not signals:
+            return np.empty(0), np.empty((0, 0))
+
+        values = np.column_stack([sig.values for sig in signals.values()])
+
+        mean = np.nanmean(values, axis=0)
+        cov = np.atleast_2d(np.cov(values, rowvar=False))
+
+        return mean, cov
+
+    def coverage(
+        self,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """Return ``(u_mean, u_cov, y_mean, y_cov)``.
+
+        Means are 1-D arrays of length ``n_signals``; covariances are the
+        corresponding ``(n_signals, n_signals)`` matrices.
+        """
+        u_mean, u_cov = self._stats(self.inputs)
+        y_mean, y_cov = self._stats(self.outputs)
+
+        return u_mean, u_cov, y_mean, y_cov
+
+    def plot_coverage(
+        self,
+        *names: str,
+        nbins: int = 100,
+        color_input: str = _INPUT_COLOR,
+        color_output: str = _OUTPUT_COLOR,
+        alpha: float = 1.0,
+        histtype: Literal["bar", "barstacked", "step", "stepfilled"] = "bar",
+    ) -> Figure:
+        """Plot the histogram of the signal values, one subplot each.
+
+        Coverage plots cannot be overlapped, hence groups (tuples) are
+        not accepted here.
+        """
+        overlapped = [name for name in names if not isinstance(name, str)]
+
+        if overlapped:
+            raise TypeError(
+                f"It seems that you are trying to overlap {overlapped}. "
+                "Coverage plots cannot be overlapped."
+            )
+
+        selected = list(names) if names else self.names()
+        self._check_names(selected)
+
+        fig = plt.figure(
+            constrained_layout=True, figsize=(7, 1.8 * len(selected) + 1)
+        )
+        axes = self._make_axes(fig, len(selected))
+
+        for ax, name in zip(axes, selected):
+            sig = self[name]
+            is_input = name in self.inputs
+
+            ax.hist(
+                sig.values,
+                bins=nbins,
+                color=color_input if is_input else color_output,
+                alpha=alpha,
+                histtype=histtype,
+                label=name,
+            )
+
+            ax.set_xlabel(sig._ylabel())
+            ax.set_ylabel("count")
+            ax.grid(True)
+            ax.legend()
+
+        return fig
 
     # ================================================
     # Frequency-domain plotting
