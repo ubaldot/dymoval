@@ -55,6 +55,11 @@ pip install dymoval
 conda install conda-forge::dymoval
 ```
 
+> **Upgrading from 0.9?** Release 1.0 dropped the `pandas` dependency and
+> rewrote the core, so it is **not** backwards compatible. See the
+> [migration guide](https://ubaldot.github.io/dymoval/migrating.html) and
+> the [changelog](CHANGELOG.md).
+
 ## Getting started
 
 Suppose that you want to validate a model and you have the simulated out

@@ -95,6 +95,7 @@ Model validation
    getting_started
    model_validation
    reference
+   migrating
    api
 
 ####################

@@ -597,6 +597,13 @@ method must be mirrored** in `docs/source/reference_index/dataset.rst` or
 is a plain `automodule` dump of all nine modules and needs no maintenance
 beyond adding a new module.
 
+`docs/source/migrating.rst` maps the 0.9 API onto the 1.0 one and
+`CHANGELOG.md` summarizes the same break; **both must be updated
+whenever a public name changes**, since they are the only things
+standing between an existing user and a stack trace. The CI `make html`
+runs from the `docs/` Makefile and writes to `docs/build/` (no
+underscore), which is what gets pushed to `gh-pages`.
+
 ---
 
 # Tests
