@@ -120,6 +120,10 @@ among which:
    frequencies, spectrum = ds.spectrum()["room temperature"]
    ds.plot_spectrum()
    ds.plot_coverage()
+   ds.plot_xy()   # one XY plot per input/output pair
+
+See :ref:`figure_geometry` for how to resize and restyle any of these
+figures.
 
 Once your measurement :ref:`Dataset <Dataset>` is ready, you can move on to
 simulating your model.

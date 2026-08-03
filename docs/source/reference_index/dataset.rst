@@ -188,6 +188,47 @@ several datasets against each other, use the module-level functions:
 does not require its signals to be aligned, which makes it the tool for
 eyeballing raw logs *before* a :ref:`Dataset <Dataset>` exists.
 
+.. _figure_geometry:
+
+Controlling the figures
+=======================
+
+Every figure-returning plot function or method accepts the same three
+geometry arguments:
+
+``layout``
+   The *matplotlib* layout engine: ``"constrained"`` (the default),
+   ``"compressed"``, ``"tight"`` or ``"none"``.
+
+``ax_height``
+   Height, in inches, of each subplot.
+
+``ax_width``
+   Width, in inches, of the whole figure.
+
+Any further keyword argument is forwarded verbatim to *matplotlib*, so the
+usual ``linestyle``, ``alpha``, ``linewidth``, ... all work:
+
+.. code::
+
+   fig = ds.plot(("u1", "y1"), ax_height=3.0, layout="tight", linestyle="--")
+
+On top of that, :py:meth:`Dataset.plot <dymoval.dataset.Dataset.plot>`,
+:py:meth:`Dataset.plot_spectrum <dymoval.dataset.Dataset.plot_spectrum>` and
+:py:meth:`Dataset.plot_coverage <dymoval.dataset.Dataset.plot_coverage>`
+accept ``color_input`` and ``color_output``, the colors used when a subplot
+holds a *single* signal. Subplots holding a group of signals always fall back
+to the *matplotlib* color cycle, otherwise the overlaid curves would be
+indistinguishable.
+
+Since every function returns the figure and never calls ``show()``, anything
+not covered by these arguments can still be done afterwards with the plain
+*matplotlib* API::
+
+   fig = ds.plot()
+   fig.set_size_inches(10, 5)
+   fig.savefig("measurements.svg")
+
 .. _scopes:
 
 Interactive scopes

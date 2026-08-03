@@ -13,8 +13,8 @@ from typing import Any, Callable, Literal, Sequence
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
-from .dataset import Dataset
-from .scope import DatasetScope, SpectrumScope, scope_subplots
+from .dataset import _AX_HEIGHT, _AX_WIDTH, Dataset
+from .scope import DatasetScope, Layout, SpectrumScope, scope_subplots
 from .signal import Signal, SpectrumMode, _check_mode
 
 __all__ = [
@@ -29,6 +29,10 @@ __all__ = [
 def plot_signals(
     *signals: Signal | tuple[Signal, ...],
     with_scope: bool = True,
+    layout: Layout = "constrained",
+    ax_height: float = _AX_HEIGHT,
+    ax_width: float = _AX_WIDTH,
+    **kwargs: Any,
 ) -> Figure:
     """Plot loose :class:`dymoval.signal.Signal`, one subplot per group.
 
@@ -43,6 +47,14 @@ def plot_signals(
         The signals to plot. A tuple of signals is drawn on one subplot.
     with_scope :
         Attach an interactive scope to the figure.
+    layout :
+        *matplotlib* layout engine.
+    ax_height :
+        Height, in inches, of each subplot.
+    ax_width :
+        Width, in inches, of the figure.
+    **kwargs :
+        Forwarded to ``matplotlib.axes.Axes.plot``.
     """
     groups: list[tuple[Signal, ...]] = []
 
@@ -61,12 +73,13 @@ def plot_signals(
     fig, axes, panel_ax = scope_subplots(
         len(groups),
         with_scope=with_scope,
-        figsize=(10, 2.0 * len(groups) + 1),
+        figsize=(ax_width, ax_height * len(groups) + 1),
+        layout=layout,
     )
 
     for ax, group in zip(axes, groups):
         for sig in group:
-            sig._plot_standard(ax=ax)
+            sig._plot_standard(ax=ax, **kwargs)
 
         ax.legend()
         ax.grid(True)
@@ -81,9 +94,10 @@ def plot_dataset(
     ds: Dataset,
     *names: str | tuple[str, ...],
     with_scope: bool = True,
+    **kwargs: Any,
 ) -> Figure:
     """Functional alias of :meth:`dymoval.dataset.Dataset.plot`."""
-    return ds.plot(*names, with_scope=with_scope)
+    return ds.plot(*names, with_scope=with_scope, **kwargs)
 
 
 # ====================================================
@@ -170,6 +184,9 @@ def _compare(
     draw: Callable[[Axes, Signal, str], Any],
     scope_cls: type[DatasetScope],
     finish: Callable[[Axes, str], Any] | None = None,
+    layout: Layout = "constrained",
+    ax_height: float = _AX_HEIGHT,
+    ax_width: float = _AX_WIDTH,
 ) -> Figure:
     """Shared skeleton of the ``*_compare`` functions.
 
@@ -185,7 +202,8 @@ def _compare(
     fig, axes, panel_ax = scope_subplots(
         len(names_),
         with_scope=with_scope,
-        figsize=(10, 2.0 * len(names_) + 1),
+        figsize=(ax_width, ax_height * len(names_) + 1),
+        layout=layout,
         sharex=True,
     )
 
@@ -215,6 +233,10 @@ def plot_compare(
     labels: Sequence[str] | None = None,
     align: bool = True,
     with_scope: bool = True,
+    layout: Layout = "constrained",
+    ax_height: float = _AX_HEIGHT,
+    ax_width: float = _AX_WIDTH,
+    **kwargs: Any,
 ) -> Figure:
     """Overlay the same signals coming from several datasets.
 
@@ -235,6 +257,12 @@ def plot_compare(
         Resample every dataset on the common time base first.
     with_scope :
         Attach an interactive scope to the figure.
+    layout :
+        *matplotlib* layout engine.
+    ax_height, ax_width :
+        Height of each subplot and width of the figure, in inches.
+    **kwargs :
+        Forwarded to ``matplotlib.axes.Axes.plot``.
     """
     return _compare(
         reference,
@@ -243,10 +271,15 @@ def plot_compare(
         labels=labels,
         align=align,
         with_scope=with_scope,
-        draw=lambda ax, sig, label: sig._plot_standard(ax=ax, label=label),
+        draw=lambda ax, sig, label: sig._plot_standard(
+            ax=ax, label=label, **kwargs
+        ),
         scope_cls=DatasetScope,
         # the reference dataset dictates the unit shown on the y axis
         finish=lambda ax, name: ax.set_ylabel(reference[name]._ylabel()),
+        layout=layout,
+        ax_height=ax_height,
+        ax_width=ax_width,
     )
 
 
@@ -259,6 +292,10 @@ def plot_coverage_compare(
     alpha: float = 1.0,
     histtype: Literal["bar", "barstacked", "step", "stepfilled"] = "step",
     align: bool = False,
+    layout: Layout = "constrained",
+    ax_height: float = 1.8,
+    ax_width: float = 7.0,
+    **kwargs: Any,
 ) -> Figure:
     """Overlay the coverage histograms of the same signals from several
     datasets.
@@ -288,6 +325,12 @@ def plot_coverage_compare(
     align :
         Resample every dataset on the common time base first. Off by
         default: a distribution does not need a shared time base.
+    layout :
+        *matplotlib* layout engine.
+    ax_height, ax_width :
+        Height of each subplot and width of the figure, in inches.
+    **kwargs :
+        Forwarded to ``matplotlib.axes.Axes.hist``.
     """
     datasets = _check_datasets(reference, others)
     labels_ = _resolve_labels(datasets, labels)
@@ -297,7 +340,8 @@ def plot_coverage_compare(
     fig, axes, _ = scope_subplots(
         len(names_),
         with_scope=False,
-        figsize=(7, 1.8 * len(names_) + 1),
+        figsize=(ax_width, ax_height * len(names_) + 1),
+        layout=layout,
     )
 
     for ax, name in zip(axes, names_):
@@ -308,6 +352,7 @@ def plot_coverage_compare(
                 alpha=alpha,
                 histtype=histtype,
                 label=f"{name} ({label})",
+                **kwargs,
             )
 
         ax.legend()
@@ -325,12 +370,20 @@ def plot_spectrum_compare(
     xscale: str = "linear",
     yscale: str = "linear",
     mode: SpectrumMode = "psd_welch",
+    layout: Layout = "constrained",
+    ax_height: float = _AX_HEIGHT,
+    ax_width: float = _AX_WIDTH,
+    **kwargs: Any,
 ) -> Figure:
     """Overlay the spectra of the same signals from several datasets.
 
     ``mode="amplitude"`` is not supported here: use
     :meth:`dymoval.dataset.Dataset.plot_spectrum` on each dataset instead,
     since the magnitude/phase layout does not overlay meaningfully.
+
+    ``layout``, ``ax_height`` and ``ax_width`` control the figure geometry
+    as in :func:`plot_compare`, and ``**kwargs`` are forwarded to
+    ``matplotlib.axes.Axes.plot``.
     """
     _check_mode(mode)
 
@@ -346,6 +399,7 @@ def plot_spectrum_compare(
             yscale=yscale,
             mode=mode,
             label=label,
+            **kwargs,
         )
 
     return _compare(
@@ -357,4 +411,7 @@ def plot_spectrum_compare(
         with_scope=with_scope,
         draw=draw,
         scope_cls=SpectrumScope,
+        layout=layout,
+        ax_height=ax_height,
+        ax_width=ax_width,
     )

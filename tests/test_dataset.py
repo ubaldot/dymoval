@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 from matplotlib.axes import Axes
@@ -468,7 +469,7 @@ class Test_plot:
 
     @pytest.mark.plots
     def test_plot_xy(self, dataset: Dataset) -> None:
-        ax = dataset.plot_xy("u1", "y1")
+        ax = dataset.plot_xy("u1", "y1", ax=plt.subplots()[1])
 
         assert isinstance(ax, Axes)
 
@@ -479,9 +480,147 @@ class Test_plot:
         assert ax.get_ylabel() == "y1 [m]"
 
     @pytest.mark.plots
+    def test_plot_xy_returns_figure(self, dataset: Dataset) -> None:
+        fig = dataset.plot_xy("u1", "y1")
+
+        assert isinstance(fig, Figure)
+        assert len(fig.axes) == 1
+
+    @pytest.mark.plots
+    def test_plot_xy_many_pairs(self, dataset: Dataset) -> None:
+        fig = dataset.plot_xy(("u1", "y0"), ("u1", "y1"), ("y0", "y1"))
+
+        assert isinstance(fig, Figure)
+        # factorize(3) over-allocates a 2x2 grid: the spare axes is removed
+        assert len(fig.axes) == 3
+
+    @pytest.mark.plots
+    def test_plot_xy_defaults_to_zip(self, dataset: Dataset) -> None:
+        fig = dataset.plot_xy()
+
+        assert isinstance(fig, Figure)
+        assert len(fig.axes) == min(
+            len(dataset.input_names()), len(dataset.output_names())
+        )
+
+    @pytest.mark.plots
+    def test_plot_xy_bad_args(self, dataset: Dataset) -> None:
+        with pytest.raises(TypeError):
+            dataset.plot_xy("u1", "y0", "y1")
+
+        with pytest.raises(TypeError):
+            dataset.plot_xy(("u1", "y0", "y1"))  # type: ignore[arg-type]
+
+        with pytest.raises(ValueError):
+            dataset.plot_xy(("u1", "y0"), ("u1", "y1"), ax=plt.subplots()[1])
+
+    @pytest.mark.plots
     def test_plot_xy_unknown(self, dataset: Dataset) -> None:
         with pytest.raises(KeyError):
             dataset.plot_xy("u1", "nope")
+
+
+class Test_plot_geometry:
+    """The ``layout`` / ``ax_height`` / ``ax_width`` knobs."""
+
+    @pytest.mark.plots
+    def test_figsize(self, dataset: Dataset) -> None:
+        fig = dataset.plot(with_scope=False, ax_height=3.0, ax_width=8.0)
+
+        width, height = fig.get_size_inches()
+
+        assert width == pytest.approx(8.0)
+        assert height == pytest.approx(3.0 * len(dataset.names()) + 1)
+
+    @pytest.mark.plots
+    def test_figsize_defaults_unchanged(self, dataset: Dataset) -> None:
+        fig = dataset.plot(with_scope=False)
+
+        width, height = fig.get_size_inches()
+
+        assert width == pytest.approx(10.0)
+        assert height == pytest.approx(2.0 * len(dataset.names()) + 1)
+
+    @pytest.mark.plots
+    @pytest.mark.parametrize(
+        "layout", ["constrained", "compressed", "tight", "none"]
+    )
+    def test_layouts(self, dataset: Dataset, layout: str) -> None:
+        fig = dataset.plot(with_scope=False, layout=layout)  # type: ignore[arg-type]
+
+        engine = fig.get_layout_engine()
+
+        if layout == "none":
+            assert engine is None
+        else:
+            assert engine is not None
+
+    @pytest.mark.plots
+    def test_bad_layout(self, dataset: Dataset) -> None:
+        with pytest.raises(ValueError):
+            dataset.plot(with_scope=False, layout="nope")  # type: ignore[arg-type]
+
+    @pytest.mark.plots
+    def test_coverage_figsize(self, dataset: Dataset) -> None:
+        fig = dataset.plot_coverage(ax_height=2.5, ax_width=6.0)
+
+        width, height = fig.get_size_inches()
+
+        assert width == pytest.approx(6.0)
+        assert height == pytest.approx(2.5 * len(dataset.names()) + 1)
+
+    @pytest.mark.plots
+    def test_spectrum_figsize(self, dataset: Dataset) -> None:
+        fig = dataset.plot_spectrum(
+            with_scope=False, ax_height=2.5, ax_width=6.0
+        )
+
+        width, height = fig.get_size_inches()
+
+        assert width == pytest.approx(6.0)
+        assert height == pytest.approx(2.5 * len(dataset.names()) + 1)
+
+
+class Test_plot_styling:
+    """The ``color_input`` / ``color_output`` knobs and ``**kwargs``."""
+
+    @pytest.mark.plots
+    def test_semantic_colors(self, dataset: Dataset) -> None:
+        fig = dataset.plot(
+            "u1", "y0", with_scope=False, color_input="red", color_output="k"
+        )
+
+        assert fig.axes[0].get_lines()[0].get_color() == "red"
+        assert fig.axes[1].get_lines()[0].get_color() == "k"
+
+    @pytest.mark.plots
+    def test_kwargs_forwarded(self, dataset: Dataset) -> None:
+        fig = dataset.plot("u1", with_scope=False, linestyle="--", alpha=0.25)
+
+        line = fig.axes[0].get_lines()[0]
+
+        assert line.get_linestyle() == "--"
+        assert line.get_alpha() == pytest.approx(0.25)
+
+    @pytest.mark.plots
+    def test_grouped_signals_use_the_cycle(self, dataset: Dataset) -> None:
+        # semantic colors must not collapse two overlaid signals into one
+        fig = dataset.plot(
+            ("u1", "y0"),
+            with_scope=False,
+            color_input="red",
+            color_output="red",
+        )
+
+        lines = fig.axes[0].get_lines()
+
+        assert lines[0].get_color() != lines[1].get_color()
+
+    @pytest.mark.plots
+    def test_spectrum_kwargs_forwarded(self, dataset: Dataset) -> None:
+        fig = dataset.plot_spectrum("u1", with_scope=False, linestyle=":")
+
+        assert fig.axes[0].get_lines()[0].get_linestyle() == ":"
 
 
 class Test_plot_spectrum:

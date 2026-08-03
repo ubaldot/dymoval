@@ -215,15 +215,38 @@ coverage()                 # (u_mean, u_cov, y_mean, y_cov)
 plot_coverage(*names, nbins=100, ...)
 
 # plotting
-plot(*groups, with_scope=True)
-plot_xy(x_name, y_name, ax=None)
-plot_spectrum(*groups, with_scope=True, xscale, yscale, mode)
+plot(*groups, with_scope=True, color_input, color_output, **kwargs)
+plot_xy(*pairs, ax=None, **kwargs)   # no pair => zip(inputs, outputs)
+plot_spectrum(*groups, with_scope=True, xscale, yscale, mode, **kwargs)
 ```
 
 `SIGNAL_KIND = ("INPUT", "OUTPUT")` is exported by the package.
 
 `align()` always returns a **uniform** time vector built with the sampling
 period of `self`, so the resulting datasets stay valid.
+
+## Figure geometry
+
+Every figure-returning plot function takes the same three knobs:
+
+| argument    | meaning                                    |
+| ----------- | ------------------------------------------ |
+| `layout`    | matplotlib layout engine, `"constrained"` (default), `"compressed"`, `"tight"` or `"none"`. Validated by `scope_subplots`. |
+| `ax_height` | height, in inches, of **each subplot**     |
+| `ax_width`  | width, in inches, of the **figure**        |
+
+The resulting `figsize` is always `(ax_width, ax_height * n + 1)`, where `n`
+is the number of *groups* (the amplitude spectrum uses `+ 2` because each
+group owns two rows). Defaults are `_AX_WIDTH = 10.0` / `_AX_HEIGHT = 2.0`
+(`7.0` / `1.8` for the coverage histograms) and were chosen to reproduce the
+previously hard-coded sizes **exactly**.
+
+Line styling goes through `**kwargs`, forwarded verbatim to
+`matplotlib.axes.Axes.plot`. On top of that `Dataset.plot`/`plot_spectrum`
+accept `color_input`/`color_output`, the *semantic* colors used when a
+subplot holds a single signal; `None` means "use the matplotlib cycle",
+which is the default for inputs. Groups of two or more signals always use
+the cycle, otherwise the overlaid curves would be indistinguishable.
 
 ### Deliberate differences from the legacy implementation
 
@@ -487,6 +510,10 @@ docs.
 | `Dataset.excluded_signals`                    | dropped on purpose: the factories interpolate instead of excluding. |
 | graphical `tin`/`tout` picking in `Dataset.trim` | survives only in `ValidationSession.trim`. |
 | `Dataset.fft(*signals)` per-signal selection  | the new `fft()` takes no arguments and returns every signal. |
+| `validate_signals`, `validate_dataframe`, DataFrame construction | dropped on purpose: the factories validate. |
+| `overlap=True`                                | replaced by tuple grouping, e.g. `ds.plot(("u1", "y1"))`. |
+| `compare_datasets(kind=...)`                  | split into `plot_compare` / `plot_spectrum_compare` / `plot_coverage_compare`. |
+| `plotxy(*signal_pairs)`, `layout`/`ax_height`/`ax_width`, line styling | **ported** — see *Figure geometry* above. |
 
 ---
 

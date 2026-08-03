@@ -20,7 +20,7 @@ Design rules enforced here:
 
 from __future__ import annotations
 
-from typing import Any, Sequence
+from typing import Any, Literal, Sequence, get_args
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -35,6 +35,10 @@ __all__ = [
     "AmplitudeSpectrumScope",
     "scope_subplots",
 ]
+
+#: matplotlib layout engines accepted by the plotting API
+Layout = Literal["constrained", "compressed", "tight", "none"]
+LAYOUTS: tuple[str, ...] = get_args(Layout)
 
 _HINT = "Click on a signal\n(press 'r' to reset)"
 
@@ -52,6 +56,7 @@ def scope_subplots(
     *,
     with_scope: bool = True,
     figsize: tuple[float, float] | None = None,
+    layout: Layout = "constrained",
     **kwargs: Any,
 ) -> tuple[Figure, list[Axes], Axes | None]:
     """Create a figure laid out for an interactive scope.
@@ -61,10 +66,18 @@ def scope_subplots(
     caller is left with attaching the scope itself, since only the caller
     knows which scope class and which axes grouping it needs.
 
+    ``layout`` is the *matplotlib* figure layout engine; ``"none"`` disables
+    automatic layout altogether.
+
     Returns ``(fig, axes, panel_ax)``, where ``axes`` is *flat* and
     ``panel_ax`` is ``None`` when ``with_scope`` is ``False``.
     """
-    fig = plt.figure(constrained_layout=True, figsize=figsize)
+    if layout not in LAYOUTS:
+        raise ValueError(f"'layout' must be one of {LAYOUTS}, got {layout!r}")
+
+    fig = plt.figure(
+        layout=None if layout == "none" else layout, figsize=figsize
+    )
 
     if with_scope:
         subfigs = fig.subfigures(1, 2, width_ratios=list(_PANEL_WIDTH_RATIOS))

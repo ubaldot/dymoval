@@ -13,7 +13,6 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Literal, Self, Sequence, get_args
 
-import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
@@ -22,16 +21,22 @@ from scipy.io import savemat
 from .scope import (
     AmplitudeSpectrumScope,
     DatasetScope,
+    Layout,
     SpectrumScope,
     scope_subplots,
 )
 from .signal import Signal, SpectrumMode, _check_mode
+from .utils import factorize
 
 __all__ = ["Dataset", "SIGNAL_KIND"]
 
 #: color used when a single *output* signal is plotted alone
 _OUTPUT_COLOR = "green"
 _INPUT_COLOR = "blue"
+
+#: default figure geometry, in inches
+_AX_WIDTH = 10.0
+_AX_HEIGHT = 2.0
 
 SignalKind = Literal["INPUT", "OUTPUT"]
 SIGNAL_KIND: tuple[str, ...] = get_args(SignalKind)
@@ -686,8 +691,21 @@ class Dataset:
 
         return groups
 
-    def _plot_group(self, ax: Axes, group: Group) -> None:
-        """Draw one group of signals on ``ax``."""
+    def _plot_group(
+        self,
+        ax: Axes,
+        group: Group,
+        color_input: str | None = None,
+        color_output: str | None = _OUTPUT_COLOR,
+        **kwargs: Any,
+    ) -> None:
+        """Draw one group of signals on ``ax``.
+
+        ``color_input``/``color_output`` are the semantic colors used when a
+        group holds a *single* signal. ``None`` falls back to the matplotlib
+        color cycle. When several signals share a subplot the cycle is
+        always used, otherwise they would be indistinguishable.
+        """
         all_signals = self.all_signals()
 
         # semantic coloring only makes sense when a single signal is drawn
@@ -696,10 +714,17 @@ class Dataset:
         for name in group:
             sig = all_signals[name]
 
-            if not use_default_colors and name in self.outputs:
-                sig._plot_standard(ax=ax, color=_OUTPUT_COLOR)
+            if use_default_colors:
+                color = None
+            elif name in self.outputs:
+                color = color_output
             else:
-                sig._plot_standard(ax=ax)
+                color = color_input
+
+            if color is None:
+                sig._plot_standard(ax=ax, **kwargs)
+            else:
+                sig._plot_standard(ax=ax, color=color, **kwargs)
 
         ax.legend()
         ax.grid(True)
@@ -714,18 +739,35 @@ class Dataset:
 
         return fig
 
-    def _plot(self, *names: str | tuple[str, ...], with_scope: bool) -> Figure:
+    def _plot(
+        self,
+        *names: str | tuple[str, ...],
+        with_scope: bool,
+        color_input: str | None = None,
+        color_output: str | None = _OUTPUT_COLOR,
+        layout: Layout = "constrained",
+        ax_height: float = _AX_HEIGHT,
+        ax_width: float = _AX_WIDTH,
+        **kwargs: Any,
+    ) -> Figure:
         groups = self._normalize_groups(names)
 
         fig, axes, panel_ax = scope_subplots(
             len(groups),
             with_scope=with_scope,
-            figsize=(10, 2.0 * len(groups) + 1),
+            figsize=(ax_width, ax_height * len(groups) + 1),
+            layout=layout,
             sharex=True,
         )
 
         for ax, group in zip(axes, groups):
-            self._plot_group(ax, group)
+            self._plot_group(
+                ax,
+                group,
+                color_input=color_input,
+                color_output=color_output,
+                **kwargs,
+            )
 
         if panel_ax is not None:
             DatasetScope(fig, axes, panel_ax)
@@ -736,26 +778,96 @@ class Dataset:
         self,
         *names: str | tuple[str, ...],
         with_scope: bool = True,
+        color_input: str | None = None,
+        color_output: str | None = _OUTPUT_COLOR,
+        layout: Layout = "constrained",
+        ax_height: float = _AX_HEIGHT,
+        ax_width: float = _AX_WIDTH,
+        **kwargs: Any,
     ) -> Figure:
-        """Plot the signals, one subplot per group."""
-        return self._plot(*names, with_scope=with_scope)
+        """Plot the signals, one subplot per group.
+
+        Parameters
+        ----------
+        *names:
+            Signals to plot. A ``tuple`` of names groups those signals on
+            one subplot. No name at all plots every signal.
+        with_scope:
+            Attach an interactive :class:`dymoval.scope.DatasetScope`.
+        color_input, color_output:
+            Colors used for a subplot holding a *single* signal. ``None``
+            means "use the matplotlib color cycle".
+        layout:
+            *matplotlib* layout engine.
+        ax_height:
+            Height, in inches, of each subplot.
+        ax_width:
+            Width, in inches, of the figure.
+        **kwargs:
+            Forwarded to ``matplotlib.axes.Axes.plot``, e.g. ``linestyle``
+            or ``alpha``.
+
+        Example
+        -------
+        >>> fig = ds.plot(("u1", "y1"), "y2", ax_height=3.0, linestyle="--")
+        """
+        return self._plot(
+            *names,
+            with_scope=with_scope,
+            color_input=color_input,
+            color_output=color_output,
+            layout=layout,
+            ax_height=ax_height,
+            ax_width=ax_width,
+            **kwargs,
+        )
 
     # ================================================
     # x/y plotting
     # ================================================
-    def plot_xy(
-        self,
-        x_name: str,
-        y_name: str,
-        ax: Axes | None = None,
-        **kwargs: Any,
-    ) -> Axes:
-        """Plot ``y_name`` against ``x_name``."""
+    def _normalize_pairs(
+        self, args: Sequence[str | tuple[str, str]]
+    ) -> list[tuple[str, str]]:
+        """Turn the ``plot_xy`` varargs into a list of ``(x, y)`` pairs.
+
+        With no argument the input names are *zipped* with the output ones.
+        """
+        if not args:
+            pairs = list(zip(self.input_names(), self.output_names()))
+
+            if not pairs:
+                raise ValueError(
+                    "Nothing to plot: the dataset has no input/output pair."
+                )
+        elif all(isinstance(item, str) for item in args):
+            if len(args) != 2:
+                raise TypeError(
+                    "Bare signal names are only accepted as one (x, y) pair. "
+                    "Pass tuples to plot several pairs."
+                )
+
+            pairs = [(str(args[0]), str(args[1]))]
+        else:
+            pairs = []
+
+            for item in args:
+                if isinstance(item, str) or len(item) != 2:
+                    raise TypeError(
+                        "Signal pairs must be tuples of exactly two names."
+                    )
+
+                pairs.append((item[0], item[1]))
+
+        for x_name, y_name in pairs:
+            self._check_names((x_name, y_name))
+
+        return pairs
+
+    def _plot_xy_pair(
+        self, ax: Axes, x_name: str, y_name: str, **kwargs: Any
+    ) -> None:
         x_sig = self[x_name]
         y_sig = self[y_name]
-
-        if ax is None:
-            _, ax = plt.subplots()
 
         kwargs.setdefault("label", f"{y_name} vs {x_name}")
 
@@ -766,7 +878,71 @@ class Dataset:
         ax.grid(True)
         ax.legend()
 
-        return ax
+    def plot_xy(
+        self,
+        *pairs: str | tuple[str, str],
+        ax: Axes | None = None,
+        layout: Layout = "constrained",
+        ax_height: float = _AX_HEIGHT,
+        ax_width: float = _AX_WIDTH,
+        **kwargs: Any,
+    ) -> Figure | Axes:
+        """Plot signals against each other (*XY* plot), one subplot per pair.
+
+        Parameters
+        ----------
+        *pairs:
+            The ``(x_name, y_name)`` pairs to plot. Passing no pair at all
+            *zips* the input names with the output ones. As a shorthand, two
+            bare names are accepted as a single pair.
+        ax:
+            Draw on this *Axes* instead of creating a figure. Only one pair
+            may be passed, and the *Axes* is returned instead of a *Figure*.
+        layout:
+            *matplotlib* layout engine.
+        ax_height, ax_width:
+            Height and width, in inches, of each subplot.
+        **kwargs:
+            Forwarded to ``matplotlib.axes.Axes.plot``.
+
+        Example
+        -------
+        >>> fig = ds.plot_xy()                          # zip inputs/outputs
+        >>> fig = ds.plot_xy(("u1", "y3"), ("u2", "y1"))
+        >>> ax = ds.plot_xy("u1", "y1", ax=my_axes)
+        """
+        resolved = self._normalize_pairs(pairs)
+
+        if ax is not None:
+            if len(resolved) != 1:
+                raise ValueError(
+                    "'ax' accepts exactly one signal pair, "
+                    f"got {len(resolved)}."
+                )
+
+            self._plot_xy_pair(ax, *resolved[0], **kwargs)
+
+            return ax
+
+        nrows, ncols = factorize(len(resolved))
+
+        fig, axes, _ = scope_subplots(
+            nrows,
+            ncols,
+            with_scope=False,
+            figsize=(ax_width * ncols, ax_height * nrows + 1),
+            layout=layout,
+            squeeze=False,
+        )
+
+        for axis, (x_name, y_name) in zip(axes, resolved):
+            self._plot_xy_pair(axis, x_name, y_name, **kwargs)
+
+        # factorize() may over-allocate, e.g. 3 pairs on a 2x2 grid
+        for axis in axes[len(resolved) :]:
+            axis.remove()
+
+        return self._titled(fig)
 
     # ================================================
     # Coverage
@@ -806,11 +982,17 @@ class Dataset:
         color_output: str = _OUTPUT_COLOR,
         alpha: float = 1.0,
         histtype: Literal["bar", "barstacked", "step", "stepfilled"] = "bar",
+        layout: Layout = "constrained",
+        ax_height: float = 1.8,
+        ax_width: float = 7.0,
     ) -> Figure:
         """Plot the histogram of the signal values, one subplot each.
 
         Coverage plots cannot be overlapped, hence groups (tuples) are
         not accepted here.
+
+        ``layout``, ``ax_height`` and ``ax_width`` control the figure
+        geometry as in :meth:`plot`.
         """
         overlapped = [name for name in names if not isinstance(name, str)]
 
@@ -826,7 +1008,8 @@ class Dataset:
         fig, axes, _ = scope_subplots(
             len(selected),
             with_scope=False,
-            figsize=(7, 1.8 * len(selected) + 1),
+            figsize=(ax_width, ax_height * len(selected) + 1),
+            layout=layout,
         )
 
         for ax, name in zip(axes, selected):
@@ -854,12 +1037,13 @@ class Dataset:
         xscale: str,
         yscale: str,
         mode: SpectrumMode,
+        **kwargs: Any,
     ) -> None:
         all_signals = self.all_signals()
 
         for name in group:
             all_signals[name]._plot_spectrum_standard(
-                ax=ax, xscale=xscale, yscale=yscale, mode=mode
+                ax=ax, xscale=xscale, yscale=yscale, mode=mode, **kwargs
             )
 
         ax.legend()
@@ -872,6 +1056,7 @@ class Dataset:
         group: Group,
         xscale: str,
         yscale: str,
+        **kwargs: Any,
     ) -> None:
         all_signals = self.all_signals()
 
@@ -881,6 +1066,7 @@ class Dataset:
                 phase_ax=phase_ax,
                 xscale=xscale,
                 yscale=yscale,
+                **kwargs,
             )
 
         mag_ax.legend()
@@ -896,13 +1082,18 @@ class Dataset:
         xscale: str = "linear",
         yscale: str = "linear",
         with_scope: bool = False,
+        layout: Layout = "constrained",
+        ax_height: float = _AX_HEIGHT,
+        ax_width: float = _AX_WIDTH,
+        **kwargs: Any,
     ) -> Figure:
         groups = self._normalize_groups(names)
 
         fig, axes, panel_ax = scope_subplots(
             2 * len(groups),
             with_scope=with_scope,
-            figsize=(10, 2.0 * len(groups) + 2),
+            figsize=(ax_width, ax_height * len(groups) + 2),
+            layout=layout,
             sharex=True,
         )
 
@@ -918,6 +1109,7 @@ class Dataset:
                 group=group,
                 xscale=xscale,
                 yscale=yscale,
+                **kwargs,
             )
 
             if panel_ax is not None:
@@ -935,6 +1127,10 @@ class Dataset:
         xscale: str = "linear",
         yscale: str = "linear",
         mode: SpectrumMode = "psd_welch",
+        layout: Layout = "constrained",
+        ax_height: float = _AX_HEIGHT,
+        ax_width: float = _AX_WIDTH,
+        **kwargs: Any,
     ) -> Figure:
         if mode == "amplitude":
             return self._plot_spectrum_amplitude(
@@ -942,6 +1138,10 @@ class Dataset:
                 xscale=xscale,
                 yscale=yscale,
                 with_scope=with_scope,
+                layout=layout,
+                ax_height=ax_height,
+                ax_width=ax_width,
+                **kwargs,
             )
 
         groups = self._normalize_groups(names)
@@ -949,12 +1149,15 @@ class Dataset:
         fig, axes, panel_ax = scope_subplots(
             len(groups),
             with_scope=with_scope,
-            figsize=(10, 2.0 * len(groups) + 1),
+            figsize=(ax_width, ax_height * len(groups) + 1),
+            layout=layout,
             sharex=True,
         )
 
         for ax, group in zip(axes, groups):
-            self._plot_spectrum_group(ax, group, xscale, yscale, mode)
+            self._plot_spectrum_group(
+                ax, group, xscale, yscale, mode, **kwargs
+            )
 
         if panel_ax is not None:
             SpectrumScope(fig, axes, panel_ax)
@@ -968,11 +1171,19 @@ class Dataset:
         xscale: str = "linear",
         yscale: str = "linear",
         mode: SpectrumMode = "psd_welch",
+        layout: Layout = "constrained",
+        ax_height: float = _AX_HEIGHT,
+        ax_width: float = _AX_WIDTH,
+        **kwargs: Any,
     ) -> Figure:
         """Plot the spectra of the signals, one subplot per group.
 
         With ``mode="amplitude"`` each group gets a magnitude *and* a
         phase subplot.
+
+        ``layout``, ``ax_height`` and ``ax_width`` control the figure
+        geometry as in :meth:`plot`, and ``**kwargs`` are forwarded to
+        ``matplotlib.axes.Axes.plot``.
         """
         _check_mode(mode)
 
@@ -982,4 +1193,8 @@ class Dataset:
             xscale=xscale,
             yscale=yscale,
             mode=mode,
+            layout=layout,
+            ax_height=ax_height,
+            ax_width=ax_width,
+            **kwargs,
         )

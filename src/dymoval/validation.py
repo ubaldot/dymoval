@@ -23,7 +23,7 @@ from .config import (
     XCorr_Statistic_type,
 )
 from .dataset import Dataset
-from .scope import DatasetScope, scope_subplots
+from .scope import DatasetScope, Layout, scope_subplots
 from .signal import Signal
 from .statistics import rsquared
 from .utils import (
@@ -820,9 +820,7 @@ class ValidationSession:
         # Can be a positional or a keyword arg
         list_sims: str | list[str] | None = None,
         dataset: Literal["in", "out", "both"] | None = None,
-        layout: Literal[
-            "constrained", "compressed", "tight", "none"
-        ] = "tight",
+        layout: Layout = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
         with_scope: bool = True,
@@ -957,9 +955,7 @@ class ValidationSession:
         list_sims: str | list[str] | None = None,
         *,
         plot_input: bool = True,
-        layout: Literal[
-            "constrained", "compressed", "tight", "none"
-        ] = "tight",
+        layout: Layout = "tight",
         ax_height: float = 1.8,
         ax_width: float = 4.445,
     ) -> tuple[matplotlib.figure.Figure, ...]:
