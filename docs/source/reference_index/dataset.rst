@@ -2,116 +2,219 @@
 Measurements handling
 *********************
 
-.. currentmodule:: dymoval.dataset
+Measurement datasets are a central part of model validation. *Dymoval*
+represents them with two objects:
 
-Measurement datasets are a central part in model validation and therefore we
-designed the :ref:`Dataset` that offer a number of useful :ref:`methods
-<datasetMethods>` to deal with them.
+- a :ref:`Signal <signal>`, which is one measured time-series, and
+- a :ref:`Dataset <Dataset>`, which is a set of *aligned* signals split into
+  inputs and outputs.
 
-A typical workflow consists in casting your measurement data into dymoval
-:ref:`Signal <signal>` objects and then use the created :ref:`Signals
-<signal>` to instantiate a :ref:`Dataset <Dataset>` object.
+The typical workflow is to cast each logged channel into a :ref:`Signal
+<signal>`, and then to group the resulting signals into a :ref:`Dataset
+<Dataset>`.
 
 .. _signal:
 
-Signals
-=======
-Dymoval :ref:`Signal <signal>` are used to represent real-world signals.
+Signal class
+============
 
-.. currentmodule:: dymoval.dataset
+.. currentmodule:: dymoval.signal
 
-Dymoval :ref:`Signals <signal>` are *Typeddict* with the following keys
+A :ref:`Signal <signal>` is an immutable dataclass holding one uniformly
+sampled time-series.
 
-.. rubric:: Keys
+.. rubric:: Constructor
+.. autosummary::
+
+   Signal
+
+.. rubric:: Fields
 .. autosummary::
 
    Signal.name
-   Signal.samples
-   Signal.signal_unit
-   Signal.sampling_period
+   Signal.values
+   Signal.time
+   Signal.unit
    Signal.time_unit
 
+The ``time`` vector may be ``None``, in which case the signal is
+sample-indexed. Every method below returns a **new** :ref:`Signal <signal>`:
+nothing is ever modified in-place.
 
-.. rubric:: Functions
-
-Dymoval offers few function for dealing with :ref:`Signals <signal>`:
-
+.. rubric:: Manipulation methods
 .. autosummary::
 
-   validate_signals
-   plot_signals
+   Signal.trim
+   Signal.resample
+   Signal.detrend
+   Signal.remove_mean
+   Signal.remove_constant
+   Signal.low_pass_filter
+   Signal.apply
+   Signal.copy
 
+.. rubric:: Analysis methods
+.. autosummary::
+
+   Signal.get_sampling_period
+   Signal.fft
+   Signal.spectrum
+
+.. rubric:: Plotting methods
+.. autosummary::
+
+   Signal.plot
+   Signal.plot_spectrum
 
 .. _Dataset:
 
 Dataset class
 =============
-The :ref:`Dataset` is used to store and manipulate measurement datasets.
-
-Since to validate a model you need some measurement datasets, objects of this
-class are used also to instantiate :ref:`ValidationSession
-<ValidationSession>` objects, and the passed :ref:`Dataset <Dataset>` object
-becomes an attribute of the newly created :ref:`ValidationSession
-<ValidationSession>` object.
-
-A :ref:`Dataset <Dataset>` object can be instantiated in two ways:
-
-#. Through a list of dymoval :ref:`Signals <signal>` (see
-   :py:meth:`~dymoval.dataset.validate_signals` )
-#. Through a *pandas* DataFrame with a specific structure (see
-   :py:meth:`~dymoval.dataset.validate_dataframe`)
 
 .. currentmodule:: dymoval.dataset
 
-.. rubric:: Constructor
+A :ref:`Dataset <Dataset>` holds two mappings of :ref:`Signals <signal>` —
+``inputs`` and ``outputs`` — that all share one and the same time vector.
+
+Since validating a model requires measurement data, a :ref:`Dataset <Dataset>`
+is also what you pass to a :ref:`ValidationSession <ValidationSession>`, where
+it becomes the ``dataset`` attribute of the newly created object.
+
+Building a Dataset
+------------------
+
+Prefer the two factories over the raw constructor: they accept signals that do
+**not** yet share a time vector and resample them onto a common uniform grid.
+
 .. autosummary::
 
+   Dataset.from_signals
+   Dataset.from_dict
    Dataset
 
-.. rubric:: Attributes
+By default the common grid uses the **largest** sampling period found among
+the passed signals and spans only the time interval covered by all of them, so
+that no extrapolation ever takes place. Pass ``target_sampling_period`` to
+pick the grid yourself.
+
+.. warning::
+
+   Building a :ref:`Dataset <Dataset>` interpolates. Trim away leading and
+   trailing ``NaN`` samples with :py:meth:`Signal.trim
+   <dymoval.signal.Signal.trim>` **before** calling a factory, otherwise the
+   ``NaN``\ s spread to the interpolated samples.
+
+.. rubric:: Fields
 .. autosummary::
 
+   Dataset.inputs
+   Dataset.outputs
+   Dataset.meta
    Dataset.name
-   Dataset.dataset
-   Dataset.coverage
-   Dataset.sampling_period
-   Dataset.excluded_signals
 
 .. _datasetMethods:
+.. rubric:: Access methods
+.. autosummary::
+
+   Dataset.names
+   Dataset.input_names
+   Dataset.output_names
+   Dataset.all_signals
+   Dataset.kind_of
+   Dataset.signal_list
+   Dataset.time
+   Dataset.time_unit
+   Dataset.get_sampling_period
+
 .. rubric:: Manipulation methods
 .. autosummary::
 
    Dataset.trim
-   Dataset.fft
-   Dataset.remove_means
+   Dataset.resample
+   Dataset.align
    Dataset.detrend
-   Dataset.remove_offset
+   Dataset.remove_mean
+   Dataset.remove_constant
    Dataset.low_pass_filter
    Dataset.apply
-   Dataset.remove_NaNs
+   Dataset.pipe
    Dataset.add_input
    Dataset.add_output
    Dataset.remove_signals
+   Dataset.copy
+
+As for :ref:`Signals <signal>`, each of these returns a new :ref:`Dataset
+<Dataset>`.
+
+.. rubric:: Analysis methods
+.. autosummary::
+
+   Dataset.fft
+   Dataset.spectrum
+   Dataset.coverage
 
 .. rubric:: Plotting methods
 .. autosummary::
 
    Dataset.plot
-   Dataset.plotxy
+   Dataset.plot_xy
    Dataset.plot_coverage
    Dataset.plot_spectrum
-   plot_signals
-   change_axes_layout
 
-.. rubric:: Other methods
+.. rubric:: Export methods
 .. autosummary::
 
-   Dataset.dump_to_signals
    Dataset.dataset_values
+   Dataset.to_signals
    Dataset.export_to_mat
-   Dataset.signal_list
-   validate_dataframe
-   validate_signals
-   compare_datasets
+
+Plotting several objects at once
+================================
+
+.. currentmodule:: dymoval.plotting
+
+The methods listed above plot one object. To plot loose signals, or to compare
+several datasets against each other, use the module-level functions:
+
+.. autosummary::
+
+   plot_signals
+   plot_dataset
+   plot_compare
+   plot_spectrum_compare
+   plot_coverage_compare
+
+:py:func:`plot_signals <dymoval.plotting.plot_signals>` is the only one that
+does not require its signals to be aligned, which makes it the tool for
+eyeballing raw logs *before* a :ref:`Dataset <Dataset>` exists.
+
+.. _scopes:
+
+Interactive scopes
+==================
+
+.. currentmodule:: dymoval.scope
+
+Every plotting function accepts a ``with_scope`` argument, which defaults to
+``True``. The figure is then split in two: the plots on the left and an info
+panel on the right. Click on a curve to select it and read its name, unit and
+statistics; click on a second point to get the delta between the two; press
+``r`` to reset.
+
+.. autosummary::
+
+   BaseScope
+   SignalScope
+   DatasetScope
+   SpectrumScope
+   AmplitudeSpectrumScope
+
+.. note::
+
+   Scopes need an interactive *matplotlib* backend such as ``qtagg`` or
+   ``widget``. With the ``inline`` backend, which is the default in many
+   notebook setups, there is nothing to click on, so pass ``with_scope=False``
+   to get a plain figure.
+
 ..
    vim: set ts=3 tw=78:

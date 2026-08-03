@@ -11,25 +11,38 @@ the number of outputs. Just call the following function:
 
 .. code::
 
-   from dymoval.validation import validate_models
+   import dymoval as dmv
 
-   validate_models(
+   vs = dmv.validate_models(
        measured_in=u_meas,
        measured_out=y_meas,
        simulated_out=y_sim,
-       sampling_period = sampling_period
+       sampling_period=sampling_period,
    )
 
-to get something like the following:
+The returned :py:class:`~dymoval.validation.ValidationSession` object shows
+the verdict as soon as you display it:
 
 .. code::
 
-   Input whiteness (abs_mean-max)      0.3532
-   R-Squared (%)                      65.9009
-   Residuals whiteness (abs_mean-max)  0.1087
-   Input-Res whiteness (abs_mean-max)  0.2053
+   >>> vs
+   ...
+   Validation results:
+   -------------------
+   Thresholds:
+   Ruu_whiteness: 0.6000
+   r2: 35.0000
+   Ree_whiteness: 0.5000
+   Rue_whiteness: 0.5000
 
-            My_Model
+   Actuals:
+                                              Sim_0
+   Input whiteness (abs_mean-max)            0.3532
+   R-Squared (%)                            65.9009
+   Residuals whiteness (abs_mean-max)        0.1087
+   Input-Res whiteness (abs_mean-max)        0.2053
+
+            Sim_0
    Outcome: PASS
 
 The model quality is evaluated according to the following criteria:

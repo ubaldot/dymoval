@@ -57,7 +57,7 @@ few parameter that you can set.
 
    The used ``matplotlib`` color map. Check ``Matplotlib`` docs for possible values.
 .. py:data:: float_tolerance
-   :type: str
+   :type: float
    :value: 1e-9
 
    Tolerance for ``float`` operations, such as ``np.isclose()``, etc.
@@ -81,7 +81,10 @@ A ``~/.dymoval/config.toml`` could for example include the following content
 .. code-block::
 
     color_map = "tab20"
-    atol = 1-6
+    float_tolerance = 1e-6
+
+The corresponding values are then available as ``dymoval.COLORMAP`` and
+``dymoval.ATOL``.
 
 Plots
 =====

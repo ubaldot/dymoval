@@ -14,9 +14,9 @@ The model validation process happens in four steps:
 #. **Execute** the experiments planned in step 1. on the target environment
    and **collect** the response. The combination of the input signals and the
    system response is referred to as the *measurement dataset* (or simply
-   dataset). Due to sensors may be noisy, sampled at different rate, log
-   intermittently, etc., you may need to :ref:`clean-up your measurements
-   dataset <create_dataset>`.
+   dataset). Since sensors may be noisy, may be sampled at different rates or
+   may log intermittently, you will most likely need to :ref:`clean up your
+   measurements dataset <create_dataset>`.
 
 #. **Generate Simulation Data**: Conduct the exact same experiments defined in
    step 1 on the model and :ref:`log its response <simulate_model>` and
@@ -35,7 +35,7 @@ The model validation process happens in four steps:
    model quality metrics.
 
 If the results of step 4. are good, then you can trust what your model says
-within is validation region.
+within its validation region.
 
 Let's see how steps 1-4 can be applied.
 

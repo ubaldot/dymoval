@@ -26,11 +26,11 @@ inputs and :math:`q` is the number of outputs.
 For more accurate results, the bandwidths of the involved signals can be
 passed to the *dymoval* functions.
 
-The function :py:meth:`~dymoval.validation.validate_models` return a
-:py:class:`~dymoval.validation.ValidationSession` object that store the
+The function :py:meth:`~dymoval.validation.validate_models` returns a
+:py:class:`~dymoval.validation.ValidationSession` object that stores the
 validation outcome.
 
-If you have other simulated data coming from other models or from the same
+If you have other simulated data, coming from other models or from the same
 model with different settings, then you can append them to the same
 :py:class:`~dymoval.validation.ValidationSession` object. The evaluation is
 done automatically:
@@ -38,18 +38,54 @@ done automatically:
 .. code::
 
    # vs is a ValidationSession object
-   vs = vs.append_simulation(name='Sim_1', y_names=['out0', 'out1'], y_data=y_sim2)
+   vs = vs.append_simulation(sim_name='Sim_1', y_names=['out0'], y_data=y_sim2)
    vs
 
+   Validation session name: quick & dirty
+
+   Validation setup:
+   ----------------
+   Inputs auto-correlation
+   Statistic: abs_mean-max
+   Ruu_local_weights: None
+   Ruu_global_weights: None
+   num lags: 41
+
+   Residuals auto-correlation:
+   Statistic: abs_mean-max
+   Ree_local_weights: None
+   Ree_global_weights: None
+   num lags: 41
+
+   Input-residuals cross-correlation:
+   Statistic: abs_mean-max
+   Rue_local_weights: None
+   Rue_global_weights: None
+   num lags: 41
+
+   Validation results:
+   -------------------
+   Thresholds:
+   Ruu_whiteness: 0.6000
+   r2: 35.0000
+   Ree_whiteness: 0.5000
+   Rue_whiteness: 0.5000
+
    Actuals:
-                                           Sim_0       Sim_1
-   Input whiteness (abs_mean-max)       0.367134    0.367134
-   R-Squared (%)                       69.538448 -173.163879
-   Residuals whiteness (abs_mean-max)   0.116023    0.146618
-   Input-Res whiteness (abs_mean-max)   0.189000    0.263764
+                                              Sim_0         Sim_1
+   Input whiteness (abs_mean-max)            0.0367        0.0367
+   R-Squared (%)                            99.8454       66.4326
+   Residuals whiteness (abs_mean-max)        0.1515        0.3663
+   Input-Res whiteness (abs_mean-max)        0.0795        0.1168
 
             Sim_0  Sim_1
    Outcome: PASS   FAIL
+
+The same numbers are available programmatically through
+:py:attr:`~dymoval.validation.ValidationSession.validation_statistics`,
+:py:attr:`~dymoval.validation.ValidationSession.validation_thresholds` and
+:py:attr:`~dymoval.validation.ValidationSession.outcome`, all of which are
+plain dictionaries.
 
 The default validation procedure evaluates the following quantities:
 

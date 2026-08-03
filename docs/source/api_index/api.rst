@@ -69,3 +69,12 @@ dymoval.utils module
    :members:
    :undoc-members:
    :show-inheritance:
+
+
+dymoval.config module
+---------------------
+
+.. automodule:: dymoval.config
+   :members:
+   :undoc-members:
+   :show-inheritance:

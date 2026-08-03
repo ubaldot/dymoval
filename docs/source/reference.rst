@@ -1,86 +1,103 @@
 Reference Manual
 ================
 
-As seen, the ingredients for validating a model are the *model* itself, a
-*measurements dataset* and some *validation metrics*. However, *Dymoval* is
-not a modeling tool and therefore its focus areas are the following
+The ingredients for validating a model are the *model* itself, a *measurements
+dataset* and some *validation metrics*. *Dymoval* is not a modeling tool, so
+its focus areas are the last two:
 
 -  :doc:`./reference_index/dataset`
 -  :doc:`./reference_index/validation`
 
 
-
 Dymoval Architecture
 --------------------
 
-
-*Dymoval* has been designed to help engineers analyze measurement datasets
-and develop models by providing a validation tool.
-
-Although there are plenty of amazing packages out there like *pandas*,
-*numpy*, *matplotlib*, etc., they are extensive, and the plethora of
-functionalities they offer may be overwhelming.
-
-Therefore, the idea is to combine the functionalities of the aforementioned
-tools in such a way that engineers are not overwhelmed, but at the same time,
-they can manage to get their job done quickly and effectively. However, we do
-not want to limit engineers; instead, we want to guarantee seamless access to
-the tools Dymoval has been built upon.
-
-Therefore, *Dymoval* classes are *composed* as shown in the picture below.
+*Dymoval* is built on *numpy*, *scipy* and *matplotlib*. Those packages are
+excellent but broad, and figuring out which of their thousands of functions
+you need for a validation campaign takes time. *Dymoval* wraps the handful
+that matter into three nested objects:
 
 .. figure:: ./figures/Composition.svg
    :scale: 50 %
 
-   *Dymoval* structure. You can access every attributes and methods of an
-   inner object from an outer object.
+   *Dymoval* structure: a :ref:`ValidationSession <ValidationSession>` owns a
+   :ref:`Dataset <Dataset>`, which owns :ref:`Signals <signal>`.
 
-This means that every outer package/module have full access to the
-classes/functions provided by the inner packages/modules. For example, it is
-possible to access all :ref:`Dataset <Dataset>` methods from a
-:ref:`ValidationSession <ValidationSession>` object and all the *pandas*
-classes and methods from :ref:`Dataset <Dataset>` objects.
+Each layer has one job:
 
-Furthermore, object methods are not *"inplace"* but they always return a
-modified version of the calling object. For example
+:ref:`Signal <signal>`
+   One time-series, its unit and its time vector. It knows how to filter,
+   trim, detrend and transform *itself*.
 
-.. code-block::
+:ref:`Dataset <Dataset>`
+   A group of :ref:`Signals <signal>` sharing one time vector, split into
+   inputs and outputs. It knows how to *align* signals and how to lay out a
+   figure made of many of them.
 
-   >>> ds.remove_means() # won't change ds
-   >>> ds_means_removed = ds.remove_means() # you must re-assign the returned object
+:ref:`ValidationSession <ValidationSession>`
+   One :ref:`Dataset <Dataset>` plus the simulation results to be validated
+   against it, and the metrics that score them.
 
+You reach an inner object from an outer one through plain attribute access,
+for example ``vs.dataset`` or ``ds.inputs["Voltage"]``, and nothing stops you
+from using the underlying *numpy* arrays directly through
+:py:attr:`Signal.values <dymoval.signal.Signal.values>`.
 
-Finally, each plotting function returns a *matplotlib* figure so that the user
-can access all the *matplotlib* API for further manipulating the figure in
-case they are not happy with the results from *Dymoval*.
+Immutability
+^^^^^^^^^^^^
 
-.. warning::
+Every *dymoval* object is immutable: methods never modify the calling object,
+they return a modified copy of it. You must therefore re-assign the result::
 
-   Given that outer objects do not contain only inner object types attributes,
-   and given that such attributes are connected to other attributes, it is
-   **discouraged** to directly change inner class attributes with inner
-   methods.
+   >>> ds.remove_mean()                 # discarded, ds is unchanged
+   >>> ds_zero_mean = ds.remove_mean()  # this is what you want
 
-   For example, we know that a :ref:`Dataset <Dataset>` object attribute is a
-   *pandas* DataFrame, but if we change such a *pandas* DataFrame, then we
-   shall update all the other :ref:`Dataset <Dataset>` attributes such as the
-   *coverage region*, *NaN intervals*, etc., and that may become very messy.
-   **Therefore, if you want to change any attribute of any Dymoval object,
-   then use the Dymoval class methods (if any) or create a new class
-   instance.**
+This also means that you should never assign to an attribute by hand: use the
+class methods, or build a new instance.
 
+Plots
+^^^^^
+
+Plotting functions and methods return a *matplotlib* ``Figure`` (or ``Axes``)
+and never call ``show()``, so you can keep manipulating the result with the
+full *matplotlib* API before displaying or saving it::
+
+   >>> fig = ds.plot()
+   >>> fig.suptitle("My measurements")
+   >>> fig.savefig("measurements.png")
+
+If your session is not interactive, call ``matplotlib.pyplot.show()`` yourself
+once you are done.
+
+Most of them also accept ``with_scope=True``, which adds an interactive
+:ref:`scope <scopes>` panel to the figure. See :ref:`scopes` for the details.
 
 
 Package structure
 -----------------
+
 *Dymoval*'s package is arranged in the following modules
 
 .. currentmodule:: dymoval
 .. autosummary::
 
+   signal
    dataset
+   plotting
+   scope
+   statistics
+   xcorrelation
    validation
    utils
+   config
+
+The dependencies run one way only, from the top of that list to the bottom of
+it: ``signal`` knows nothing about ``dataset``, and ``dataset`` knows nothing
+about ``validation``.
+
+Everything you normally need is re-exported at the package top level, so
+``import dymoval as dmv`` followed by ``dmv.Dataset``, ``dmv.Signal`` or
+``dmv.validate_models`` is the intended way to use the package.
 
 .. toctree::
    :hidden:

@@ -185,8 +185,9 @@ the original time array is preserved bit-exactly.
 time_unit()
 kind_of(name)              # "INPUT" | "OUTPUT"
 signal_list()              # [(kind, name, unit), ...]
-to_signals()               # flat list[Signal]
+to_signals()               # {kind: list[Signal]}
 dataset_values()           # (time, U, Y) as plain ndarrays
+export_to_mat(filename)    # scipy.io.savemat, TIME + INPUT/OUTPUT structs
 repr(ds)
 
 # structure
@@ -442,6 +443,7 @@ plot_signals(*signals, with_scope=True)             # loose, possibly unaligned 
 plot_dataset(ds, *groups, with_scope=True)          # alias of ds.plot
 plot_compare(ref, *others, names, labels, align, with_scope)
 plot_spectrum_compare(ref, *others, ..., mode)      # mode != "amplitude"
+plot_coverage_compare(ref, *others, names, labels, nbins, alpha, histtype, align)
 ```
 
 `plot_signals` is the only way to eyeball raw logs *before* a `Dataset`
@@ -469,6 +471,40 @@ Interactive behavior is now integrated through
 `plot(..., with_scope=True)` and `plot_spectrum(..., with_scope=True)`.
 There is **no** reference to `InteractiveScope` left anywhere in the
 package.
+
+---
+
+# Known gaps vs. the legacy version
+
+Everything from the legacy version has been ported except the items below,
+which are **deliberately absent** and are not mentioned anywhere in the
+docs.
+
+| legacy feature                                | status |
+| --------------------------------------------- | ------ |
+| `Dataset.remove_NaNs`, `_nan_intervals`, NaN shading in plots | **not ported.** There is zero NaN handling in the new core. Trim leading/trailing NaNs with `Signal.trim` *before* building a `Dataset`, otherwise the resampling interpolation spreads them. Open decision. |
+| `change_axes_layout(fig, nrows, ncols)`       | **not ported**, no replacement. |
+| `Dataset.excluded_signals`                    | dropped on purpose: the factories interpolate instead of excluding. |
+| graphical `tin`/`tout` picking in `Dataset.trim` | survives only in `ValidationSession.trim`. |
+| `Dataset.fft(*signals)` per-signal selection  | the new `fft()` takes no arguments and returns every signal. |
+
+---
+
+# Docs
+
+Sphinx sources live in `docs/source`. Build with:
+
+```bash
+cd docs
+python -m sphinx -b html source _build/html -E --keep-going
+```
+
+`docs/_build/` is untracked and must never be committed. The reference
+pages are hand-written `autosummary` lists, so **any rename or new public
+method must be mirrored** in `docs/source/reference_index/dataset.rst` or
+`docs/source/reference_index/validation.rst`. `docs/source/api_index/api.rst`
+is a plain `automodule` dump of all nine modules and needs no maintenance
+beyond adding a new module.
 
 ---
 

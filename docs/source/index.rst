@@ -24,9 +24,9 @@ If you are tracking your models changes in a CI/CD environment, then *dymoval*
 API can be easily used to run tests in Jenkins or GitHub Actions pipelines as
 it enables unit-testing on models.
 
-Finally, *dymoval* provides a number of functions for for handling
-measurements data, addressing common issues such as noise, missing data, and
-varying sampling intervals.
+Finally, *dymoval* provides a number of functions for handling measurement
+data, addressing common issues such as noise, trends and varying sampling
+intervals.
 
 **************
  What is not.
@@ -54,8 +54,8 @@ simulation accuracy and reliability.
 variety of models, including MIMO (Multiple Input Multiple Output) and stiff
 models, all in an easy and comprehensible manner. Additionally, *Dymoval*
 provides a comprehensive toolbox designed to handle real-world measurement
-data, which often comes with challenges such as noise, missing data, and
-varying sampling intervals. This ensures that your models are not only
+data, which often comes with challenges such as noise, drift, and varying
+sampling intervals. This ensures that your models are not only
 validated but also capable of accurately reflecting real-world conditions.
 
 ***************
@@ -66,11 +66,10 @@ Measurements analysis and manipulation
 ======================================
 
 -  Time and frequency analysis
--  Easy plotting
--  Missing data handling
+-  Easy plotting, with interactive scopes
 -  Linear filtering
 -  Means and offsets removal
--  Re-sampling
+-  Re-sampling and alignment of signals
 -  Physical units
 
 Model validation

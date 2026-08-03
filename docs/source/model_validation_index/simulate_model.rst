@@ -24,24 +24,24 @@ use these signals to feed your model:
    y_sim = simulate_model(time = t, input= u_meas)
 
 Alternatively, you can export your :ref:`Dataset <Dataset>` object in the
-format you need and import it into your modeling tool. To facilitate this
-task, Dymoval allows you to dump :ref:`Dataset <Dataset>` objects into
-Dymoval.Signal objects through the method
-:py:meth:`~dymoval.dataset.Dataset.dump_to_signals`.
+format you need and import it into your modeling tool. To ease that task,
+:py:meth:`~dymoval.dataset.Dataset.to_signals` hands you back the individual
+:ref:`Signals <signal>`, keyed by kind:
 
 .. code::
 
-   # List containing Signal objects
-   signal_list = ds.dump_to_signals()
+   signals = ds.to_signals()
+   input_signals = signals["INPUT"]
+   output_signals = signals["OUTPUT"]
 
-However, you will then need to manually export these signals in an appropriate
-format depending on your modeling tool. Given the popularity of Matlab,
-:py:class:`~dymoval.dataset.Dataset` class has a
-:py:meth:`~dymoval.dataset.Dataset.export_to_mat` method:
+You will then need to export them in whichever format your modeling tool
+expects. Given the popularity of Matlab, the :ref:`Dataset <Dataset>` class
+ships with an :py:meth:`~dymoval.dataset.Dataset.export_to_mat` method that
+writes a ``.mat`` file directly:
 
 .. code::
 
-   signal_list = ds.export_to_mat("./my_measurements.mat")
+   ds.export_to_mat("./my_measurements.mat")
 
 Once you have simulated your model, you should import the simulated data back
 into Python. At this point, you are ready to validate your model.

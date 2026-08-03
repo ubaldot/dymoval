@@ -2,16 +2,35 @@
 Model Validation
 ****************
 
-Given the centrality of auto- and cross-correlation functions in model
-validation, *dymoval* provides a class :ref:`XCorrelation
-<XCorrelation>`. Furthermore, it also provides a :ref:`ValidationSession<ValidationSession>` to cope with simulation results.
+Auto- and cross-correlation functions are central to model validation, so
+*dymoval* provides an :ref:`XCorrelation <XCorrelation>` class along with a
+few statistics functions. On top of them, the :ref:`ValidationSession
+<ValidationSession>` class collects the simulation results of your models and
+tells you whether they pass validation.
+
+.. _statistics:
+
+Statistics functions
+====================
+
+.. currentmodule:: dymoval.statistics
+
+.. autosummary::
+
+   rsquared
+   compute_statistic
 
 .. _XCorrelation:
 
 XCorrelation class
 ==================
 
-.. currentmodule:: dymoval.validation
+.. currentmodule:: dymoval.xcorrelation
+
+An :ref:`XCorrelation <XCorrelation>` object stores the normalized
+cross-correlation of two (possibly multivariate) signals ``X`` and ``Y``. When
+``X is Y`` it is an *auto*-correlation, and :py:attr:`kind
+<dymoval.xcorrelation.XCorrelation.kind>` reports which of the two it is.
 
 .. rubric:: Constructor
 
@@ -32,12 +51,23 @@ XCorrelation class
    XCorrelation.estimate_whiteness
    XCorrelation.plot
 
+.. rubric:: Functions
+.. autosummary::
+
+   whiteness_level
+
 .. _ValidationSession:
 
 ValidationSession class
 =======================
 
 .. currentmodule:: dymoval.validation
+
+A :ref:`ValidationSession <ValidationSession>` pairs one measurement
+:ref:`Dataset <Dataset>` with any number of simulation results. Each appended
+simulation is scored against the same set of thresholds, and
+:py:attr:`outcome <dymoval.validation.ValidationSession.outcome>` reports
+whether each of them passed.
 
 .. rubric:: Constructor
 
@@ -51,8 +81,11 @@ ValidationSession class
    ValidationSession.name
    ValidationSession.dataset
    ValidationSession.outcome
-   ValidationSession.simulations_names
+   ValidationSession.validation_statistics
    ValidationSession.validation_thresholds
+   ValidationSession.simulations
+   ValidationSession.simulations_names
+   ValidationSession.simulations_values
    ValidationSession.Ruu
    ValidationSession.Ree
    ValidationSession.Rue
@@ -71,7 +104,7 @@ ValidationSession class
 .. rubric:: Functions
 .. autosummary::
 
-   rsquared
-   compute_statistic
-   whiteness_level
    validate_models
+
+..
+   vim: set ts=3 tw=78:

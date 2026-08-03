@@ -63,26 +63,36 @@ time-series`y_sim` along with the corresponding real-world measurements
 sampling period of these signals. Then, just call the following function:
 
 ```
-from dymoval.validation import validate_models
+import dymoval as dmv
 
-validate_models(
+vs = dmv.validate_models(
     measured_in=u_meas,
     measured_out=y_meas,
     simulated_out=y_sim,
-    sampling_period = sampling_period
+    sampling_period=sampling_period,
 )
 ```
 
-to get something like the following:
+Displaying the returned object gives you something like the following:
 
 ```
-  Input whiteness (abs_mean-max)      0.3532
-  R-Squared (%)                      65.9009
-  Residuals whiteness (abs_mean-max)  0.1087
-  Input-Res whiteness (abs_mean-max)  0.2053
+Validation results:
+-------------------
+Thresholds:
+Ruu_whiteness: 0.6000
+r2: 35.0000
+Ree_whiteness: 0.5000
+Rue_whiteness: 0.5000
 
-           My_Model
-  Outcome: PASS
+Actuals:
+                                           Sim_0
+Input whiteness (abs_mean-max)            0.3532
+R-Squared (%)                            65.9009
+Residuals whiteness (abs_mean-max)        0.1087
+Input-Res whiteness (abs_mean-max)        0.2053
+
+         Sim_0
+Outcome: PASS
 ```
 
 Congrats! Your model passed the test!
@@ -91,8 +101,8 @@ But what if the test didn't pass? Don't worry, it might not be the model's
 fault.
 
 For example, you could be dealing with noisy measurements, over-sampled
-signals, missing data, and other factors that might affect the results. Take a
-look at the tutorial to learn how to address such issues:
+signals, drifting sensors, and other factors that might affect the results.
+Take a look at the tutorial to learn how to address such issues:
 
 ```
   import dymoval as dmv
@@ -123,11 +133,10 @@ the [docs](https://ubaldot.github.io/dymoval/).
 **Measurement data analysis and manipulation**
 
 * Time and frequency analysis
-* Easy plotting
-* Missing data handling
+* Easy plotting, with interactive scopes
 * Linear filtering
 * Means and offsets removal
-* Re-sampling
+* Re-sampling and alignment of signals
 * Physical units
 
 ## License

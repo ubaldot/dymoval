@@ -45,13 +45,13 @@ with the following:
 
 .. code::
 
-   from dymoval.correlation import XCorrelation
+   from dymoval import XCorrelation
 
    Ruu = XCorrelation("Ruu", u, u)
    # Plot the auto-correlation function
    Ruu.plot()
    # Estimate whiteness
-   Ruu.whiteness()
+   Ruu.estimate_whiteness()
 
 The whiteness level of the signal ``u`` is computed according to different
 metrics, see :py:meth:`~dymoval.statistics.compute_statistic`.
