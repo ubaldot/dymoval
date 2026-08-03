@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from typing import Any, Sequence
 
+import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
@@ -32,13 +33,52 @@ __all__ = [
     "DatasetScope",
     "SpectrumScope",
     "AmplitudeSpectrumScope",
+    "scope_subplots",
 ]
 
 _HINT = "Click on a signal\n(press 'r' to reset)"
 
+#: width ratio between the plotting area and the scope info panel
+_PANEL_WIDTH_RATIOS = (3.8, 1.2)
+
 # Half-width (in samples) of the window used to resolve which line was
 # clicked when several lines overlap.
 _PICK_WINDOW = 5
+
+
+def scope_subplots(
+    nrows: int = 1,
+    ncols: int = 1,
+    *,
+    with_scope: bool = True,
+    figsize: tuple[float, float] | None = None,
+    **kwargs: Any,
+) -> tuple[Figure, list[Axes], Axes | None]:
+    """Create a figure laid out for an interactive scope.
+
+    When ``with_scope`` is set the figure is split into two subfigures: the
+    plotting area on the left and the scope info panel on the right. The
+    caller is left with attaching the scope itself, since only the caller
+    knows which scope class and which axes grouping it needs.
+
+    Returns ``(fig, axes, panel_ax)``, where ``axes`` is *flat* and
+    ``panel_ax`` is ``None`` when ``with_scope`` is ``False``.
+    """
+    fig = plt.figure(constrained_layout=True, figsize=figsize)
+
+    if with_scope:
+        subfigs = fig.subfigures(1, 2, width_ratios=list(_PANEL_WIDTH_RATIOS))
+        host: Any = subfigs[0]
+        panel_ax: Axes | None = subfigs[1].add_subplot()
+        assert panel_ax is not None
+        panel_ax.set_anchor("N")
+    else:
+        host = fig
+        panel_ax = None
+
+    axes = list(np.atleast_1d(host.subplots(nrows, ncols, **kwargs)).ravel())
+
+    return fig, axes, panel_ax
 
 
 def _fmt(value: float | None, unit: str = "") -> str:

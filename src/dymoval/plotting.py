@@ -8,14 +8,12 @@ plotting a bunch of loose signals and comparing datasets.
 
 from __future__ import annotations
 
-from typing import Any, Sequence
+from typing import Sequence
 
-import matplotlib.pyplot as plt
-import numpy as np
 from matplotlib.figure import Figure
 
 from .dataset import Dataset
-from .scope import DatasetScope, SpectrumScope
+from .scope import DatasetScope, SpectrumScope, scope_subplots
 from .signal import SPECTRUM_MODES, Signal, SpectrumMode
 
 __all__ = [
@@ -58,17 +56,11 @@ def plot_signals(
     if not groups:
         raise ValueError("At least one signal is required")
 
-    fig = plt.figure(
-        constrained_layout=True, figsize=(10, 2.0 * len(groups) + 1)
+    fig, axes, panel_ax = scope_subplots(
+        len(groups),
+        with_scope=with_scope,
+        figsize=(10, 2.0 * len(groups) + 1),
     )
-
-    if with_scope:
-        subfigs = fig.subfigures(1, 2, width_ratios=[3.8, 1.2])
-        host: Any = subfigs[0]
-    else:
-        host = fig
-
-    axes = list(np.atleast_1d(host.subplots(len(groups), 1)))
 
     for ax, group in zip(axes, groups):
         for sig in group:
@@ -77,9 +69,7 @@ def plot_signals(
         ax.legend()
         ax.grid(True)
 
-    if with_scope:
-        panel_ax = subfigs[1].add_subplot()
-        panel_ax.set_anchor("N")
+    if panel_ax is not None:
         DatasetScope(fig, axes, panel_ax)
 
     return fig
@@ -203,17 +193,12 @@ def plot_compare(
     names_ = _common_names(datasets, names)
     datasets = _aligned(datasets, align)
 
-    fig = plt.figure(
-        constrained_layout=True, figsize=(10, 2.0 * len(names_) + 1)
+    fig, axes, panel_ax = scope_subplots(
+        len(names_),
+        with_scope=with_scope,
+        figsize=(10, 2.0 * len(names_) + 1),
+        sharex=True,
     )
-
-    if with_scope:
-        subfigs = fig.subfigures(1, 2, width_ratios=[3.8, 1.2])
-        host: Any = subfigs[0]
-    else:
-        host = fig
-
-    axes = list(np.atleast_1d(host.subplots(len(names_), 1, sharex=True)))
 
     for ax, name in zip(axes, names_):
         for ds, label in zip(datasets, labels_):
@@ -223,9 +208,7 @@ def plot_compare(
         ax.legend()
         ax.grid(True)
 
-    if with_scope:
-        panel_ax = subfigs[1].add_subplot()
-        panel_ax.set_anchor("N")
+    if panel_ax is not None:
         DatasetScope(fig, axes, panel_ax)
 
     return fig
@@ -263,17 +246,12 @@ def plot_spectrum_compare(
     names_ = _common_names(datasets, names)
     datasets = _aligned(datasets, align)
 
-    fig = plt.figure(
-        constrained_layout=True, figsize=(10, 2.0 * len(names_) + 1)
+    fig, axes, panel_ax = scope_subplots(
+        len(names_),
+        with_scope=with_scope,
+        figsize=(10, 2.0 * len(names_) + 1),
+        sharex=True,
     )
-
-    if with_scope:
-        subfigs = fig.subfigures(1, 2, width_ratios=[3.8, 1.2])
-        host: Any = subfigs[0]
-    else:
-        host = fig
-
-    axes = list(np.atleast_1d(host.subplots(len(names_), 1, sharex=True)))
 
     for ax, name in zip(axes, names_):
         for ds, label in zip(datasets, labels_):
@@ -288,9 +266,7 @@ def plot_spectrum_compare(
         ax.legend()
         ax.grid(True)
 
-    if with_scope:
-        panel_ax = subfigs[1].add_subplot()
-        panel_ax.set_anchor("N")
+    if panel_ax is not None:
         SpectrumScope(fig, axes, panel_ax)
 
     return fig

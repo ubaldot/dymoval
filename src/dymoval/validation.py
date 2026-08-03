@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from copy import deepcopy
+from dataclasses import dataclass
 from typing import Any, Literal, Self
 
 import matplotlib
@@ -20,16 +21,14 @@ from .config import (
     COLORMAP,
     R2_Statistic_type,
     XCorr_Statistic_type,
-    is_latex_installed,
 )
 from .dataset import Dataset
-from .scope import DatasetScope
+from .scope import DatasetScope, scope_subplots
 from .signal import Signal
 from .statistics import rsquared
 from .utils import (
     difference_lists_of_str,
     factorize,
-    is_interactive_shell,
     obj2list,
 )
 from .xcorrelation import XCorrelation
@@ -51,6 +50,106 @@ _SIM_COLOR_FALLBACK = "gray"
 def _stack(signals: Sequence[Signal]) -> np.ndarray:
     """Stack a sequence of signals into a ``N x p`` array."""
     return np.column_stack([sig.values for sig in signals])
+
+
+@dataclass
+class _XCorrSettings:
+    r"""Everything driving one whiteness estimation.
+
+    A :class:`ValidationSession` holds three of these, one per correlation
+    (``Ruu``, ``Ree``, ``Rue``), which keeps the three otherwise identical
+    blocks of logic from being written out three times.
+    """
+
+    name: str
+    nlags: np.ndarray
+    local_statistic: XCorr_Statistic_type
+    global_statistic: XCorr_Statistic_type
+    local_weights: np.ndarray | None
+    global_weights: np.ndarray | None
+
+    @classmethod
+    def build(
+        cls,
+        name: str,
+        nrows: int,
+        ncols: int,
+        default_nlags: int,
+        nlags: np.ndarray | None,
+        local_statistic: XCorr_Statistic_type,
+        global_statistic: XCorr_Statistic_type,
+        local_weights: np.ndarray | None,
+        global_weights: np.ndarray | None,
+    ) -> "_XCorrSettings":
+        """Resolve the ``nrows x ncols`` number-of-lags array."""
+        if nlags is not None:
+            if (
+                nlags.ndim != 2
+                or nlags.shape[0] < nrows
+                or nlags.shape[1] < ncols
+            ):
+                raise IndexError(
+                    f"'{name}_nlags' shall be a {nrows}x{ncols} array."
+                )
+
+            resolved = np.asarray(nlags[0:nrows, 0:ncols])
+        else:
+            resolved = np.full((nrows, ncols), fill_value=default_nlags)
+
+            if local_weights is not None:
+                for ii in range(nrows):
+                    for jj in range(ncols):
+                        resolved[ii, jj] = len(local_weights[ii, jj])
+
+        return cls(
+            name=name,
+            nlags=resolved,
+            local_statistic=local_statistic,
+            global_statistic=global_statistic,
+            local_weights=local_weights,
+            global_weights=global_weights,
+        )
+
+    @property
+    def statistic_label(self) -> str:
+        return f"{self.local_statistic}-{self.global_statistic}"
+
+    def whiteness_of(self, R: XCorrelation) -> float:
+        """Estimate the whiteness of ``R`` according to these settings."""
+        estimate, _ = R.estimate_whiteness(
+            local_statistic=self.local_statistic,
+            local_weights=self.local_weights,
+            global_statistic=self.global_statistic,
+            global_weights=self.global_weights,
+        )
+
+        return estimate
+
+    def _weights_str(self, kind: str, weights: np.ndarray | None) -> str:
+        who = f"{self.name}_{kind}_weights"
+
+        if weights is None:
+            return f"{who}: None\n"
+
+        return f"{who}: Yes (see self._{who})\n"
+
+    def _nlags_str(self) -> str:
+        flat = self.nlags.flatten()
+
+        if np.all(flat == flat[0]):
+            return f"num lags: {self.nlags[0, 0]}\n"
+
+        return f"num lags: \n{self.nlags}\n"
+
+    def summary(self, header: str) -> str:
+        """The block describing these settings in the session ``__repr__``."""
+        return (
+            f"{header}\n"
+            f"Statistic: {self.statistic_label}\n"
+            + self._weights_str("local", self.local_weights)
+            + self._weights_str("global", self.global_weights)
+            + self._nlags_str()
+        )
 
 
 class ValidationSession:
@@ -210,53 +309,37 @@ class ValidationSession:
         and it should be considered as a *read-only* attribute."""
 
         # Format: 'name_sim': r2
-        self._r2_list: dict[str, np.ndarray] = {}
-        self._r2: dict[str, float] = {}
         self._r2_statistic: R2_Statistic_type = r2_statistic
-
-        # Format: 'name_sim': Ree
-        self._Ree_whiteness: dict[str, float] = {}
-        self._Ree_whiteness_matrix: dict[str, np.ndarray] = {}
-
-        # Format: 'name_sim': Rue
-        self._Rue_whiteness: dict[str, float] = {}
-        self._Rue_whiteness_matrix: dict[str, np.ndarray] = {}
 
         # ------------------ Input --------------------
         self._U_bandwidths = U_bandwidths
 
         # Input nlags. Default 41 lags (20 negative and 20 positive)
-        self._Ruu_nlags = self._resolve_nlags(
-            "Ruu", Ruu_nlags, Ruu_local_weights, self._p, self._p
+        self._Ruu = _XCorrSettings.build(
+            "Ruu",
+            nrows=self._p,
+            ncols=self._p,
+            default_nlags=self._default_nlags,
+            nlags=Ruu_nlags,
+            local_statistic=Ruu_local_statistic_type,
+            global_statistic=Ruu_global_statistic_type,
+            local_weights=Ruu_local_weights,
+            global_weights=Ruu_global_weights,
         )
-
-        self._Ruu_local_statistic_type = Ruu_local_statistic_type
-        self._Ruu_global_statistic_type = Ruu_global_statistic_type
-        self._Ruu_local_weights = Ruu_local_weights
-        self._Ruu_global_weights = Ruu_global_weights
 
         u_values = _stack(list(validation_dataset.inputs.values()))
 
-        Ruu = XCorrelation(
+        self._Ruu_tensor = XCorrelation(
             "Ruu",
             X=u_values,
             Y=u_values,
-            nlags=self._Ruu_nlags,
+            nlags=self._Ruu.nlags,
             X_bandwidths=self._U_bandwidths,
             Y_bandwidths=self._U_bandwidths,
             sampling_period=self._sampling_period,
         )
 
-        self._Ruu_tensor = Ruu
-
-        self._Ruu_whiteness, self._Ruu_whiteness_matrix = (
-            Ruu.estimate_whiteness(
-                local_statistic=self._Ruu_local_statistic_type,
-                local_weights=self._Ruu_local_weights,
-                global_statistic=self._Ruu_global_statistic_type,
-                global_weights=self._Ruu_global_weights,
-            )
-        )
+        self._Ruu_whiteness = self._Ruu.whiteness_of(self._Ruu_tensor)
 
         # ------------ Residuals -----------------------------
         self._Y_bandwidths = Y_bandwidths
@@ -264,26 +347,32 @@ class ValidationSession:
         # Residuals auto-correlation
         self._Ree_tensor: dict[str, XCorrelation] = {}
 
-        self._Ree_nlags = self._resolve_nlags(
-            "Ree", Ree_nlags, Ree_local_weights, self._q, self._q
+        self._Ree = _XCorrSettings.build(
+            "Ree",
+            nrows=self._q,
+            ncols=self._q,
+            default_nlags=self._default_nlags,
+            nlags=Ree_nlags,
+            local_statistic=Ree_local_statistic_type,
+            global_statistic=Ree_global_statistic_type,
+            local_weights=Ree_local_weights,
+            global_weights=Ree_global_weights,
         )
-
-        self._Ree_local_statistic_type = Ree_local_statistic_type
-        self._Ree_global_statistic_type = Ree_global_statistic_type
-        self._Ree_local_weights = Ree_local_weights
-        self._Ree_global_weights = Ree_global_weights
 
         # Input-Residuals cross-correlation
         self._Rue_tensor: dict[str, XCorrelation] = {}
 
-        self._Rue_nlags = self._resolve_nlags(
-            "Rue", Rue_nlags, Rue_local_weights, self._p, self._q
+        self._Rue = _XCorrSettings.build(
+            "Rue",
+            nrows=self._p,
+            ncols=self._q,
+            default_nlags=self._default_nlags,
+            nlags=Rue_nlags,
+            local_statistic=Rue_local_statistic_type,
+            global_statistic=Rue_global_statistic_type,
+            local_weights=Rue_local_weights,
+            global_weights=Rue_global_weights,
         )
-
-        self._Rue_local_statistic_type = Rue_local_statistic_type
-        self._Rue_global_statistic_type = Rue_global_statistic_type
-        self._Rue_local_weights = Rue_local_weights
-        self._Rue_global_weights = Rue_global_weights
 
         # sim_name -> {statistic_key: value}
         self._validation_statistics: dict[str, dict[str, float]] = {}
@@ -306,58 +395,17 @@ class ValidationSession:
         and it should be considered as a *read-only* attribute."""
 
     # ====================================================
-    # Construction helpers
-    # ====================================================
-    def _resolve_nlags(
-        self,
-        who: str,
-        nlags: np.ndarray | None,
-        local_weights: np.ndarray | None,
-        nrows: int,
-        ncols: int,
-    ) -> np.ndarray:
-        """Build the ``nrows x ncols`` number-of-lags array."""
-        resolved = np.full((nrows, ncols), fill_value=self._default_nlags)
-
-        if nlags is not None:
-            if (
-                nlags.ndim != 2
-                or nlags.shape[0] < nrows
-                or nlags.shape[1] < ncols
-            ):
-                raise IndexError(
-                    f"'{who}_nlags' shall be a {nrows}x{ncols} array."
-                )
-
-            return np.asarray(nlags[0:nrows, 0:ncols])
-
-        if local_weights is not None:
-            for ii in range(nrows):
-                for jj in range(ncols):
-                    resolved[ii, jj] = len(local_weights[ii, jj])
-
-        return resolved
-
-    # ====================================================
     # Representation
     # ====================================================
     def _statistics_labels(self) -> dict[str, str]:
         return {
-            "Ruu_whiteness": (
-                f"Input whiteness "
-                f"({self._Ruu_local_statistic_type}-"
-                f"{self._Ruu_global_statistic_type})"
-            ),
+            "Ruu_whiteness": f"Input whiteness ({self._Ruu.statistic_label})",
             "r2": "R-Squared (%)",
             "Ree_whiteness": (
-                f"Residuals whiteness "
-                f"({self._Ree_local_statistic_type}-"
-                f"{self._Ree_global_statistic_type})"
+                f"Residuals whiteness ({self._Ree.statistic_label})"
             ),
             "Rue_whiteness": (
-                f"Input-Res whiteness "
-                f"({self._Rue_local_statistic_type}-"
-                f"{self._Rue_global_statistic_type})"
+                f"Input-Res whiteness ({self._Rue.statistic_label})"
             ),
         }
 
@@ -419,55 +467,29 @@ class ValidationSession:
             inputs_acorr_str = f"Input ignored: {self._ignore_input}\n"
             keys.remove("Ruu_whiteness")
         else:
-            inputs_acorr_str = (
-                f"Inputs auto-correlation\n"
-                f"Statistic: "
-                f"{self._Ruu_local_statistic_type}-"
-                f"{self._Ruu_global_statistic_type}\n"
-                + self._weights_str(
-                    "Ruu_local_weights", self._Ruu_local_weights
-                )
-                + self._weights_str(
-                    "Ruu_global_weights", self._Ruu_global_weights
-                )
-                + self._nlags_str(self._Ruu_nlags)
-            )
+            inputs_acorr_str = self._Ruu.summary("Inputs auto-correlation")
 
         thresholds_str = "".join(
             f"{k}: {v:.4f} \n" for k, v in self._validation_thresholds.items()
         )
 
-        repr_str = (
+        return (
             f"Validation session name: {self.name}\n\n"
             f"Validation setup:\n----------------\n"
             + inputs_acorr_str
             + "\n"
-            + f"Residuals auto-correlation:\n"
-            f"Statistic: "
-            f"{self._Ree_local_statistic_type}-"
-            f"{self._Ree_global_statistic_type}\n"
-            + self._weights_str("Ree_local_weights", self._Ree_local_weights)
-            + self._weights_str("Ree_global_weights", self._Ree_global_weights)
-            + self._nlags_str(self._Ree_nlags)
+            + self._Ree.summary("Residuals auto-correlation:")
             + "\n"
-            + f"Input-residuals cross-correlation:\n"
-            f"Statistic: "
-            f"{self._Rue_local_statistic_type}-"
-            f"{self._Rue_global_statistic_type}\n"
-            + self._weights_str("Rue_local_weights", self._Rue_local_weights)
-            + self._weights_str("Rue_global_weights", self._Rue_global_weights)
-            + self._nlags_str(self._Rue_nlags)
+            + self._Rue.summary("Input-residuals cross-correlation:")
             + "\n"
-            + f"Validation results:\n-------------------\n"
-            f"Thresholds: \n"
+            + "Validation results:\n-------------------\n"
+            "Thresholds: \n"
             f"{thresholds_str}\n"
             "Actuals:\n"
             f"{self._statistics_table(keys)}\n\n"
             f"{outcomes_head}\n"
             f"{outcomes_body}\n"
         )
-
-        return repr_str
 
     # ========== read-only attributes ====================
 
@@ -591,10 +613,9 @@ class ValidationSession:
                 "Are you cheating?"
             )
 
-        # r2 value and r2 statistics
-        r2 = rsquared(y_values, y_sim_values)
-        self._r2_list[sim_name] = r2
-        self._r2[sim_name] = self._compute_r2_statistic(r2, self._r2_statistic)
+        r2 = self._compute_r2_statistic(
+            rsquared(y_values, y_sim_values), self._r2_statistic
+        )
 
         # Residuals auto-correlation
         Ree = XCorrelation(
@@ -603,20 +624,8 @@ class ValidationSession:
             eps,
             X_bandwidths=self._Y_bandwidths,
             Y_bandwidths=self._Y_bandwidths,
-            nlags=self._Ree_nlags,
+            nlags=self._Ree.nlags,
             sampling_period=self._sampling_period,
-        )
-
-        self._Ree_tensor[sim_name] = Ree
-
-        (
-            self._Ree_whiteness[sim_name],
-            self._Ree_whiteness_matrix[sim_name],
-        ) = Ree.estimate_whiteness(
-            local_statistic=self._Ree_local_statistic_type,
-            local_weights=self._Ree_local_weights,
-            global_statistic=self._Ree_global_statistic_type,
-            global_weights=self._Ree_global_weights,
         )
 
         # Input-residuals cross-correlation
@@ -626,28 +635,18 @@ class ValidationSession:
             eps,
             X_bandwidths=self._Y_bandwidths,
             Y_bandwidths=self._Y_bandwidths,
-            nlags=self._Rue_nlags,
+            nlags=self._Rue.nlags,
             sampling_period=self._sampling_period,
         )
 
+        self._Ree_tensor[sim_name] = Ree
         self._Rue_tensor[sim_name] = Rue
 
-        (
-            self._Rue_whiteness[sim_name],
-            self._Rue_whiteness_matrix[sim_name],
-        ) = Rue.estimate_whiteness(
-            local_statistic=self._Rue_local_statistic_type,
-            local_weights=self._Rue_local_weights,
-            global_statistic=self._Rue_global_statistic_type,
-            global_weights=self._Rue_global_weights,
-        )
-
-        # Append numerical values
         self._validation_statistics[sim_name] = {
             "Ruu_whiteness": self._Ruu_whiteness,
-            "r2": self._r2[sim_name],
-            "Ree_whiteness": self._Ree_whiteness[sim_name],
-            "Rue_whiteness": self._Rue_whiteness[sim_name],
+            "r2": r2,
+            "Ree_whiteness": self._Ree.whiteness_of(Ree),
+            "Rue_whiteness": self._Rue.whiteness_of(Rue),
         }
 
         # Compute PASS/FAIL outcome
@@ -826,12 +825,6 @@ class ValidationSession:
             vs_temp._Rue_tensor.pop(sim_name)
             vs_temp._validation_statistics.pop(sim_name)
             vs_temp._outcome.pop(sim_name, None)
-            vs_temp._r2.pop(sim_name, None)
-            vs_temp._r2_list.pop(sim_name, None)
-            vs_temp._Ree_whiteness.pop(sim_name, None)
-            vs_temp._Ree_whiteness_matrix.pop(sim_name, None)
-            vs_temp._Rue_whiteness.pop(sim_name, None)
-            vs_temp._Rue_whiteness_matrix.pop(sim_name, None)
 
         return vs_temp
 
@@ -900,21 +893,8 @@ class ValidationSession:
         # ================================================================
         # Arrange the figure
         # ================================================================
-        fig = plt.figure(constrained_layout=True)
-
-        if with_scope:
-            subfigs = fig.subfigures(1, 2, width_ratios=[3.8, 1.2])
-            plot_fig: Any = subfigs[0]
-            panel_ax = subfigs[1].add_subplot()
-            panel_ax.set_anchor("N")
-        else:
-            plot_fig = fig
-            panel_ax = None
-
-        axes = list(
-            np.atleast_1d(
-                plot_fig.subplots(nrows, ncols, squeeze=False)
-            ).ravel()
+        fig, axes, panel_ax = scope_subplots(
+            nrows, ncols, with_scope=with_scope, squeeze=False
         )
 
         # Only the first "n" axes are used
@@ -986,11 +966,6 @@ class ValidationSession:
         else:
             fig.set_layout_engine(layout)
 
-        if is_interactive_shell():
-            fig.show()
-        else:
-            plt.show()
-
         return fig
 
     def plot_residuals(
@@ -1025,118 +1000,59 @@ class ValidationSession:
         """
         sims = self._sims_to_plot(list_sims)
 
-        Ruu = self._Ruu_tensor
-        Ree = self._Ree_tensor
-        Rue = self._Rue_tensor
-
         p = self._p
         q = self._q
 
+        cmap = plt.get_cmap(COLORMAP)
         figs: list[matplotlib.figure.Figure] = []
 
-        def _finalize(fig: matplotlib.figure.Figure) -> None:
-            gs = fig.get_axes()[0].get_gridspec()
-            assert gs is not None
-            nrows, ncols = gs.get_geometry()
+        def _new_figure(
+            nrows: int, ncols: int, title: str
+        ) -> tuple[matplotlib.figure.Figure, np.ndarray]:
+            fig, axes = plt.subplots(nrows, ncols, squeeze=False)
+            fig.suptitle(title)
             fig.set_size_inches(ncols * ax_width, nrows * ax_height + 1.25)
             fig.set_layout_engine(layout)
-
-        # ===============================================================
-        # Plot input auto-correlation
-        # ===============================================================
-        if plot_input:
-            fig, ax = plt.subplots(p, p, squeeze=False)
-            plt.setp(ax, ylim=(-1.2, 1.2))
-
-            for ii in range(p):
-                for jj in range(p):
-                    if is_latex_installed:
-                        title = rf"$\hat r_{{u_{ii}u_{jj}}}$"
-                    else:
-                        title = rf"r_u{ii}u_{jj}"
-
-                    ax[ii, jj].stem(
-                        Ruu.R[ii, jj].lags,
-                        Ruu.R[ii, jj].values,
-                        label=title,
-                    )
-                    ax[ii, jj].grid(True)
-                    ax[ii, jj].set_xlabel("Lags")
-                    ax[ii, jj].set_title(title)
-                    ax[ii, jj].legend()
-
-            fig.suptitle("Input auto-correlation")
-            _finalize(fig)
             figs.append(fig)
 
+            return fig, axes
+
         # ===============================================================
-        # Plot residuals auto-correlation
+        # Input auto-correlation
         # ===============================================================
-        cmap = plt.get_cmap(COLORMAP)
-        fig1, ax1 = plt.subplots(q, q, squeeze=False)
-        plt.setp(ax1, ylim=(-1.2, 1.2))
+        if plot_input:
+            _, axes = _new_figure(p, p, "Input auto-correlation")
+            self._Ruu_tensor._plot_grid(axes, x_symbol="u", y_symbol="u")
+
+        # ===============================================================
+        # Residuals auto-correlation, one color per simulation
+        # ===============================================================
+        _, axes = _new_figure(q, q, "Residuals auto-correlation")
 
         for kk, sim_name in enumerate(sims):
             color_hex = matplotlib.colors.to_hex(cmap(kk % cmap.N))
-
-            for ii in range(q):
-                for jj in range(q):
-                    if is_latex_installed:
-                        title = rf"$\hat r_{{\epsilon_{ii}\epsilon_{jj}}}$"
-                    else:
-                        title = rf"r_eps{ii}eps_{jj}"
-
-                    ax1[ii, jj].stem(
-                        Ree[sim_name].R[ii, jj].lags,
-                        Ree[sim_name].R[ii, jj].values,
-                        label=sim_name,
-                        linefmt=f"{color_hex}",
-                    )
-                    ax1[ii, jj].grid(True)
-                    ax1[ii, jj].set_xlabel("Lags")
-                    ax1[ii, jj].set_title(title)
-                    ax1[ii, jj].legend()
-
-        fig1.suptitle("Residuals auto-correlation")
-        _finalize(fig1)
-        figs.append(fig1)
+            self._Ree_tensor[sim_name]._plot_grid(
+                axes,
+                x_symbol="eps",
+                y_symbol="eps",
+                label=sim_name,
+                linefmt=color_hex,
+            )
 
         # ===============================================================
-        # Plot input-residuals cross-correlation
+        # Input-residuals cross-correlation
         # ===============================================================
-        fig2, ax2 = plt.subplots(p, q, sharex=True, squeeze=False)
-        plt.setp(ax2, ylim=(-1.2, 1.2))
+        _, axes = _new_figure(p, q, "Input-residuals cross-correlation")
 
         for kk, sim_name in enumerate(sims):
             color_hex = matplotlib.colors.to_hex(cmap(kk % cmap.N))
-
-            for ii in range(p):
-                for jj in range(q):
-                    if is_latex_installed:
-                        title = rf"$\hat r_{{u_{ii}\epsilon_{jj}}}$"
-                    else:
-                        title = rf"r_u{ii}eps{jj}"
-
-                    ax2[ii, jj].stem(
-                        Rue[sim_name].R[ii, jj].lags,
-                        Rue[sim_name].R[ii, jj].values,
-                        label=sim_name,
-                        linefmt=f"{color_hex}",
-                    )
-                    ax2[ii, jj].grid(True)
-                    ax2[ii, jj].set_xlabel("Lags")
-                    ax2[ii, jj].set_title(title)
-                    ax2[ii, jj].legend()
-
-        fig2.suptitle("Input-residuals cross-correlation")
-        _finalize(fig2)
-        figs.append(fig2)
-
-        if is_interactive_shell():
-            for fig_ in figs:
-                fig_.show()
-        else:
-            plt.show()
+            self._Rue_tensor[sim_name]._plot_grid(
+                axes,
+                x_symbol="u",
+                y_symbol="eps",
+                label=sim_name,
+                linefmt=color_hex,
+            )
 
         return tuple(figs)
 

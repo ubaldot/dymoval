@@ -22,7 +22,6 @@ dependencies = [
     "scipy",
     "control",
     "numpy",
-    "tomli",
     "h5py",
 ]
 

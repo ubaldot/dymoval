@@ -39,6 +39,25 @@ sig._plot_spectrum_amplitude(...)
 
 and **never** calls the public plotting methods internally.
 
+The same rule holds one level up: `XCorrelation` owns the primitives
+`_plot_standard(ax, ii, jj)` (one stem plot on one axes) and
+`_plot_grid(axes, x_symbol, y_symbol)` (a `p x q` grid), and both
+`XCorrelation.plot()` and `ValidationSession.plot_residuals()` are built
+on top of them.
+
+Two further conventions:
+
+- **Every figure that may carry a scope is created by
+  `dymoval.scope.scope_subplots(nrows, ncols, *, with_scope, figsize,
+  **subplots_kwargs)`**, which returns `(fig, axes, panel_ax)` with a
+  *flat* `axes` list and `panel_ax is None` when `with_scope=False`. The
+  caller only attaches the scope class it needs. This replaced ten
+  copy-pasted `plt.figure(...) / fig.subfigures(...) / add_subplot() /
+  set_anchor("N")` blocks.
+- **Plotting functions never call `show()`** (nor `fig.show()`), they only
+  return the `Figure`. Displaying is the caller's / the backend's job;
+  this also keeps the test suite warning-free.
+
 ---
 
 # Module map
@@ -47,7 +66,7 @@ and **never** calls the public plotting methods internally.
 | ------------- | ------ | --------------------------------------------------- |
 | `signal.py`   | new    | `Signal`                                             |
 | `dataset.py`  | new    | `Dataset`                                            |
-| `scope.py`    | new    | `BaseScope` / `SignalScope` / `DatasetScope` / `SpectrumScope` / `AmplitudeSpectrumScope` |
+| `scope.py`    | new    | `BaseScope` / `SignalScope` / `DatasetScope` / `SpectrumScope` / `AmplitudeSpectrumScope`, plus the `scope_subplots()` figure factory |
 | `plotting.py` | new    | multi-object helpers only                            |
 | `statistics.py` | new  | `compute_statistic`, `rsquared`                      |
 | `xcorrelation.py` | new | `XCorrelation`, `whiteness_level`                   |
@@ -59,6 +78,10 @@ The package is now **pandas-free**: `dataset_old.py`, the legacy
 have all been removed. `src/dymoval_tutorial/` (the notebook and
 `tutorial_debug.py`) has been rewritten on the new API and the notebook is
 now shipped without stored outputs.
+
+`utils_internal.py` (never imported), the `R2_STATISTIC_TYPE` config entry
+and the `tomli` dependency (unreachable: `requires-python >= 3.11` always
+provides `tomllib`) have been dropped as dead code.
 
 ---
 
@@ -351,6 +374,17 @@ scope, so only the simulations and the measured outputs are selectable.
 
 `trim()` reuses `Dataset.trim()` and applies the very same trimming to the
 stored simulation signals, then recomputes every statistic.
+
+## Internals
+
+The three correlation flavours (`Ruu`, `Ree`, `Rue`) used to be described
+by ~20 parallel `_Ruu_*` / `_Ree_*` / `_Rue_*` attributes. They are now
+folded into a single `_XCorrSettings` dataclass, instantiated three times
+as `self._Ruu`, `self._Ree`, `self._Rue`. It owns the lag resolution
+(`build`), the statistic label, the whiteness computation
+(`whiteness_of`) and the `__repr__` fragments (`summary`). The write-only
+shadow bookkeeping (`_r2_list`, `_Ree_whiteness`, `_*_whiteness_matrix`, ...)
+has been deleted: the statistics live only in `_validation_statistics`.
 
 ---
 

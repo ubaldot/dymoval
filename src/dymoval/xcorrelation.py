@@ -9,12 +9,13 @@ primitive plotting; the orchestration belongs to
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 import matplotlib
 import numpy as np
 import scipy.signal as signal
 from matplotlib import pyplot as plt
+from matplotlib.axes import Axes
 
 from .config import (
     XCORR_STATISTIC_TYPE,
@@ -22,9 +23,30 @@ from .config import (
     is_latex_installed,
 )
 from .statistics import compute_statistic
-from .utils import is_interactive_shell
 
-__all__ = ["XCorrelation", "whiteness_level"]
+__all__ = ["XCorrelation", "whiteness_level", "correlation_title"]
+
+#: LaTeX and plain-text rendering of the signal symbols used in the
+#: correlation function titles.
+_SYMBOLS: dict[str, tuple[str, str]] = {
+    "u": ("u", "u"),
+    "eps": (r"\epsilon", "eps"),
+}
+
+
+def correlation_title(x_symbol: str, y_symbol: str, ii: int, jj: int) -> str:
+    r"""Title of the :math:`(i, j)`-th correlation function.
+
+    ``x_symbol`` and ``y_symbol`` are keys of ``_SYMBOLS``, i.e. ``"u"`` for
+    an input and ``"eps"`` for a residual. LaTeX is used when available.
+    """
+    latex_x, plain_x = _SYMBOLS[x_symbol]
+    latex_y, plain_y = _SYMBOLS[y_symbol]
+
+    if is_latex_installed:
+        return rf"$\hat r_{{{latex_x}_{ii}{latex_y}_{jj}}}$"
+
+    return f"r_{plain_x}{ii}{plain_y}{jj}"
 
 
 # Util for defining XCorrelation elements.
@@ -481,44 +503,71 @@ class XCorrelation:
 
         return whiteness_estimate, whiteness_matrix
 
-    def plot(self) -> matplotlib.figure.Figure:
-        """Plot the :math:`p \times q` cross-correlation functions contained
-        in :py:attr:`~dymoval.xcorrelation.XCorrelation.R`."""
+    # ================================================
+    # Plotting
+    # ================================================
+    def _plot_standard(
+        self, ax: Axes, ii: int, jj: int, **kwargs: Any
+    ) -> Axes:
+        r"""Draw the :math:`(i, j)`-th correlation function on ``ax``.
 
-        p = self.R.shape[0]
-        q = self.R.shape[1]
-        fig, ax = plt.subplots(p, q, squeeze=False)
-        plt.setp(ax, ylim=(-1.2, 1.2))
+        This is the *primitive*: it draws one stem plot on one axes and
+        nothing else. The :math:`p \times q` layout belongs to the caller,
+        i.e. to :meth:`plot` or to
+        :class:`dymoval.validation.ValidationSession`.
+        """
+        ax.stem(self.R[ii, jj].lags, self.R[ii, jj].values, **kwargs)
+        ax.set_ylim(-1.2, 1.2)
+        ax.set_xlabel("Lags")
+        ax.grid(True)
+
+        return ax
+
+    def _plot_grid(
+        self,
+        axes: np.ndarray,
+        x_symbol: str,
+        y_symbol: str,
+        legend: bool | None = None,
+        **kwargs: Any,
+    ) -> None:
+        r"""Draw the whole :math:`p \times q` grid on a ``(p, q)`` array of
+        axes, titling each subplot after the involved signal components.
+
+        A legend is added only when a ``label`` is given, unless ``legend``
+        says otherwise.
+        """
+        p, q = self.R.shape[0], self.R.shape[1]
+
+        if legend is None:
+            legend = bool(kwargs.get("label"))
 
         for ii in range(p):
             for jj in range(q):
-                if is_latex_installed:
-                    title_acorr = rf"$\hat r_{{\epsilon_{ii}\epsilon_{jj}}}$"
-                    title_xcorr = rf"$\hat r_{{u_{ii}\epsilon_{jj}}}$"
-                else:
-                    title_acorr = rf"r_eps{ii}eps{jj}$"
-                    title_xcorr = rf"r_u{ii}eps{jj}$"
-                title = (
-                    title_acorr
-                    if self.kind == "auto-correlation"
-                    else title_xcorr
-                )
-                ax[ii, jj].stem(
-                    self.R[ii, jj].lags,
-                    self.R[ii, jj].values,
-                    label=self.name,
-                )
-                ax[ii, jj].grid(True)
-                ax[ii, jj].set_xlabel("Lags")
-                ax[ii, jj].set_title(title)
-                if self.name != "":
-                    ax[ii, jj].legend()
-        fig.suptitle(f"{self.kind}")
+                ax = axes[ii, jj]
+                self._plot_standard(ax, ii, jj, **kwargs)
+                ax.set_title(correlation_title(x_symbol, y_symbol, ii, jj))
 
-        if is_interactive_shell():
-            fig.show()
-        else:
-            plt.show()
+                if legend:
+                    ax.legend()
+
+    def plot(self) -> matplotlib.figure.Figure:
+        r"""Plot the :math:`p \times q` cross-correlation functions contained
+        in :py:attr:`~dymoval.xcorrelation.XCorrelation.R`."""
+        p, q = self.R.shape[0], self.R.shape[1]
+
+        fig, axes = plt.subplots(p, q, squeeze=False)
+
+        x_symbol = "u" if self.kind == "cross-correlation" else "eps"
+
+        self._plot_grid(
+            axes,
+            x_symbol=x_symbol,
+            y_symbol="eps",
+            label=self.name,
+        )
+
+        fig.suptitle(f"{self.kind}")
 
         return fig
 

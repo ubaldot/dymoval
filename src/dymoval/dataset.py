@@ -18,7 +18,12 @@ import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
-from .scope import AmplitudeSpectrumScope, DatasetScope, SpectrumScope
+from .scope import (
+    AmplitudeSpectrumScope,
+    DatasetScope,
+    SpectrumScope,
+    scope_subplots,
+)
 from .signal import SPECTRUM_MODES, Signal, SpectrumMode
 
 __all__ = ["Dataset", "SIGNAL_KIND"]
@@ -646,11 +651,6 @@ class Dataset:
 
         return groups
 
-    @staticmethod
-    def _make_axes(subfig: Any, nrows: int, **kwargs: Any) -> list[Axes]:
-        axes = subfig.subplots(nrows, 1, **kwargs)
-        return list(np.atleast_1d(axes).ravel())
-
     def _plot_group(self, ax: Axes, group: Group) -> None:
         """Draw one group of signals on ``ax``."""
         all_signals = self.all_signals()
@@ -672,36 +672,21 @@ class Dataset:
     # ================================================
     # Time-domain plotting
     # ================================================
-    def _plot_standard(self, *names: str | tuple[str, ...]) -> Figure:
+    def _plot(self, *names: str | tuple[str, ...], with_scope: bool) -> Figure:
         groups = self._normalize_groups(names)
 
-        fig = plt.figure(
-            constrained_layout=True, figsize=(10, 2.0 * len(groups) + 1)
+        fig, axes, panel_ax = scope_subplots(
+            len(groups),
+            with_scope=with_scope,
+            figsize=(10, 2.0 * len(groups) + 1),
+            sharex=True,
         )
-        axes = self._make_axes(fig, len(groups), sharex=True)
 
         for ax, group in zip(axes, groups):
             self._plot_group(ax, group)
 
-        return fig
-
-    def _plot_scope(self, *names: str | tuple[str, ...]) -> Figure:
-        groups = self._normalize_groups(names)
-
-        fig = plt.figure(
-            constrained_layout=True, figsize=(10, 2.0 * len(groups) + 1)
-        )
-        subfigs = fig.subfigures(1, 2, width_ratios=[3.8, 1.2])
-
-        axes = self._make_axes(subfigs[0], len(groups), sharex=True)
-
-        for ax, group in zip(axes, groups):
-            self._plot_group(ax, group)
-
-        panel_ax = subfigs[1].add_subplot()
-        panel_ax.set_anchor("N")
-
-        DatasetScope(fig, axes, panel_ax)
+        if panel_ax is not None:
+            DatasetScope(fig, axes, panel_ax)
 
         return fig
 
@@ -711,10 +696,7 @@ class Dataset:
         with_scope: bool = True,
     ) -> Figure:
         """Plot the signals, one subplot per group."""
-        if with_scope:
-            return self._plot_scope(*names)
-
-        return self._plot_standard(*names)
+        return self._plot(*names, with_scope=with_scope)
 
     # ================================================
     # x/y plotting
@@ -799,10 +781,11 @@ class Dataset:
         selected = list(names) if names else self.names()
         self._check_names(selected)
 
-        fig = plt.figure(
-            constrained_layout=True, figsize=(7, 1.8 * len(selected) + 1)
+        fig, axes, _ = scope_subplots(
+            len(selected),
+            with_scope=False,
+            figsize=(7, 1.8 * len(selected) + 1),
         )
-        axes = self._make_axes(fig, len(selected))
 
         for ax, name in zip(axes, selected):
             sig = self[name]
@@ -875,42 +858,16 @@ class Dataset:
         *names: str | tuple[str, ...],
         xscale: str = "linear",
         yscale: str = "linear",
+        with_scope: bool = False,
     ) -> Figure:
         groups = self._normalize_groups(names)
 
-        fig = plt.figure(
-            constrained_layout=True, figsize=(10, 2.0 * len(groups) + 2)
+        fig, axes, panel_ax = scope_subplots(
+            2 * len(groups),
+            with_scope=with_scope,
+            figsize=(10, 2.0 * len(groups) + 2),
+            sharex=True,
         )
-        axes = self._make_axes(fig, 2 * len(groups), sharex=True)
-
-        for i, group in enumerate(groups):
-            self._plot_spectrum_amplitude_group(
-                mag_ax=axes[2 * i],
-                phase_ax=axes[2 * i + 1],
-                group=group,
-                xscale=xscale,
-                yscale=yscale,
-            )
-
-        return fig
-
-    def _plot_spectrum_amplitude_scope(
-        self,
-        *names: str | tuple[str, ...],
-        xscale: str = "linear",
-        yscale: str = "linear",
-    ) -> Figure:
-        groups = self._normalize_groups(names)
-
-        fig = plt.figure(
-            constrained_layout=True, figsize=(10, 2.0 * len(groups) + 2)
-        )
-        subfigs = fig.subfigures(1, 2, width_ratios=[3.8, 1.2])
-
-        axes = self._make_axes(subfigs[0], 2 * len(groups), sharex=True)
-
-        panel_ax = subfigs[1].add_subplot()
-        panel_ax.set_anchor("N")
 
         # One scope per group so that magnitude and phase are linked and
         # the cursor stays local to the group. All the scopes share the
@@ -926,65 +883,44 @@ class Dataset:
                 yscale=yscale,
             )
 
-            AmplitudeSpectrumScope(fig, mag_ax, phase_ax, panel_ax)
+            if panel_ax is not None:
+                AmplitudeSpectrumScope(fig, mag_ax, phase_ax, panel_ax)
 
         return fig
 
     # ------------------------------------------------
     # magnitude-only layouts
     # ------------------------------------------------
-    def _plot_spectrum_standard(
+    def _plot_spectrum(
         self,
         *names: str | tuple[str, ...],
+        with_scope: bool,
         xscale: str = "linear",
         yscale: str = "linear",
         mode: SpectrumMode = "psd_welch",
     ) -> Figure:
         if mode == "amplitude":
             return self._plot_spectrum_amplitude(
-                *names, xscale=xscale, yscale=yscale
+                *names,
+                xscale=xscale,
+                yscale=yscale,
+                with_scope=with_scope,
             )
 
         groups = self._normalize_groups(names)
 
-        fig = plt.figure(
-            constrained_layout=True, figsize=(10, 2.0 * len(groups) + 1)
+        fig, axes, panel_ax = scope_subplots(
+            len(groups),
+            with_scope=with_scope,
+            figsize=(10, 2.0 * len(groups) + 1),
+            sharex=True,
         )
-        axes = self._make_axes(fig, len(groups), sharex=True)
 
         for ax, group in zip(axes, groups):
             self._plot_spectrum_group(ax, group, xscale, yscale, mode)
 
-        return fig
-
-    def _plot_spectrum_scope(
-        self,
-        *names: str | tuple[str, ...],
-        xscale: str = "linear",
-        yscale: str = "linear",
-        mode: SpectrumMode = "psd_welch",
-    ) -> Figure:
-        if mode == "amplitude":
-            return self._plot_spectrum_amplitude_scope(
-                *names, xscale=xscale, yscale=yscale
-            )
-
-        groups = self._normalize_groups(names)
-
-        fig = plt.figure(
-            constrained_layout=True, figsize=(10, 2.0 * len(groups) + 1)
-        )
-        subfigs = fig.subfigures(1, 2, width_ratios=[3.8, 1.2])
-
-        axes = self._make_axes(subfigs[0], len(groups), sharex=True)
-
-        for ax, group in zip(axes, groups):
-            self._plot_spectrum_group(ax, group, xscale, yscale, mode)
-
-        panel_ax = subfigs[1].add_subplot()
-        panel_ax.set_anchor("N")
-
-        SpectrumScope(fig, axes, panel_ax)
+        if panel_ax is not None:
+            SpectrumScope(fig, axes, panel_ax)
 
         return fig
 
@@ -1006,11 +942,10 @@ class Dataset:
                 f"Invalid mode: {mode!r}. Allowed: {list(SPECTRUM_MODES)}"
             )
 
-        if with_scope:
-            return self._plot_spectrum_scope(
-                *names, xscale=xscale, yscale=yscale, mode=mode
-            )
-
-        return self._plot_spectrum_standard(
-            *names, xscale=xscale, yscale=yscale, mode=mode
+        return self._plot_spectrum(
+            *names,
+            with_scope=with_scope,
+            xscale=xscale,
+            yscale=yscale,
+            mode=mode,
         )

@@ -24,7 +24,12 @@ from scipy.interpolate import interp1d
 from scipy.signal import detrend as _detrend
 from scipy.signal import welch
 
-from .scope import AmplitudeSpectrumScope, SignalScope, SpectrumScope
+from .scope import (
+    AmplitudeSpectrumScope,
+    SignalScope,
+    SpectrumScope,
+    scope_subplots,
+)
 
 __all__ = ["Signal", "SPECTRUM_MODES"]
 
@@ -344,15 +349,12 @@ class Signal:
         return ax
 
     def _plot_scope(self, **kwargs: Any) -> Figure:
-        fig = plt.figure(constrained_layout=True, figsize=(10, 5))
-        subfigs = fig.subfigures(1, 2, width_ratios=[3.8, 1.2])
+        fig, axes, panel_ax = scope_subplots(figsize=(10, 5))
+        ax = axes[0]
 
-        ax = subfigs[0].subplots()
         self._plot_standard(ax=ax, **kwargs)
 
-        panel_ax = subfigs[1].add_subplot()
-        panel_ax.set_anchor("N")
-
+        assert panel_ax is not None
         SignalScope(fig, ax, panel_ax, self)
 
         return fig
@@ -456,10 +458,10 @@ class Signal:
         yscale: str = "linear",
         **kwargs: Any,
     ) -> Figure:
-        fig = plt.figure(constrained_layout=True, figsize=(10, 5))
-        subfigs = fig.subfigures(1, 2, width_ratios=[3.8, 1.2])
-
-        mag_ax, phase_ax = subfigs[0].subplots(2, 1, sharex=True)
+        fig, axes, panel_ax = scope_subplots(
+            2, 1, figsize=(10, 5), sharex=True
+        )
+        mag_ax, phase_ax = axes
 
         self._plot_spectrum_amplitude(
             mag_ax=mag_ax,
@@ -471,9 +473,7 @@ class Signal:
 
         mag_ax.legend()
 
-        panel_ax = subfigs[1].add_subplot()
-        panel_ax.set_anchor("N")
-
+        assert panel_ax is not None
         AmplitudeSpectrumScope(fig, mag_ax, phase_ax, panel_ax)
 
         return fig
@@ -490,19 +490,15 @@ class Signal:
                 xscale=xscale, yscale=yscale, **kwargs
             )
 
-        fig = plt.figure(constrained_layout=True, figsize=(10, 4))
-        subfigs = fig.subfigures(1, 2, width_ratios=[3.8, 1.2])
-
-        ax = subfigs[0].subplots()
+        fig, axes, panel_ax = scope_subplots(figsize=(10, 4))
+        ax = axes[0]
 
         self._plot_spectrum_standard(
             ax=ax, xscale=xscale, yscale=yscale, mode=mode, **kwargs
         )
         ax.legend()
 
-        panel_ax = subfigs[1].add_subplot()
-        panel_ax.set_anchor("N")
-
+        assert panel_ax is not None
         SpectrumScope(fig, ax, panel_ax)
 
         return fig

@@ -67,12 +67,12 @@ class Test_ValidationSession_nominal:
             Rue_nlags=ueps_nlags_oversized,
         )
 
-        np.testing.assert_array_equal(vs._Ruu_nlags, u_nlags_oversized[:p, :p])
+        np.testing.assert_array_equal(vs._Ruu.nlags, u_nlags_oversized[:p, :p])
         np.testing.assert_array_equal(
-            vs._Ree_nlags, eps_nlags_oversized[:q, :q]
+            vs._Ree.nlags, eps_nlags_oversized[:q, :q]
         )
         np.testing.assert_array_equal(
-            vs._Rue_nlags, ueps_nlags_oversized[:p, :q]
+            vs._Rue.nlags, ueps_nlags_oversized[:p, :q]
         )
 
     def test_init_with_args_raise(self, good_dataset: tuple) -> None:
