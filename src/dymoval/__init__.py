@@ -1,8 +1,10 @@
 """dymoval: analyze measurement data and validate models."""
 
-from .dataset import Dataset
+from .config import ATOL, COLORMAP
+from .dataset import SIGNAL_KIND, Dataset
 from .plotting import (
     plot_compare,
+    plot_coverage_compare,
     plot_dataset,
     plot_signals,
     plot_spectrum_compare,
@@ -35,10 +37,12 @@ __all__ = [
     "Signal",
     "Dataset",
     "SPECTRUM_MODES",
+    "SIGNAL_KIND",
     # plotting
     "plot_signals",
     "plot_dataset",
     "plot_compare",
+    "plot_coverage_compare",
     "plot_spectrum_compare",
     # scopes
     "BaseScope",
@@ -60,4 +64,7 @@ __all__ = [
     "difference_lists_of_str",
     "obj2list",
     "open_tutorial",
+    # config
+    "COLORMAP",
+    "ATOL",
 ]

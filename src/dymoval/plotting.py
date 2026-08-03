@@ -8,7 +8,7 @@ plotting a bunch of loose signals and comparing datasets.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Sequence
+from typing import Any, Callable, Literal, Sequence
 
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
@@ -21,6 +21,7 @@ __all__ = [
     "plot_signals",
     "plot_dataset",
     "plot_compare",
+    "plot_coverage_compare",
     "plot_spectrum_compare",
 ]
 
@@ -247,6 +248,71 @@ def plot_compare(
         # the reference dataset dictates the unit shown on the y axis
         finish=lambda ax, name: ax.set_ylabel(reference[name]._ylabel()),
     )
+
+
+def plot_coverage_compare(
+    reference: Dataset,
+    *others: Dataset,
+    names: Sequence[str] = (),
+    labels: Sequence[str] | None = None,
+    nbins: int = 100,
+    alpha: float = 1.0,
+    histtype: Literal["bar", "barstacked", "step", "stepfilled"] = "step",
+    align: bool = False,
+) -> Figure:
+    """Overlay the coverage histograms of the same signals from several
+    datasets.
+
+    One subplot per signal; one histogram per dataset. There is no scope
+    here, exactly as for :meth:`dymoval.dataset.Dataset.plot_coverage`:
+    the abscissa is a signal value, not time or frequency.
+
+    Parameters
+    ----------
+    reference :
+        The dataset defining the signal ordering.
+    others :
+        The datasets to compare against ``reference``.
+    names :
+        Signals to compare. Defaults to the signals common to all the
+        datasets.
+    labels :
+        One legend label per dataset. Defaults to ``ds0``, ``ds1``, ...
+    nbins :
+        Number of histogram bins.
+    alpha :
+        Opacity of the histograms.
+    histtype :
+        Passed to ``matplotlib``. The default ``"step"`` keeps overlaid
+        distributions readable.
+    align :
+        Resample every dataset on the common time base first. Off by
+        default: a distribution does not need a shared time base.
+    """
+    datasets = _check_datasets(reference, others)
+    labels_ = _resolve_labels(datasets, labels)
+    names_ = _common_names(datasets, names)
+    datasets = _aligned(datasets, align)
+
+    fig, axes, _ = scope_subplots(
+        len(names_),
+        with_scope=False,
+        figsize=(7, 1.8 * len(names_) + 1),
+    )
+
+    for ax, name in zip(axes, names_):
+        for ds, label in zip(datasets, labels_):
+            ds[name]._plot_coverage_standard(
+                ax=ax,
+                nbins=nbins,
+                alpha=alpha,
+                histtype=histtype,
+                label=f"{name} ({label})",
+            )
+
+        ax.legend()
+
+    return fig
 
 
 def plot_spectrum_compare(

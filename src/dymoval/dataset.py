@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
+from scipy.io import savemat
 
 from .scope import (
     AmplitudeSpectrumScope,
@@ -45,6 +46,8 @@ class Dataset:
     inputs: dict[str, Signal] = field(default_factory=dict)
     outputs: dict[str, Signal] = field(default_factory=dict)
     meta: dict[str, Any] | None = None
+    #: free-form label, used as the figure title by the plotting methods
+    name: str = ""
 
     # ====================================================
     # Initialization / validation
@@ -179,6 +182,7 @@ class Dataset:
         data: dict[str, Sequence[Signal]],
         meta: dict[str, Any] | None = None,
         target_sampling_period: float | None = None,
+        name: str = "",
     ) -> "Dataset":
         """Build a ``Dataset`` from ``{"inputs": [...], "outputs": [...]}``.
 
@@ -220,7 +224,7 @@ class Dataset:
             inputs = {k: v.resample(new_time) for k, v in inputs.items()}
             outputs = {k: v.resample(new_time) for k, v in outputs.items()}
 
-        return cls(inputs=inputs, outputs=outputs, meta=meta)
+        return cls(inputs=inputs, outputs=outputs, meta=meta, name=name)
 
     @classmethod
     def from_signals(
@@ -229,11 +233,13 @@ class Dataset:
         outputs: Sequence[Signal] | None = None,
         meta: dict[str, Any] | None = None,
         target_sampling_period: float | None = None,
+        name: str = "",
     ) -> "Dataset":
         return cls.from_dict(
             {"inputs": list(inputs or []), "outputs": list(outputs or [])},
             meta=meta,
             target_sampling_period=target_sampling_period,
+            name=name,
         )
 
     # ================================================
@@ -304,6 +310,35 @@ class Dataset:
             "OUTPUT": [sig.copy() for sig in self.outputs.values()],
         }
 
+    def export_to_mat(self, filename: str) -> None:
+        """Write the dataset to a ``.mat`` file.
+
+        The resulting file has a ``TIME`` vector plus an ``INPUT`` and an
+        ``OUTPUT`` struct, each holding one entry per signal with its
+        ``values``, ``unit`` and ``sampling_period``.
+
+        Parameters
+        ----------
+        filename :
+            Target filename.
+        """
+        contents: dict[str, Any] = {"TIME": self.time()}
+
+        for kind, signals in (
+            ("INPUT", self.inputs),
+            ("OUTPUT", self.outputs),
+        ):
+            contents[kind] = {
+                sig.name: {
+                    "values": sig.values,
+                    "unit": sig.unit or "",
+                    "sampling_period": sig.get_sampling_period(),
+                }
+                for sig in signals.values()
+            }
+
+        savemat(filename, contents, oned_as="column")
+
     def dataset_values(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Return ``(time, inputs, outputs)`` as numpy arrays.
 
@@ -323,8 +358,9 @@ class Dataset:
         return self.time(), stack(self.inputs), stack(self.outputs)
 
     def __repr__(self) -> str:
+        head = f"Dataset {self.name!r}: " if self.name else "Dataset: "
         lines = [
-            f"Dataset: {len(self.inputs)} input(s), "
+            f"{head}{len(self.inputs)} input(s), "
             f"{len(self.outputs)} output(s), "
             f"{len(self.time())} samples, "
             f"dt = {self.get_sampling_period():.6g} {self.time_unit()}"
@@ -379,6 +415,7 @@ class Dataset:
             inputs={k: apply(v) for k, v in self.inputs.items()},
             outputs={k: apply(v) for k, v in self.outputs.items()},
             meta=deepcopy(self.meta),
+            name=self.name,
         )
 
     def _pairs(
@@ -430,7 +467,10 @@ class Dataset:
             outputs.update(added)
 
         return type(self)(
-            inputs=inputs, outputs=outputs, meta=deepcopy(self.meta)
+            inputs=inputs,
+            outputs=outputs,
+            meta=deepcopy(self.meta),
+            name=self.name,
         )
 
     def add_input(self, *signals: Signal) -> Self:
@@ -465,6 +505,7 @@ class Dataset:
                 if k not in removed
             },
             meta=deepcopy(self.meta),
+            name=self.name,
         )
 
     # ================================================
@@ -666,6 +707,13 @@ class Dataset:
     # ================================================
     # Time-domain plotting
     # ================================================
+    def _titled(self, fig: Figure) -> Figure:
+        """Stamp the dataset name on ``fig``, if there is one."""
+        if self.name:
+            fig.suptitle(self.name)
+
+        return fig
+
     def _plot(self, *names: str | tuple[str, ...], with_scope: bool) -> Figure:
         groups = self._normalize_groups(names)
 
@@ -682,7 +730,7 @@ class Dataset:
         if panel_ax is not None:
             DatasetScope(fig, axes, panel_ax)
 
-        return fig
+        return self._titled(fig)
 
     def plot(
         self,
@@ -785,21 +833,16 @@ class Dataset:
             sig = self[name]
             is_input = name in self.inputs
 
-            ax.hist(
-                sig.values,
-                bins=nbins,
+            sig._plot_coverage_standard(
+                ax=ax,
+                nbins=nbins,
                 color=color_input if is_input else color_output,
                 alpha=alpha,
                 histtype=histtype,
-                label=name,
             )
-
-            ax.set_xlabel(sig._ylabel())
-            ax.set_ylabel("count")
-            ax.grid(True)
             ax.legend()
 
-        return fig
+        return self._titled(fig)
 
     # ================================================
     # Frequency-domain plotting
@@ -880,7 +923,7 @@ class Dataset:
             if panel_ax is not None:
                 AmplitudeSpectrumScope(fig, mag_ax, phase_ax, panel_ax)
 
-        return fig
+        return self._titled(fig)
 
     # ------------------------------------------------
     # magnitude-only layouts
@@ -916,7 +959,7 @@ class Dataset:
         if panel_ax is not None:
             SpectrumScope(fig, axes, panel_ax)
 
-        return fig
+        return self._titled(fig)
 
     def plot_spectrum(
         self,

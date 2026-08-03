@@ -399,6 +399,26 @@ class Signal:
 
         return self._plot_standard(ax=ax, **kwargs)
 
+    def _plot_coverage_standard(
+        self,
+        ax: Axes | None = None,
+        nbins: int = 100,
+        **kwargs: Any,
+    ) -> Axes:
+        """Draw the histogram of the signal values on ``ax``."""
+        if ax is None:
+            _, ax = plt.subplots()
+
+        kwargs.setdefault("label", self.name)
+
+        ax.hist(self.values, bins=nbins, **kwargs)
+
+        ax.set_xlabel(self._ylabel())
+        ax.set_ylabel("count")
+        ax.grid(True)
+
+        return ax
+
     # ================================================
     # Frequency-domain plotting
     # ================================================

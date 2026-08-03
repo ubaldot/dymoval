@@ -271,6 +271,82 @@ class Test_processing:
 
 
 # ============================================================
+# Name / export
+# ============================================================
+class Test_name:
+    def test_default_is_empty(self, dataset: Dataset) -> None:
+        assert dataset.name == ""
+        assert repr(dataset).startswith("Dataset: ")
+
+    def test_name_is_shown_in_repr(self, time: np.ndarray) -> None:
+        ds = Dataset.from_signals(inputs=[_sig("u", time)], name="My rig")
+
+        assert ds.name == "My rig"
+        assert repr(ds).startswith("Dataset 'My rig': ")
+
+    @pytest.mark.parametrize(
+        "op",
+        [
+            lambda ds: ds.copy(),
+            lambda ds: ds.detrend(),
+            lambda ds: ds.remove_signals("y0"),
+            lambda ds: ds.add_output(
+                Signal(
+                    name="y9",
+                    values=np.zeros_like(ds.time()),
+                    time=ds.time(),
+                )
+            ),
+        ],
+    )
+    def test_name_survives_operations(self, dataset: Dataset, op) -> None:
+        named = Dataset(
+            inputs=dataset.inputs, outputs=dataset.outputs, name="rig"
+        )
+
+        assert op(named).name == "rig"
+
+    @pytest.mark.plots
+    def test_name_is_the_figure_title(self, dataset: Dataset) -> None:
+        named = Dataset(
+            inputs=dataset.inputs, outputs=dataset.outputs, name="rig"
+        )
+
+        for fig in (
+            named.plot(with_scope=False),
+            named.plot_coverage(),
+            named.plot_spectrum(with_scope=False),
+        ):
+            assert fig._suptitle is not None
+            assert fig._suptitle.get_text() == "rig"
+
+        assert dataset.plot(with_scope=False)._suptitle is None
+
+
+class Test_export_to_mat:
+    def test_roundtrip(self, dataset: Dataset, tmp_path) -> None:
+        from scipy.io import loadmat
+
+        target = tmp_path / "ds.mat"
+        dataset.export_to_mat(str(target))
+
+        assert target.exists()
+
+        loaded = loadmat(str(target), simplify_cells=True)
+
+        assert np.allclose(loaded["TIME"], dataset.time())
+        assert set(loaded["INPUT"]) == {"u1"}
+        assert set(loaded["OUTPUT"]) == {"y0", "y1"}
+
+        stored = loaded["INPUT"]["u1"]
+        assert np.allclose(stored["values"], dataset["u1"].values)
+        assert stored["unit"] == (dataset["u1"].unit or "")
+        assert np.isclose(
+            stored["sampling_period"], dataset.get_sampling_period()
+        )
+
+
+# ============================================================
 # Align / pipe
 # ============================================================
 class Test_align:

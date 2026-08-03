@@ -11,6 +11,7 @@ from dymoval import (
     Dataset,
     Signal,
     plot_compare,
+    plot_coverage_compare,
     plot_dataset,
     plot_signals,
     plot_spectrum_compare,
@@ -19,6 +20,44 @@ from dymoval import (
 
 def _plot_axes(fig: Figure) -> list:
     return [ax for ax in fig.axes if ax.get_lines()]
+
+
+class Test_plot_coverage_compare:
+    @pytest.mark.plots
+    def test_one_histogram_per_dataset(self, dataset: Dataset) -> None:
+        fig = plot_coverage_compare(
+            dataset, dataset.remove_mean(), labels=["raw", "centered"]
+        )
+
+        # one subplot per signal, no scope panel
+        assert isinstance(fig, Figure)
+        assert len(fig.axes) == 3
+
+        labels = [
+            text.get_text() for text in fig.axes[0].get_legend().get_texts()
+        ]
+        assert labels == ["u1 (raw)", "u1 (centered)"]
+
+    @pytest.mark.plots
+    def test_default_labels_and_explicit_names(self, dataset: Dataset) -> None:
+        fig = plot_coverage_compare(dataset, dataset.detrend(), names=["y0"])
+
+        assert len(fig.axes) == 1
+
+        labels = [
+            text.get_text() for text in fig.axes[0].get_legend().get_texts()
+        ]
+        assert labels == ["y0 (ds0)", "y0 (ds1)"]
+
+    @pytest.mark.plots
+    def test_missing_signal(self, dataset: Dataset) -> None:
+        with pytest.raises(KeyError):
+            plot_coverage_compare(dataset, dataset.detrend(), names=["nope"])
+
+    @pytest.mark.plots
+    def test_single_dataset_is_rejected(self, dataset: Dataset) -> None:
+        with pytest.raises(ValueError):
+            plot_coverage_compare(dataset)
 
 
 class Test_plot_signals:
