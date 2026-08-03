@@ -359,6 +359,71 @@ class Test_spectrum:
             assert phase is None
 
 
+class Test_spectrum_normalisation:
+    """The scaling of the spectra, which is easy to get subtly wrong.
+
+    A sine of amplitude A sitting exactly on a frequency bin must read A
+    in `amplitude` mode, and the total power must equal the mean square of
+    the signal in both `power` and `psd` mode (Parseval).
+    """
+
+    @staticmethod
+    def _tone(n: int, bin_index: int, amplitude: float, offset: float):
+        dt = 0.01
+        t = np.arange(n) * dt
+        f0 = bin_index * (1.0 / dt) / n
+
+        return Signal(
+            name="x",
+            values=amplitude * np.sin(2 * np.pi * f0 * t) + offset,
+            time=t,
+        )
+
+    @pytest.mark.parametrize("n", [1024, 1025])
+    def test_amplitude_reads_the_tone_amplitude(self, n: int) -> None:
+        sig = self._tone(n, bin_index=51, amplitude=3.0, offset=1.5)
+        _, magnitude = sig.spectrum("amplitude")
+
+        assert np.isclose(magnitude[51], 3.0)
+        # DC has no negative twin, so it must not be doubled
+        assert np.isclose(magnitude[0], 1.5)
+
+    @pytest.mark.parametrize("n", [1024, 1025])
+    @pytest.mark.parametrize("mode", ["power", "psd"])
+    def test_parseval(self, n: int, mode: str) -> None:
+        sig = self._tone(n, bin_index=51, amplitude=3.0, offset=1.5)
+        freq, spectrum = sig.spectrum(mode)  # type: ignore[arg-type]
+
+        expected = np.mean(sig.values**2)
+        delta_f = freq[1] - freq[0]
+        total = spectrum.sum() if mode == "power" else spectrum.sum() * delta_f
+
+        assert np.isclose(total, expected)
+
+    def test_nyquist_bin_is_not_doubled(self) -> None:
+        # An alternating +-1 signal is exactly the Nyquist frequency. It is
+        # its own mirror image, so, like DC, it must be counted once.
+        n = 1024
+        t = np.arange(n) * 0.01
+        sig = Signal(name="x", values=np.cos(np.pi * np.arange(n)), time=t)
+
+        _, magnitude = sig.spectrum("amplitude")
+
+        assert np.isclose(magnitude[-1], 1.0)
+
+    def test_fft_is_normalised_by_the_number_of_samples(self) -> None:
+        n = 512
+        t = np.arange(n) * 0.01
+        sig = Signal(name="x", values=np.ones(n) * 4.0, time=t)
+
+        _, y = sig.fft()
+
+        # A constant signal puts all its energy in DC, whose normalised
+        # value is the constant itself.
+        assert np.isclose(y[0].real, 4.0)
+        assert np.allclose(np.abs(y[1:]), 0.0, atol=1e-12)
+
+
 # ============================================================
 # Plotting
 # ============================================================

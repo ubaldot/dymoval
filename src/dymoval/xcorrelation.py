@@ -176,13 +176,31 @@ class XCorrelation:
         #  3. trim based on the lags needed (you don't need N observations
         #     lags)
 
-        # Downsampling happens only if user pass all the bandwidths and the
-        # sampling_period. Trim happens anyway.
-        passed_all_arguments = (
-            X_bandwidths is not None
-            and Y_bandwidths is not None
-            and sampling_period is not None
-        )
+        # Downsampling needs both bandwidths and the sampling period.
+        # `sampling_period` on its own is a legitimate call meaning "no
+        # downsampling", but supplying only part of the bandwidth
+        # information used to be ignored without a word.
+        has_X = X_bandwidths is not None
+        has_Y = Y_bandwidths is not None
+        has_Ts = sampling_period is not None
+
+        if (has_X or has_Y) and not (has_X and has_Y and has_Ts):
+            missing = sorted(
+                name
+                for name, given in (
+                    ("X_bandwidths", has_X),
+                    ("Y_bandwidths", has_Y),
+                    ("sampling_period", has_Ts),
+                )
+                if not given
+            )
+            raise ValueError(
+                "Downsampling needs 'X_bandwidths', 'Y_bandwidths' and "
+                f"'sampling_period' together, but {missing} "
+                "were not given. Pass all of them or none of them."
+            )
+
+        passed_all_arguments = has_X and has_Y and has_Ts
 
         if X.ndim == 1:
             X = X.reshape(len(X), 1)

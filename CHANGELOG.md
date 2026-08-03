@@ -68,6 +68,47 @@ point-by-point mapping of the old API onto the new one.
 - `factorize`, `difference_lists_of_str` and `obj2list` are no longer
   exported: they were internal plumbing.
 
+### Fixed
+
+- **Spectra were not normalised.** `Signal.fft` and `Dataset.fft` now
+  divide by the number of samples, as 0.9 documented and did, and the
+  `amplitude`, `power` and `psd` modes fold the negative frequencies
+  onto the positive ones. A sine of amplitude `A` now reads `A` in
+  `amplitude` mode instead of `A * N / 2`, and `power` sums (`psd`
+  integrates) to the mean square of the signal. 0.9 meant to fold too,
+  but its `df_freq.loc[1:-1] *= 2` was label-based slicing on a
+  frequency index and silently did nothing. `psd_welch` was already
+  correct and is unchanged.
+- **The input-residuals cross-correlation used the wrong bandwidths.**
+  `Rue` correlates the *input* with the residuals but passed the output
+  bandwidths for both axes. It raised `IndexError` whenever the number
+  of inputs differed from the number of outputs, and downsampled
+  incorrectly when they happened to match.
+- `ValidationSession.__init__` assigned `validation_thresholds` straight
+  to the attribute, so, unlike the property setter, it accepted unknown
+  keys and negative values. An empty mapping is now rejected too: it
+  made every simulation PASS unconditionally.
+- `compute_statistic` chained its argument checks with `elif`, so only
+  the first one ever ran: a 2-D `weights`, or one of the wrong length,
+  went through unnoticed as long as it had no negative entry. All-zero
+  and non-finite weights are rejected as well, since every statistic
+  divides by the sum or the maximum of the weights.
+- `rsquared` raises instead of returning `nan`/`-inf` when the reference
+  signal is constant and there is therefore no variance to explain.
+- `Dataset.coverage` computed the mean with `nanmean` but the covariance
+  with `np.cov`, which propagates a single missing sample across a whole
+  row and column. Both now use the samples that are complete for every
+  signal.
+- `XCorrelation` silently ignored `X_bandwidths`/`Y_bandwidths` unless
+  the two of them *and* `sampling_period` were given. Supplying only
+  part of them now raises.
+- `ValidationSession.simulation_signals_list` accepted a list but only
+  ever looked at its first element.
+- `ValidationSession.plot_simulations` silently treated an unrecognised
+  `dataset` value as `None`.
+- `Dataset.apply`, `remove_constant` and `low_pass_filter` raise on a
+  repeated signal name instead of quietly keeping the last one.
+
 ### Added
 
 - `Signal` gained the whole processing toolbox that used to live on

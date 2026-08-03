@@ -372,13 +372,37 @@ class Signal:
         dt = self.get_sampling_period()
         n = len(self.values)
 
-        y = np.fft.rfft(self.values)
+        # Normalised by n so that Parseval's theorem holds, i.e. so that the
+        # energy computed in the time domain equals the energy computed in
+        # the frequency domain.
+        y = np.fft.rfft(self.values) / n
         freq = np.fft.rfftfreq(n, dt)
 
         return freq, y, n, dt
 
+    def _one_sided_scale(self, n: int, nbins: int) -> np.ndarray:
+        """Weights folding the negative frequencies onto the positive ones.
+
+        ``rfft`` only returns the non-negative half of a spectrum that is
+        symmetric for a real-valued signal. Every bin therefore stands for
+        itself *and* for its negative twin, and must be counted twice. The
+        exceptions are DC, which has no twin, and, when ``n`` is even, the
+        Nyquist bin, which is its own twin.
+        """
+        scale = np.full(nbins, 2.0)
+        scale[0] = 1.0
+
+        if n % 2 == 0 and nbins > 1:
+            scale[-1] = 1.0
+
+        return scale
+
     def fft(self) -> tuple[np.ndarray, np.ndarray]:
-        """Return ``(frequency, complex one-sided spectrum)``."""
+        """Return ``(frequency, complex one-sided spectrum)``.
+
+        The spectrum is normalised by the number of samples. It is *not*
+        folded: use :py:meth:`spectrum` for a one-sided magnitude.
+        """
         freq, y, _, _ = self._compute_fft()
         return freq, y
 
@@ -397,14 +421,20 @@ class Signal:
         The phase is returned for ``mode="amplitude"`` only. It is
         unwrapped, expressed in degrees, and masked (``nan``) wherever the
         magnitude is negligible, since the phase is meaningless there.
+
+        All the modes are one-sided: the negative frequencies are folded
+        onto the positive ones, so that a sine of amplitude ``A`` peaks at
+        ``A`` in ``amplitude`` mode, and so that ``power`` sums, and
+        ``psd`` integrates, to the mean square of the signal.
         """
         _check_mode(mode)
 
         freq, y, n, dt = self._compute_fft()
         fs = 1.0 / dt
+        fold = self._one_sided_scale(n, len(y))
 
         if mode == "amplitude":
-            magnitude = np.abs(y)
+            magnitude = np.abs(y) * fold
 
             phase = np.unwrap(np.angle(y)) * 180.0 / np.pi
             threshold = _PHASE_MASK_RATIO * np.max(magnitude, initial=0.0)
@@ -413,10 +443,14 @@ class Signal:
             return freq, magnitude, phase
 
         if mode == "power":
-            return freq, np.abs(y) ** 2, None
+            return freq, (np.abs(y) ** 2) * fold, None
 
         if mode == "psd":
-            return freq, (np.abs(y) ** 2) / (n * fs), None
+            # Divide by the width of a frequency bin, so that integrating
+            # the result over the frequency axis gives back the power.
+            delta_f = fs / n
+
+            return freq, (np.abs(y) ** 2) * fold / delta_f, None
 
         # psd_welch
         freq, spectrum = welch(

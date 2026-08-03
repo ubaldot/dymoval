@@ -385,13 +385,15 @@ class ValidationSession:
         self._validation_statistics: dict[str, dict[str, float]] = {}
 
         # =========== Model validation =============================
-        self._validation_thresholds = (
-            self._get_validation_thresholds_default(
-                ignore_input=ignore_input,
+        if validation_thresholds is None:
+            self._validation_thresholds = (
+                self._get_validation_thresholds_default(
+                    ignore_input=ignore_input,
+                )
             )
-            if validation_thresholds is None
-            else validation_thresholds
-        )
+        else:
+            self._check_validation_thresholds(validation_thresholds)
+            self._validation_thresholds = validation_thresholds
 
         self._ignore_input = ignore_input
 
@@ -539,19 +541,29 @@ class ValidationSession:
 
     @validation_thresholds.setter
     def validation_thresholds(self, val: dict[str, float]) -> None:
-        allowed_keys = self._get_validation_thresholds_default(
-            ignore_input=False
-        ).keys()
-        for k, v in val.items():
-            if k not in allowed_keys:
-                raise KeyError(f"Keys must be {allowed_keys}.")
-            if v < 0.0:
-                raise ValueError("Thresholds must be positive.")
+        self._check_validation_thresholds(val)
 
         self._validation_thresholds = val
 
         for sim_name in self.simulations_names:
             self._append_validation_statistics(sim_name=sim_name)
+
+    def _check_validation_thresholds(self, val: dict[str, float]) -> None:
+        allowed_keys = self._get_validation_thresholds_default(
+            ignore_input=False
+        ).keys()
+
+        if not val:
+            raise ValueError(
+                "'validation_thresholds' cannot be empty: with no threshold "
+                "to check against, every simulation would pass."
+            )
+
+        for k, v in val.items():
+            if k not in allowed_keys:
+                raise KeyError(f"Keys must be {allowed_keys}.")
+            if v < 0.0:
+                raise ValueError("Thresholds must be positive.")
 
     @property
     def validation_statistics(self) -> dict[str, dict[str, float]]:
@@ -619,12 +631,13 @@ class ValidationSession:
             sampling_period=self._sampling_period,
         )
 
-        # Input-residuals cross-correlation
+        # Input-residuals cross-correlation.
+        # X is the input, so it is the *input* bandwidths that describe it.
         Rue = XCorrelation(
             "Rue",
             u_values,
             eps,
-            X_bandwidths=self._Y_bandwidths,
+            X_bandwidths=self._U_bandwidths,
             Y_bandwidths=self._Y_bandwidths,
             nlags=self._Rue.nlags,
             sampling_period=self._sampling_period,
@@ -719,9 +732,7 @@ class ValidationSession:
     # ====================================================
     # Simulations bookkeeping
     # ====================================================
-    def simulation_signals_list(
-        self, sim_name: str | list[str]
-    ) -> list[tuple[str, str]]:
+    def simulation_signals_list(self, sim_name: str) -> list[tuple[str, str]]:
         """
         Return the ``(name, unit)`` list of a given simulation.
 
@@ -732,12 +743,18 @@ class ValidationSession:
         """
         self._sim_list_validate()
 
-        name = sim_name if isinstance(sim_name, str) else sim_name[0]
+        if not isinstance(sim_name, str):
+            raise TypeError(
+                "'sim_name' must be a single simulation name. "
+                "Call this method once per simulation."
+            )
 
-        if name not in self._simulations:
-            raise KeyError(f"Simulation '{name}' not found.")
+        if sim_name not in self._simulations:
+            raise KeyError(f"Simulation '{sim_name}' not found.")
 
-        return [(sig.name, sig.unit or "") for sig in self._simulations[name]]
+        return [
+            (sig.name, sig.unit or "") for sig in self._simulations[sim_name]
+        ]
 
     def clear(self) -> Self:
         """Remove all the stored simulation results in the current
@@ -871,6 +888,12 @@ class ValidationSession:
             :py:class:`~dymoval.scope.DatasetScope` is attached.
         """
         sims = self._sims_to_plot(list_sims)
+
+        if dataset is not None and dataset not in ("in", "out", "both"):
+            raise ValueError(
+                f"'dataset' must be one of ['in', 'out', 'both'] or None, "
+                f"got {dataset!r}."
+            )
 
         ds = self._Dataset
         p = self._p

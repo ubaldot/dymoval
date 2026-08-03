@@ -472,6 +472,12 @@ class Dataset:
                     f"The first element of {item!r} must be a signal name"
                 )
 
+            if item[0] in result:
+                raise ValueError(
+                    f"Signal '{item[0]}' is given more than once: the "
+                    "later value would silently replace the earlier one"
+                )
+
             result[item[0]] = item[1:] if high > 2 else item[1]
 
         self._check_names(list(result))
@@ -1119,8 +1125,21 @@ class Dataset:
 
         values = np.column_stack([sig.values for sig in signals.values()])
 
-        mean = np.nanmean(values, axis=0)
-        cov = np.atleast_2d(np.cov(values, rowvar=False))
+        # Complete-case analysis: drop the samples that are missing for any
+        # signal. Doing it any other way would make the mean and the
+        # covariance describe different sets of samples, and `np.cov` would
+        # anyway poison a whole row and column from a single NaN.
+        complete = values[~np.isnan(values).any(axis=1)]
+
+        if complete.size == 0:
+            raise ValueError(
+                "Every sample has at least one missing value, so there is "
+                "nothing to compute the coverage from. Call remove_nans() "
+                "first."
+            )
+
+        mean = np.mean(complete, axis=0)
+        cov = np.atleast_2d(np.cov(complete, rowvar=False))
 
         return mean, cov
 
@@ -1130,7 +1149,8 @@ class Dataset:
         """Return ``(u_mean, u_cov, y_mean, y_cov)``.
 
         Means are 1-D arrays of length ``n_signals``; covariances are the
-        corresponding ``(n_signals, n_signals)`` matrices.
+        corresponding ``(n_signals, n_signals)`` matrices. Samples that are
+        missing for at least one signal are discarded.
         """
         u_mean, u_cov = self._stats(self.inputs)
         y_mean, y_cov = self._stats(self.outputs)

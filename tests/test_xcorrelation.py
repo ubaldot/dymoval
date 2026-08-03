@@ -106,6 +106,36 @@ class Test_XCorrelation:
     def test_initializer_with_not_all_args_passed(
         self, correlation_tensors: tuple
     ) -> None:
+        # Downsampling needs the two bandwidths *and* the sampling period.
+        # Supplying only some of them used to be silently ignored, which
+        # gave a non-downsampled correlation with no indication that the
+        # arguments had no effect.
+        (
+            *_,
+            X,
+            Y,
+            X_bandwidths,
+            Y_bandwidths,
+            sampling_period,
+        ) = correlation_tensors
+
+        partial_arguments = [
+            {"X_bandwidths": X_bandwidths, "sampling_period": sampling_period},
+            {"Y_bandwidths": Y_bandwidths, "sampling_period": sampling_period},
+            {"X_bandwidths": X_bandwidths, "Y_bandwidths": Y_bandwidths},
+            {"X_bandwidths": X_bandwidths},
+        ]
+
+        for kwargs in partial_arguments:
+            with pytest.raises(ValueError, match="all of them or none"):
+                dmv.XCorrelation("foo", X, Y, None, **kwargs)
+
+        # The sampling period on its own means "no downsampling" and is fine
+        dmv.XCorrelation("foo", X, Y, None, sampling_period=sampling_period)
+
+    def test_initializer_with_no_downsampling_args(
+        self, correlation_tensors: tuple
+    ) -> None:
         (
             Rx0y0_expected,
             Rx1y0_expected,
@@ -115,19 +145,10 @@ class Test_XCorrelation:
             _,
             X,
             Y,
-            X_bandwidths,
-            _,
-            sampling_period,
+            *_,
         ) = correlation_tensors
 
-        R = dmv.XCorrelation(
-            "foo",
-            X,
-            Y,
-            None,
-            X_bandwidths=X_bandwidths,
-            sampling_period=sampling_period,
-        ).R
+        R = dmv.XCorrelation("foo", X, Y, None).R
 
         lags_long = np.arange(-5, 6)
 

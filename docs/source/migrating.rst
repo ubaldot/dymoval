@@ -133,6 +133,35 @@ The helpers ``factorize``, ``difference_lists_of_str`` and ``obj2list``
 were internal plumbing that happened to be exported. They are now
 private; ``numpy`` and the standard library cover what they did.
 
+**********************
+ Spectra are rescaled
+**********************
+
+The magnitude spectra changed value, so numbers read off a 0.9 plot will
+not match a 1.0 one.
+
+:py:meth:`Signal.fft <dymoval.signal.Signal.fft>` is normalised by the
+number of samples. 0.9 did this too, but the 1.0 rewrite lost it along
+the way, which made the amplitudes grow with the length of the record.
+
+On top of that, ``amplitude``, ``power`` and ``psd`` now fold the
+negative half of the spectrum onto the positive half. 0.9 intended to do
+this — the code and its comments are explicit about it — but the line
+meant to do the folding was label-based slicing on a frequency index and
+quietly did nothing.
+
+The practical consequences are worth knowing:
+
+-  a sine of amplitude :math:`A` peaks at :math:`A` in ``amplitude``
+   mode, not at :math:`A/2` and not at :math:`AN/2`;
+-  ``power`` sums, and ``psd`` integrates, to the mean square of the
+   signal, so Parseval's theorem holds;
+-  DC and, for an even number of samples, the Nyquist bin are not
+   doubled, because neither has a mirror image.
+
+``psd_welch`` was already correct and is unchanged, so it is the mode to
+compare against if you want to check the others.
+
 *************************
  Overlapping is grouping
 *************************

@@ -254,6 +254,10 @@ class Test_remove_constant:
         with pytest.raises(TypeError, match="no longer supported"):
             ones_dataset.remove_constant({"u1": 2.0})  # type: ignore[arg-type]
 
+    def test_duplicate_signal_raises(self, ones_dataset: Dataset) -> None:
+        with pytest.raises(ValueError, match="more than once"):
+            ones_dataset.remove_constant(("u1", 1.0), ("u1", 2.0))
+
     def test_unknown_signal(self, ones_dataset: Dataset) -> None:
         with pytest.raises(KeyError):
             ones_dataset.remove_constant(("potato", 1.0))
@@ -320,6 +324,11 @@ class Test_apply:
     def test_name_must_be_a_string(self, ones_dataset: Dataset) -> None:
         with pytest.raises(TypeError, match="signal name"):
             ones_dataset.apply((1, np.square))  # type: ignore[arg-type]
+
+    def test_duplicate_signal_raises(self, ones_dataset: Dataset) -> None:
+        # The second tuple used to silently overwrite the first
+        with pytest.raises(ValueError, match="more than once"):
+            ones_dataset.apply(("u1", np.square), ("u1", np.sqrt))
 
 
 class Test_low_pass_filter:
@@ -486,6 +495,38 @@ class Test_coverage:
 
         assert u_mean.shape == (1,)
         assert u_cov.shape == (1, 1)
+
+    def test_nans_are_dropped_consistently(
+        self, sine_dataset: Dataset
+    ) -> None:
+        # The mean used to come from `nanmean`, i.e. per-signal, while the
+        # covariance came from `np.cov`, which turns a whole row and column
+        # into NaN from a single missing sample. Both now describe the same
+        # complete samples.
+        def poke(values: np.ndarray) -> np.ndarray:
+            out = values.copy()
+            out[3] = np.nan
+            return out
+
+        ds = sine_dataset.apply(("u1", poke))
+        u_mean, u_cov, _, _ = ds.coverage()
+
+        assert np.all(np.isfinite(u_mean))
+        assert np.all(np.isfinite(u_cov))
+
+        expected = np.column_stack(
+            [ds[name].values for name in ds.input_names()]
+        )
+        expected = np.delete(expected, 3, axis=0)
+
+        assert np.allclose(u_mean, np.mean(expected, axis=0))
+        assert np.allclose(u_cov, np.cov(expected, rowvar=False))
+
+    def test_all_samples_missing_raises(self, sine_dataset: Dataset) -> None:
+        ds = sine_dataset.apply(("u1", lambda v: np.full_like(v, np.nan)))
+
+        with pytest.raises(ValueError, match="remove_nans"):
+            ds.coverage()
 
     def test_no_inputs(self, time: np.ndarray) -> None:
         ds = Dataset.from_signals(

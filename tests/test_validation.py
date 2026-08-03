@@ -250,6 +250,37 @@ class Test_ValidationSession_nominal:
         with pytest.raises(ValueError):
             vs.validation_thresholds = {"Ruu_whiteness": -1.0}
 
+        # An empty mapping means "nothing to check", which would make
+        # every simulation pass unconditionally.
+        with pytest.raises(ValueError):
+            vs.validation_thresholds = {}
+
+    def test_constructor_validates_thresholds(
+        self, good_dataset: tuple
+    ) -> None:
+        # The constructor used to assign the mapping straight to the
+        # attribute, skipping the checks the setter performs.
+        ds = good_dataset[0]
+
+        with pytest.raises(KeyError):
+            dmv.ValidationSession(
+                "my_validation",
+                ds,
+                validation_thresholds={"potato": 0.5},
+            )
+
+        with pytest.raises(ValueError):
+            dmv.ValidationSession(
+                "my_validation",
+                ds,
+                validation_thresholds={"r2": -1.0},
+            )
+
+        with pytest.raises(ValueError):
+            dmv.ValidationSession(
+                "my_validation", ds, validation_thresholds={}
+            )
+
     def test_simulation_signals_list_raise(self, good_dataset: tuple) -> None:
         ds, _, y_names, _, _, _ = good_dataset
 
@@ -267,6 +298,10 @@ class Test_ValidationSession_nominal:
 
         with pytest.raises(KeyError):
             vs.simulation_signals_list("potato")
+
+        # A list used to be accepted, but only its first element was used
+        with pytest.raises(TypeError):
+            vs.simulation_signals_list(["Model 1"])  # type: ignore[arg-type]
 
 
 # ============================================================
@@ -393,6 +428,26 @@ class Test_Plots:
 
         assert engine is not None
         assert type(engine).__name__ == "TightLayoutEngine"
+
+        plt.close("all")
+
+    @pytest.mark.plots
+    def test_plot_simulations_rejects_bad_dataset(
+        self, good_dataset: tuple
+    ) -> None:
+        # An unrecognised value used to fall through both `in`/`out` checks
+        # and quietly produce a simulations-only plot.
+        ds, _, y_names, _, _, _ = good_dataset
+
+        vs = dmv.ValidationSession("my_validation", ds)
+        q = len(y_names)
+        rng = np.random.default_rng(17)
+        vs = vs.append_simulation(
+            "Model 1", _sim_labels(q), rng.random((len(ds.time()), q))
+        )
+
+        with pytest.raises(ValueError, match="'dataset' must be one of"):
+            vs.plot_simulations(dataset="banana")  # type: ignore[arg-type]
 
         plt.close("all")
 

@@ -87,12 +87,26 @@ def compute_statistic(
 
     if weights is None:
         weights = np.ones(data.size)
-    elif np.min(weights) < 0:
-        raise ValueError("All weights must be positive.")
-    elif weights.ndim > 1:
-        raise IndexError("'weights' must be a 1-D np.ndarray.")
-    elif data.size != weights.size:
-        raise IndexError("'data' and 'weights' must have the same length.")
+    else:
+        # These are separate checks on purpose: chaining them with `elif`
+        # means only the first one ever runs, so e.g. a 2-D `weights` with
+        # no negative entry would sail through.
+        if weights.ndim > 1:
+            raise IndexError("'weights' must be a 1-D np.ndarray.")
+
+        if data.size != weights.size:
+            raise IndexError("'data' and 'weights' must have the same length.")
+
+        if not np.all(np.isfinite(weights)):
+            raise ValueError("All weights must be finite.")
+
+        if np.min(weights) < 0:
+            raise ValueError("All weights must be positive.")
+
+        # Every statistic below divides by either the sum or the largest of
+        # the weights, so an all-zero vector silently yields nan or inf.
+        if np.max(weights) <= 0.0:
+            raise ValueError("At least one weight must be strictly positive.")
 
     if statistic == "quadratic":
         # It holds x'Wx < lambda_max(W) |x|^2 = max(W) given that W is
@@ -160,6 +174,16 @@ def rsquared(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     # Compute the R² index
     ss_res = np.sum(eps**2, axis=0)
     ss_tot = np.sum((x - x_mean) ** 2, axis=0)
+
+    if np.any(ss_tot == 0.0):
+        # R² measures how much of the variance of `x` the signal `y`
+        # explains. A constant `x` has none, so the ratio is 0/0 and the
+        # result would be nan or -inf depending on the residuals.
+        raise ValueError(
+            "R-squared is undefined for a constant reference signal: "
+            "it has no variance to explain."
+        )
+
     r2: np.ndarray = np.asarray((1.0 - ss_res / ss_tot) * 100)
 
     return r2

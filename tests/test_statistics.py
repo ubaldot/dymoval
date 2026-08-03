@@ -106,6 +106,24 @@ class Test_rsquared:
         with pytest.raises(IndexError):
             dmv.rsquared(rng.random(shape_x), rng.random(shape_y))
 
+    def test_rsquared_constant_reference_raises(self) -> None:
+        # A constant reference has no variance for the model to explain,
+        # so R-squared is 0/0. It used to come back as nan or -inf, with a
+        # numpy warning, and silently drive the outcome to FAIL.
+        constant = np.ones(20)
+
+        with pytest.raises(ValueError, match="constant reference"):
+            dmv.rsquared(constant, constant)
+
+        with pytest.raises(ValueError, match="constant reference"):
+            dmv.rsquared(constant, np.arange(20, dtype=float))
+
+        # Also when only one channel of a MIMO signal is constant
+        x = np.column_stack([np.arange(20, dtype=float), constant])
+
+        with pytest.raises(ValueError, match="constant reference"):
+            dmv.rsquared(x, x + 1.0)
+
 
 # ============================================================
 # compute_statistic
@@ -176,8 +194,16 @@ class Test_compute_statistic:
         with pytest.raises(IndexError):
             compute_statistic(X, weights=np.ones((2, 2)))
 
+        # Negative weights: the array is otherwise valid, so that this
+        # really exercises the sign check and not the shape check.
         with pytest.raises(ValueError):
-            compute_statistic(X, weights=-np.ones((2, 2)))
+            compute_statistic(X, weights=-np.ones(10))
+
+        with pytest.raises(ValueError):
+            compute_statistic(X, weights=np.zeros(10))
+
+        with pytest.raises(ValueError):
+            compute_statistic(X, weights=np.full(10, np.nan))
 
         with pytest.raises(ValueError):
             compute_statistic(X, statistic="quadraticcccc")
