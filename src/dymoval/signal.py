@@ -484,7 +484,9 @@ class Signal:
             2,
             1,
             with_scope=with_scope,
-            figsize=(10, 5),
+            # the scope panel needs the extra width; without it, stick to
+            # the matplotlib default size
+            figsize=(10, 5) if with_scope else None,
             sharex=True,
         )
         mag_ax, phase_ax = axes

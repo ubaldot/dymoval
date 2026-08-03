@@ -66,11 +66,11 @@ few parameter that you can set.
    :type: bool | None
    :value: None
 
-    The `dymoval` plot functions end with ``fig.show()`` in interactive
-    environments such as ``IPython``, and with ``plt.show()`` for non-interactive
-    environments. If `is_interactive` is `None`, then dymoval attempts to
-    detect your environment automatically. Otherwise, you can force the
-    behavior through this configuration parameter.
+    Whether `dymoval` should consider the current environment interactive.
+    If `None`, the environment is auto-detected. This only backs the
+    :py:func:`is_interactive_shell <dymoval.utils.is_interactive_shell>`
+    helper: it does **not** influence plotting any more (see `Plots`_
+    below).
 
 
 These parameters can be set through a ``~/.dymoval/config.toml`` file. You
@@ -85,6 +85,21 @@ A ``~/.dymoval/config.toml`` could for example include the following content
 
 Plots
 =====
-`Dymoval` shall be able to recognize if you are working or not in an interactive
-environment. It is however suggested to disable the `matplotlib` interactivity
-with ``plt.ioff()`` if working with `IPython`.
+The `dymoval` plotting functions **never** call ``show()``: they build the
+figure and return it, leaving the display to you and to your `matplotlib`
+backend. In a script this means calling ``plt.show()`` yourself; in a
+notebook the returned figure is rendered by the inline backend, or you can
+``display(fig)`` it explicitly.
+
+Functions returning several figures (such as
+:py:meth:`plot_residuals <dymoval.validation.ValidationSession.plot_residuals>`)
+return a tuple, so:
+
+.. code-block::
+
+    figs = vs.plot_residuals()
+    for fig in figs:
+        display(fig)   # or plt.show() once, in a script
+
+It is suggested to disable the `matplotlib` interactivity with
+``plt.ioff()`` if working with `IPython`.

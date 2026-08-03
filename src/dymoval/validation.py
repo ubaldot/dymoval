@@ -990,8 +990,12 @@ class ValidationSession:
         cmap = plt.get_cmap(COLORMAP)
         figs: list[matplotlib.figure.Figure] = []
 
-        def _new_figure(nrows: int, ncols: int, title: str) -> np.ndarray:
-            fig, axes = plt.subplots(nrows, ncols, squeeze=False)
+        def _new_figure(
+            nrows: int, ncols: int, title: str, sharex: bool = False
+        ) -> np.ndarray:
+            fig, axes = plt.subplots(
+                nrows, ncols, squeeze=False, sharex=sharex
+            )
             fig.suptitle(title)
             fig.set_size_inches(ncols * ax_width, nrows * ax_height + 1.25)
             fig.set_layout_engine(layout)
@@ -1006,9 +1010,10 @@ class ValidationSession:
             title: str,
             x_symbol: str,
             y_symbol: str,
+            sharex: bool = False,
         ) -> None:
             """One grid, one color per simulation."""
-            axes = _new_figure(nrows, ncols, title)
+            axes = _new_figure(nrows, ncols, title, sharex=sharex)
 
             for kk, sim_name in enumerate(sims):
                 tensors[sim_name]._plot_grid(
@@ -1024,6 +1029,8 @@ class ValidationSession:
         # ===============================================================
         if plot_input:
             axes = _new_figure(p, p, "Input auto-correlation")
+            # A single curve per subplot, already named by the subplot
+            # title: a legend would only repeat it.
             self._Ruu_tensor._plot_grid(axes, x_symbol="u", y_symbol="u")
 
         # ===============================================================
@@ -1043,6 +1050,7 @@ class ValidationSession:
             "Input-residuals cross-correlation",
             "u",
             "eps",
+            sharex=True,
         )
 
         return tuple(figs)
