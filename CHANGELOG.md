@@ -43,7 +43,7 @@ point-by-point mapping of the old API onto the new one.
   `is_interactive` configuration key no longer influences plotting.
 - Renames: `remove_means` → `remove_mean`, `remove_offset` →
   `remove_constant`, `remove_NaNs` → `remove_nans`, `plotxy` →
-  `plot_xy`, `dump_to_signals` → `all_signals`.
+  `plot_xy`, `dump_to_signals` → `to_signals`.
 - `Dataset.fft` returns `{name: (freq, values)}` instead of a
   `DataFrame`; `Dataset.coverage` and `Dataset.dataset_values` return
   `numpy` arrays.

@@ -116,8 +116,8 @@ Renamed and reshaped members
                                       <dymoval.dataset.Dataset.remove_nans>`
 ``ds.plotxy()``                       :py:meth:`ds.plot_xy()
                                       <dymoval.dataset.Dataset.plot_xy>`
-``ds.dump_to_signals()``              :py:meth:`ds.all_signals()
-                                      <dymoval.dataset.Dataset.all_signals>`
+``ds.dump_to_signals()``              :py:meth:`ds.to_signals()
+                                      <dymoval.dataset.Dataset.to_signals>`
 ``ds.fft()`` → ``DataFrame``          ``{name: (freq, values)}``
 ``ds.apply(("u1", f, "V^2"))``        unchanged, but ``f`` receives a
                                       ``numpy`` array
