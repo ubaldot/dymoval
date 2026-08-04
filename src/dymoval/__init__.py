@@ -11,12 +11,7 @@ from .plotting import (
 )
 from .scope import (
     LAYOUTS,
-    AmplitudeSpectrumScope,
-    BaseScope,
-    DatasetScope,
     Layout,
-    SignalScope,
-    SpectrumScope,
 )
 from .signal import (
     SCALES,
@@ -62,12 +57,6 @@ __all__ = [
     "plot_compare",
     "plot_coverage_compare",
     "plot_spectrum_compare",
-    # scopes
-    "BaseScope",
-    "SignalScope",
-    "DatasetScope",
-    "SpectrumScope",
-    "AmplitudeSpectrumScope",
     # validation
     "ValidationSession",
     "XCorrelation",
