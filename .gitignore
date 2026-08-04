@@ -21,3 +21,16 @@ __pycache__/
 
 # macOS
 .DS_Store
+
+# Local scratch files (ignored)
+DCMotor_measurements.h5
+README.html
+example.json
+foo.py
+matplt_test.py
+pippo.vim
+pluto.vim
+startuptime.log
+statistics_test_script.py
+vim-startup.log
+xxx.py
