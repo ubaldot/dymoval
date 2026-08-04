@@ -108,6 +108,14 @@ point-by-point mapping of the old API onto the new one.
   `dataset` value as `None`.
 - `Dataset.apply`, `remove_constant` and `low_pass_filter` raise on a
   repeated signal name instead of quietly keeping the last one.
+- `XCorrelation.nlags` and the `Ruu_nlags`/`Ree_nlags`/`Rue_nlags`
+  settings now reject non-integer and non-positive entries. They retain
+  their existing zero-centred symmetric-window convention: an entry
+  `n` returns `2 * floor(n / 2) + 1` lag points, so odd entries are used
+  as-is and even entries are rounded up by one.
+- The `low_pass_filter` documentation now states its exact textbook
+  discrete-time definition, `alpha = cutoff / sampling_frequency`.
+  Its established numerical behaviour is unchanged.
 
 ### Added
 

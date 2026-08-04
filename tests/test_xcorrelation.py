@@ -185,6 +185,26 @@ class Test_XCorrelation:
         np.testing.assert_allclose(R[1, 0].lags, np.arange(-3, 4))
         np.testing.assert_allclose(R[1, 1].lags, np.arange(-1, 2))
 
+    @pytest.mark.parametrize(
+        ("nlags", "error"),
+        [
+            (np.array([[0, 3], [5, 7]]), ValueError),
+            (np.array([[-1, 3], [5, 7]]), ValueError),
+            (np.array([[3.0, 3.0], [5.0, 7.0]]), TypeError),
+        ],
+    )
+    def test_nlags_must_be_positive_integers(
+        self,
+        correlation_tensors: tuple,
+        nlags: np.ndarray,
+        error: type[Exception],
+    ) -> None:
+        X = correlation_tensors[6]
+        Y = correlation_tensors[7]
+
+        with pytest.raises(error):
+            dmv.XCorrelation("foo", X, Y, nlags=nlags)
+
     def test_initializer_with_wrong_params(
         self, correlation_tensors: tuple
     ) -> None:

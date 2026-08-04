@@ -34,6 +34,33 @@ _SYMBOLS: dict[str, tuple[str, str]] = {
 }
 
 
+def _validate_nlags(
+    nlags: np.ndarray,
+    nrows: int,
+    ncols: int,
+    *,
+    name: str = "nlags",
+) -> np.ndarray:
+    """Return a validated ``nrows x ncols`` positive-integer lag array."""
+    if (
+        not isinstance(nlags, np.ndarray)
+        or nlags.ndim != 2
+        or nlags.shape[0] < nrows
+        or nlags.shape[1] < ncols
+    ):
+        raise IndexError(f"'{name}' shall be a {nrows}x{ncols} array.")
+
+    resolved = nlags[:nrows, :ncols]
+
+    if not np.issubdtype(resolved.dtype, np.integer):
+        raise TypeError(f"Every element of '{name}' must be an integer.")
+
+    if np.any(resolved <= 0):
+        raise ValueError(f"Every element of '{name}' must be positive.")
+
+    return np.asarray(resolved, dtype=int)
+
+
 def correlation_title(x_symbol: str, y_symbol: str, ii: int, jj: int) -> str:
     r"""Title of the :math:`(i, j)`-th correlation function.
 
@@ -89,10 +116,12 @@ class XCorrelation:
         MIMO signal realizations expressed as :math:`N\times q` array
         of `N` observations of `q` signals.
     nlags:
-        :math:`p \times q` array where the `(i, j)`-th element represents
-        the number of lags
-        of the cross-correlation function associated to the `i`-th signal of
-        `X` with the `j`-th signal of `Y`.
+        Positive-integer :math:`p \times q` array. The `(i, j)`-th element
+        requests the size of the zero-centred, symmetric lag window for the
+        correlation between the `i`-th signal of `X` and the `j`-th signal
+        of `Y`. Symmetry requires an odd number of returned points, so the
+        actual count is :math:`2\lfloor n/2\rfloor+1`: odd values are used
+        as-is and even values are rounded up by one.
     X_bandwidths:
         1-D array representing the bandwidths of each signal in  `X`.
         `X_bandwidths[i]` corresponds to the bandwidth of signal `X[i]`.
@@ -230,17 +259,10 @@ class XCorrelation:
                 )
         # nlags
         if nlags is not None:
-            if (
-                not isinstance(nlags, np.ndarray)
-                or nlags.shape[0] < p
-                or nlags.shape[1] < q
-            ):
-                raise IndexError(f"'nlags' shall be a {p}x{q} array.")
-            else:
-                nlags_from_user = nlags[0:p, 0:q]
+            nlags_from_user = _validate_nlags(nlags, p, q)
         else:
-            # Default 20 lags
-            nlags_from_user = 10 * np.ones((p, q))
+            # Eleven lag points, from -5 through +5.
+            nlags_from_user = np.full((p, q), 11, dtype=int)
 
         # Only the trimmed correlation is kept: the full and the
         # downsampled ones are intermediate results, local to each (ii, jj).
@@ -623,9 +645,11 @@ def whiteness_level(
     sampling_period:
         Signal sampling period.
     nlags:
-        Number of lags to be considered for the whiteness estimate
-        computation. If the signal is multivariate with `p` components, then
-        this must be a :math:`p\times p` array.
+        Positive-integer lag-window sizes used for the whiteness estimate.
+        For a signal with `p` components this must be a
+        :math:`p\times p` array. The returned lag windows are symmetric
+        around zero; consequently their actual point count is
+        :math:`2\lfloor n/2\rfloor+1`.
     local_statistic:
         Statistic to be used for estimate the whiteness of each `(i, j)`
         cross-correlation function.

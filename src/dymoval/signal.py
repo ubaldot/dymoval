@@ -169,10 +169,19 @@ class Signal:
         )
 
     def low_pass_filter(self, cutoff: float) -> "Signal":
-        """Filter the signal with a first-order low-pass filter.
+        r"""Filter the signal with a first-order low-pass filter.
 
-        ``cutoff`` is expressed in Hz and must satisfy
-        ``0 < cutoff < 1 / sampling_period``.
+        This is the classic discrete-time first-order IIR
+
+        .. math::
+
+           y[k+1] = (1-\alpha)y[k] + \alpha u[k],
+           \qquad \alpha = f_c/f_s.
+
+        ``cutoff`` is :math:`f_c`, expressed in Hz, and must satisfy
+        ``0 < cutoff < 1 / sampling_period``. It determines the discrete-time
+        coefficient :math:`\alpha`; it is not the exact -3 dB frequency of
+        the resulting discrete-time transfer function.
         """
         fs = 1.0 / self.get_sampling_period()
 

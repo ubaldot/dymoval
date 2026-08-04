@@ -38,7 +38,7 @@ from .utils import (
     _factorize,
     _obj2list,
 )
-from .xcorrelation import XCorrelation
+from .xcorrelation import XCorrelation, _validate_nlags
 
 __all__ = ["ValidationSession", "validate_models", "VALIDATION_KEYS"]
 
@@ -88,18 +88,11 @@ class _XCorrSettings:
         local_weights: np.ndarray | None,
         global_weights: np.ndarray | None,
     ) -> "_XCorrSettings":
-        """Resolve the ``nrows x ncols`` number-of-lags array."""
+        """Resolve the ``nrows x ncols`` lag-window-size array."""
         if nlags is not None:
-            if (
-                nlags.ndim != 2
-                or nlags.shape[0] < nrows
-                or nlags.shape[1] < ncols
-            ):
-                raise IndexError(
-                    f"'{name}_nlags' shall be a {nrows}x{ncols} array."
-                )
-
-            resolved = np.asarray(nlags[0:nrows, 0:ncols])
+            resolved = _validate_nlags(
+                nlags, nrows, ncols, name=f"{name}_nlags"
+            )
         else:
             resolved = np.full((nrows, ncols), fill_value=default_nlags)
 
@@ -107,6 +100,10 @@ class _XCorrSettings:
                 for ii in range(nrows):
                     for jj in range(ncols):
                         resolved[ii, jj] = len(local_weights[ii, jj])
+
+            resolved = _validate_nlags(
+                resolved, nrows, ncols, name=f"{name}_nlags"
+            )
 
         return cls(
             name=name,
@@ -198,7 +195,9 @@ class ValidationSession:
         Statistic to be used for computing the global :math:`R^2` in case of
         multiple output signals.
     Ruu_nlags:
-        Number of lags for the input auto-correlation array `Ruu`.
+        Positive-integer lag-window sizes for the input auto-correlation
+        array `Ruu`. Each returned window is symmetric around zero, so its
+        actual point count is :math:`2\lfloor n/2\rfloor+1`.
     Ruu_local_statistic_type:
         Statistic used for estimating the whiteness of each element of the
         :py:class:`~dymoval.xcorrelation.XCorrelation` object associated to the
@@ -215,7 +214,9 @@ class ValidationSession:
         for each element of `Ruu` have been computed. It must be a
         :math:`p\times p` array.
     Ree_nlags:
-        Number of lags for the residuals auto-correlation array `Ree`.
+        Positive-integer lag-window sizes for the residuals auto-correlation
+        array `Ree`, with the same symmetric-window convention as
+        `Ruu_nlags`.
     Ree_local_statistic_type:
         Statistic used for estimating the whiteness of each element of the
         :py:class:`~dymoval.xcorrelation.XCorrelation` object associated to the
@@ -232,7 +233,9 @@ class ValidationSession:
         for each element of `Ree` have been computed. It must be a
         :math:`q\times q` array.
     Rue_nlags:
-        Number of lags for the input-residuals cross-correlation array `Rue`.
+        Positive-integer lag-window sizes for the input-residuals
+        cross-correlation array `Rue`, with the same symmetric-window
+        convention as `Ruu_nlags`.
     Rue_local_statistic_type:
         Statistic used for estimating the whiteness of each element of the
         :py:class:`~dymoval.xcorrelation.XCorrelation` object associated to the
