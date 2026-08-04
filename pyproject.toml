@@ -79,7 +79,7 @@ line-length = 79
 exclude = [
     "manual_tests",
     "docs",
-    "test",
+    "tests",
     "src/dymoval_tutorial",
     ".*",
     # ruff only formats Python; keep it that way even if a future
