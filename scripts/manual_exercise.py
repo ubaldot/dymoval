@@ -47,12 +47,14 @@ def main():
     print(f"dymoval amplitude at f0: {amplitude[idx]:.6g}")
     print(f"numpy amplitude at f0:   {amplitude_np[idx]:.6g}")
 
-    # Parseval check: with Y = fft(x)/N we expect sum(x**2) == sum(|Y|^2)
-    energy_time = np.sum(x ** 2)
-    energy_freq = np.sum(np.abs(Y) ** 2)
-    print(f"time-domain energy: {energy_time:.8g}")
-    print(f"frequency-domain energy: {energy_freq:.8g}")
-    print(f"energy ratio time/freq: {energy_time/energy_freq:.12g}")
+    # Parseval (mean-square) check:
+    # With y = rfft(x)/N and one-sided folding, the sum(|y|^2 * fold)
+    # equals the time-domain mean-square = sum(x**2) / N.
+    energy_time_mean = np.sum(x ** 2) / N
+    energy_freq = np.sum((np.abs(Y) ** 2) * fold)
+    print(f"time-domain mean-square: {energy_time_mean:.8g}")
+    print(f"frequency-domain (folded) energy: {energy_freq:.8g}")
+    print(f"ratio time_mean/freq: {energy_time_mean/energy_freq:.12g}")
 
     # Also use the convenience spectrum() method (amplitude mode)
     f_s, amp_s = sig.spectrum(mode="amplitude")
