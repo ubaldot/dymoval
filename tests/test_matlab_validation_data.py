@@ -1,11 +1,14 @@
+from pathlib import Path
+
 import numpy as np
 from dymoval import rsquared, XCorrelation
 
 
 def test_matlab_validation_data_rsquared_and_xcorr():
-    x = np.loadtxt('x.csv', delimiter=',')
-    y = np.loadtxt('y.csv', delimiter=',')
-    yhat = np.loadtxt('yhat.csv', delimiter=',')
+    fixtures = Path(__file__).parent / "fixtures"
+    x = np.loadtxt(fixtures / "x.csv", delimiter=",")
+    y = np.loadtxt(fixtures / "y.csv", delimiter=",")
+    yhat = np.loadtxt(fixtures / "yhat.csv", delimiter=",")
 
     # R^2 (dymoval returns percent)
     r2 = rsquared(x.reshape(-1,1), yhat.reshape(-1,1))[0]
