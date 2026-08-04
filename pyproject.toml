@@ -55,9 +55,7 @@ dev = [
     "sphinx-autodoc-typehints",
     "pytest",
     "mypy",
-    # Pinned: the formatter is a pass/fail gate in CI, so an unrelated ruff
-    # release must not be able to turn the pipeline red.
-    "ruff==0.15.2",
+    "ruff",
     "coverage",
     "grayskull",
     "build",

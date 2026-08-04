@@ -78,6 +78,7 @@ _PICK_WINDOW = 5
 # external code that imported the old private helpers. These delegate
 # the simple logic previously available at module scope.
 
+
 def _fmt(value: float | None, unit: str = "") -> str:
     if value is None or np.isnan(value):
         text = "n/a"
@@ -109,7 +110,6 @@ def _real_lines(ax: Axes) -> list[Any]:
 def _tag_artifact(artist: Any) -> Any:
     artist._scope_artifact = True
     return artist
-
 
 
 def scope_subplots(
@@ -210,8 +210,6 @@ def _pick_time_interval(
             manager.destroy()
 
     return selection["tin"], selection["tout"]
-
-
 
 
 # ============================================================
@@ -436,7 +434,9 @@ class BaseScope:
         color = line.get_color()
         ax = line.axes
 
-        vline = self._tag_artifact(ax.axvline(x_sel, linestyle="--", color=color))
+        vline = self._tag_artifact(
+            ax.axvline(x_sel, linestyle="--", color=color)
+        )
         (point,) = ax.plot(x_sel, y_sel, marker="o", color=color)
         self._tag_artifact(point)
 
@@ -692,7 +692,8 @@ class AmplitudeSpectrumScope(SpectrumScope):
 
             name = self._line_name(line)
             line = next(
-                (m for m in mag_lines if self._line_name(m) == name), mag_lines[0]
+                (m for m in mag_lines if self._line_name(m) == name),
+                mag_lines[0],
             )
 
         super()._process_click(line, x_click)

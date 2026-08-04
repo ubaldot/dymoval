@@ -23,7 +23,7 @@ copyright = "2026, U. Tiberi"
 author = "U. Tiberi "
 
 # The full version, including alpha/beta/rc tags
-release = "0.9.0"
+release = "1.0.0"
 
 
 # -- General configuration ---------------------------------------------------
@@ -63,7 +63,7 @@ html_logo = "./figures/DymovalLogo_Layer 2_Small.svg"
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = []
+html_static_path = [""]
 
 # -- Options for LaTeX output with mathjax -----------------------------
 mathjax_path = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
