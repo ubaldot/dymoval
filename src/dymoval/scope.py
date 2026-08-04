@@ -74,6 +74,44 @@ _PANEL_WIDTH_RATIOS = (3.8, 1.2)
 _PICK_WINDOW = 5
 
 
+# Backwards-compatible module-level helpers retained for tests and
+# external code that imported the old private helpers. These delegate
+# the simple logic previously available at module scope.
+
+def _fmt(value: float | None, unit: str = "") -> str:
+    if value is None or np.isnan(value):
+        text = "n/a"
+    elif value != 0 and (abs(value) < 1e-3 or abs(value) >= 1e5):
+        text = f"{value:.3e}"
+    else:
+        text = f"{value:.3f}"
+
+    return f"{text} {unit}".rstrip()
+
+
+def _line_name(line: Any) -> str:
+    signal = getattr(line, "_signal", None)
+
+    if signal is not None:
+        return str(signal.name)
+
+    return str(line.get_label() or "signal")
+
+
+def _real_lines(ax: Axes) -> list[Any]:
+    return [
+        line
+        for line in ax.get_lines()
+        if not getattr(line, "_scope_artifact", False)
+    ]
+
+
+def _tag_artifact(artist: Any) -> Any:
+    artist._scope_artifact = True
+    return artist
+
+
+
 def scope_subplots(
     nrows: int = 1,
     ncols: int = 1,
@@ -174,51 +212,6 @@ def _pick_time_interval(
     return selection["tin"], selection["tout"]
 
 
-def _fmt(value: float | None, unit: str = "") -> str:
-    """Format a number for the info panel."""
-    if value is None or np.isnan(value):
-        text = "n/a"
-    elif value != 0 and (abs(value) < 1e-3 or abs(value) >= 1e5):
-        text = f"{value:.3e}"
-    else:
-        text = f"{value:.3f}"
-
-    return f"{text} {unit}".rstrip()
-
-
-def _as_axes_list(axes: Any) -> list[Axes]:
-    """Normalize whatever matplotlib returned into ``list[Axes]``."""
-    if axes is None:
-        return []
-    if isinstance(axes, np.ndarray):
-        return list(axes.ravel())
-    if isinstance(axes, (list, tuple)):
-        return list(axes)
-    return [axes]
-
-
-def _line_name(line: Any) -> str:
-    signal = getattr(line, "_signal", None)
-
-    if signal is not None:
-        return str(signal.name)
-
-    return str(line.get_label() or "signal")
-
-
-def _real_lines(ax: Axes) -> list[Any]:
-    """Lines of ``ax`` excluding cursors/markers drawn by a scope."""
-    return [
-        line
-        for line in ax.get_lines()
-        if not getattr(line, "_scope_artifact", False)
-    ]
-
-
-def _tag_artifact(artist: Any) -> Any:
-    """Mark an artist as scope-generated so that it is never selectable."""
-    artist._scope_artifact = True
-    return artist
 
 
 # ============================================================
@@ -240,7 +233,7 @@ class BaseScope:
         panel_ax: Axes,
     ) -> None:
         self.fig = fig
-        self.axes: list[Axes] = _as_axes_list(axes)
+        self.axes: list[Axes] = self._as_axes_list(axes)
         self.panel_ax = panel_ax
 
         # selection state
@@ -308,6 +301,51 @@ class BaseScope:
 
         self.fig.canvas.mpl_connect("button_press_event", self._on_click)
 
+    # -------------------------------
+    # Small helpers moved here to keep the module tidy
+    # -------------------------------
+    def _as_axes_list(self, axes: Any) -> list[Axes]:
+        """Normalize whatever matplotlib returned into ``list[Axes]``."""
+        if axes is None:
+            return []
+        if isinstance(axes, np.ndarray):
+            return list(axes.ravel())
+        if isinstance(axes, (list, tuple)):
+            return list(axes)
+        return [axes]
+
+    def _fmt(self, value: float | None, unit: str = "") -> str:
+        """Format a number for the info panel."""
+        if value is None or np.isnan(value):
+            text = "n/a"
+        elif value != 0 and (abs(value) < 1e-3 or abs(value) >= 1e5):
+            text = f"{value:.3e}"
+        else:
+            text = f"{value:.3f}"
+
+        return f"{text} {unit}".rstrip()
+
+    def _line_name(self, line: Any) -> str:
+        signal = getattr(line, "_signal", None)
+
+        if signal is not None:
+            return str(signal.name)
+
+        return str(line.get_label() or "signal")
+
+    def _real_lines(self, ax: Axes) -> list[Any]:
+        """Lines of ``ax`` excluding cursors/markers drawn by a scope."""
+        return [
+            line
+            for line in ax.get_lines()
+            if not getattr(line, "_scope_artifact", False)
+        ]
+
+    def _tag_artifact(self, artist: Any) -> Any:
+        """Mark an artist as scope-generated so that it is never selectable."""
+        artist._scope_artifact = True
+        return artist
+
     def _on_click(self, event: Any) -> None:
         if event.inaxes not in self.axes or event.xdata is None:
             return
@@ -326,7 +364,7 @@ class BaseScope:
         best_line = None
         best_dist = np.inf
 
-        for line in _real_lines(ax):
+        for line in self._real_lines(ax):
             xdata = np.asarray(line.get_xdata(), dtype=float)
             ydata = np.asarray(line.get_ydata(), dtype=float)
 
@@ -398,9 +436,9 @@ class BaseScope:
         color = line.get_color()
         ax = line.axes
 
-        vline = _tag_artifact(ax.axvline(x_sel, linestyle="--", color=color))
+        vline = self._tag_artifact(ax.axvline(x_sel, linestyle="--", color=color))
         (point,) = ax.plot(x_sel, y_sel, marker="o", color=color)
-        _tag_artifact(point)
+        self._tag_artifact(point)
 
         self.cursor_lines.append(vline)
         self.cursor_points.append(point)
@@ -426,7 +464,7 @@ class BaseScope:
             self.fig._scope_linewidths = widths  # type: ignore[attr-defined]
 
         for ax in self.fig.axes:
-            for line in _real_lines(ax):
+            for line in self._real_lines(ax):
                 widths.setdefault(line, line.get_linewidth())
 
         return widths
@@ -501,7 +539,7 @@ class BaseScope:
         if self.current_line is None:
             return "signal"
 
-        return _line_name(self.current_line)
+        return self._line_name(self.current_line)
 
     def _units(self) -> tuple[str, str]:
         """Return ``(x_unit, y_unit)`` of the current selection."""
@@ -526,8 +564,8 @@ class BaseScope:
 
             self.info_text.set_text(
                 f"{header}"
-                f"{xs}1 = {_fmt(x1, x_unit)}\n"
-                f"{ys}1 = {_fmt(y1, y_unit)}\n\n"
+                f"{xs}1 = {self._fmt(x1, x_unit)}\n"
+                f"{ys}1 = {self._fmt(y1, y_unit)}\n\n"
                 f"Select second point\n"
                 f"(press 'r' to reset)"
             )
@@ -540,20 +578,20 @@ class BaseScope:
 
         body = (
             f"{header}"
-            f"{xs}1 = {_fmt(x1, x_unit)}\n"
-            f"{xs}2 = {_fmt(x2, x_unit)}\n\n"
-            f"{ys}1 = {_fmt(y1, y_unit)}\n"
-            f"{ys}2 = {_fmt(y2, y_unit)}\n\n"
-            f"\u0394{xs} = {_fmt(x2 - x1, x_unit)}\n"
-            f"\u0394{ys} = {_fmt(y2 - y1, y_unit)}\n\n"
+            f"{xs}1 = {self._fmt(x1, x_unit)}\n"
+            f"{xs}2 = {self._fmt(x2, x_unit)}\n\n"
+            f"{ys}1 = {self._fmt(y1, y_unit)}\n"
+            f"{ys}2 = {self._fmt(y2, y_unit)}\n\n"
+            f"\u0394{xs} = {self._fmt(x2 - x1, x_unit)}\n"
+            f"\u0394{ys} = {self._fmt(y2 - y1, y_unit)}\n\n"
         )
 
         if self.show_statistics:
             ymin, ymax, rms = self._compute_stats(x1, x2)
             body += (
-                f"min = {_fmt(ymin, y_unit)}\n"
-                f"max = {_fmt(ymax, y_unit)}\n"
-                f"RMS = {_fmt(rms, y_unit)}\n\n"
+                f"min = {self._fmt(ymin, y_unit)}\n"
+                f"max = {self._fmt(ymax, y_unit)}\n"
+                f"RMS = {self._fmt(rms, y_unit)}\n\n"
             )
 
         self.info_text.set_text(body + "(press 'r' to reset)")
@@ -634,11 +672,11 @@ class AmplitudeSpectrumScope(SpectrumScope):
     # ----------------------------------------------------
     def _phase_line_for(self, line: Any) -> Any:
         """Phase line matching the clicked magnitude line (by name)."""
-        name = _line_name(line)
-        candidates = _real_lines(self.phase_ax)
+        name = self._line_name(line)
+        candidates = self._real_lines(self.phase_ax)
 
         for phase_line in candidates:
-            if _line_name(phase_line) == name:
+            if self._line_name(phase_line) == name:
                 return phase_line
 
         return candidates[0] if candidates else None
@@ -647,14 +685,14 @@ class AmplitudeSpectrumScope(SpectrumScope):
         # Always drive the selection from the magnitude axes so that both
         # cursors refer to the very same frequency.
         if line.axes is self.phase_ax:
-            mag_lines = _real_lines(self.mag_ax)
+            mag_lines = self._real_lines(self.mag_ax)
 
             if not mag_lines:
                 return
 
-            name = _line_name(line)
+            name = self._line_name(line)
             line = next(
-                (m for m in mag_lines if _line_name(m) == name), mag_lines[0]
+                (m for m in mag_lines if self._line_name(m) == name), mag_lines[0]
             )
 
         super()._process_click(line, x_click)
@@ -685,7 +723,7 @@ class AmplitudeSpectrumScope(SpectrumScope):
                 points.append(point_ph)
 
         for artist in [vline_mag, vline_ph, *points]:
-            _tag_artifact(artist)
+            self._tag_artifact(artist)
 
         self.cursor_lines.extend([vline_mag, vline_ph])
         self.cursor_points.extend(points)
@@ -718,9 +756,9 @@ class AmplitudeSpectrumScope(SpectrumScope):
 
             self.info_text.set_text(
                 f"{header}"
-                f"f1 = {_fmt(f1, 'Hz')}\n"
-                f"|A1| = {_fmt(m1, y_unit)}\n"
-                f"\u2220A1 = {_fmt(p1, 'deg')}\n\n"
+                f"f1 = {self._fmt(f1, 'Hz')}\n"
+                f"|A1| = {self._fmt(m1, y_unit)}\n"
+                f"\u2220A1 = {self._fmt(p1, 'deg')}\n\n"
                 f"Select second point\n"
                 f"(press 'r' to reset)"
             )
@@ -734,14 +772,14 @@ class AmplitudeSpectrumScope(SpectrumScope):
 
         self.info_text.set_text(
             f"{header}"
-            f"f1 = {_fmt(f1, 'Hz')}\n"
-            f"f2 = {_fmt(f2, 'Hz')}\n\n"
-            f"|A1| = {_fmt(m1, y_unit)}\n"
-            f"|A2| = {_fmt(m2, y_unit)}\n\n"
-            f"\u2220A1 = {_fmt(p1, 'deg')}\n"
-            f"\u2220A2 = {_fmt(p2, 'deg')}\n\n"
-            f"\u0394f = {_fmt(f2 - f1, 'Hz')}\n"
-            f"\u0394|A| = {_fmt(m2 - m1, y_unit)}\n"
-            f"\u0394\u2220A = {_fmt(p2 - p1, 'deg')}\n\n"
+            f"f1 = {self._fmt(f1, 'Hz')}\n"
+            f"f2 = {self._fmt(f2, 'Hz')}\n\n"
+            f"|A1| = {self._fmt(m1, y_unit)}\n"
+            f"|A2| = {self._fmt(m2, y_unit)}\n\n"
+            f"\u2220A1 = {self._fmt(p1, 'deg')}\n"
+            f"\u2220A2 = {self._fmt(p2, 'deg')}\n\n"
+            f"\u0394f = {self._fmt(f2 - f1, 'Hz')}\n"
+            f"\u0394|A| = {self._fmt(m2 - m1, y_unit)}\n"
+            f"\u0394\u2220A = {self._fmt(p2 - p1, 'deg')}\n\n"
             f"(press 'r' to reset)"
         )

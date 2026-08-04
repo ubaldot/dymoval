@@ -112,74 +112,9 @@ def plot_dataset(
 # ====================================================
 # Internals
 # ====================================================
-def _resolve_labels(
-    datasets: Sequence[Dataset], labels: Sequence[str] | None
-) -> list[str]:
-    if labels is None:
-        return [f"ds{i}" for i in range(len(datasets))]
-
-    if len(labels) != len(datasets):
-        raise ValueError("'labels' must have one entry per dataset")
-
-    return list(labels)
-
-
-def _common_names(
-    datasets: Sequence[Dataset], names: Sequence[str]
-) -> list[str]:
-    if names:
-        for i, ds in enumerate(datasets):
-            missing = [name for name in names if name not in ds]
-
-            if missing:
-                raise KeyError(f"Signals {missing} missing in dataset #{i}")
-
-        return list(names)
-
-    common = set(datasets[0].names())
-
-    for ds in datasets[1:]:
-        common &= set(ds.names())
-
-    # keep the reference dataset ordering
-    ordered = [name for name in datasets[0].names() if name in common]
-
-    if not ordered:
-        raise ValueError("No common signals to compare")
-
-    return ordered
-
-
-def _aligned(datasets: Sequence[Dataset], align: bool) -> list[Dataset]:
-    if not align:
-        return list(datasets)
-
-    reference = datasets[0]
-    new_time = reference.time()
-
-    for ds in datasets[1:]:
-        t = ds.time()
-        new_time = new_time[(new_time >= t[0]) & (new_time <= t[-1])]
-
-    if new_time.size == 0:
-        raise ValueError("Datasets do not overlap in time")
-
-    return [ds.resample(new_time) for ds in datasets]
-
-
-def _check_datasets(
-    reference: Dataset, others: Sequence[Dataset]
-) -> list[Dataset]:
-    datasets = [reference, *others]
-
-    if len(datasets) < 2:
-        raise ValueError("At least two datasets are required")
-
-    for ds in datasets:
-        if not isinstance(ds, Dataset):
-            raise TypeError("All the arguments must be Dataset instances")
-
-    return datasets
+# Small helpers collapsed: label resolution, common-name discovery,
+# alignment and dataset validation were single-use utilities and are
+# inlined at call sites to reduce the module surface.
 
 
 def _compare(
@@ -203,10 +138,54 @@ def _compare(
     with the scope class to attach and the optional per-axes
     ``finish(ax, name)`` touch-up.
     """
-    datasets = _check_datasets(reference, others)
-    labels_ = _resolve_labels(datasets, labels)
-    names_ = _common_names(datasets, names)
-    datasets = _aligned(datasets, align)
+    # Validate and normalize the dataset list
+    datasets: list[Dataset] = [reference, *others]
+
+    if len(datasets) < 2:
+        raise ValueError("At least two datasets are required")
+
+    for ds in datasets:
+        if not isinstance(ds, Dataset):
+            raise TypeError("All the arguments must be Dataset instances")
+
+    # Resolve labels
+    if labels is None:
+        labels_ = [f"ds{i}" for i in range(len(datasets))]
+    else:
+        if len(labels) != len(datasets):
+            raise ValueError("'labels' must have one entry per dataset")
+        labels_ = list(labels)
+
+    # Determine names to compare
+    if names:
+        for i, ds in enumerate(datasets):
+            missing = [name for name in names if name not in ds]
+            if missing:
+                raise KeyError(f"Signals {missing} missing in dataset #{i}")
+        names_ = list(names)
+    else:
+        common = set(datasets[0].names())
+        for ds in datasets[1:]:
+            common &= set(ds.names())
+        names_ = [name for name in datasets[0].names() if name in common]
+        if not names_:
+            raise ValueError("No common signals to compare")
+
+    # Align (resample) if requested
+    if not align:
+        datasets = list(datasets)
+    else:
+        reference_ds = datasets[0]
+        new_time = reference_ds.time()
+
+        for ds in datasets[1:]:
+            t = ds.time()
+            new_time = new_time[(new_time >= t[0]) & (new_time <= t[-1])]
+
+        if new_time.size == 0:
+            raise ValueError("Datasets do not overlap in time")
+
+        datasets = [ds.resample(new_time) for ds in datasets]
 
     fig, axes, panel_ax = scope_subplots(
         len(names_),
@@ -341,10 +320,54 @@ def plot_coverage_compare(
     **kwargs :
         Forwarded to ``matplotlib.axes.Axes.hist``.
     """
-    datasets = _check_datasets(reference, others)
-    labels_ = _resolve_labels(datasets, labels)
-    names_ = _common_names(datasets, names)
-    datasets = _aligned(datasets, align)
+    # Validate and normalize datasets
+    datasets: list[Dataset] = [reference, *others]
+
+    if len(datasets) < 2:
+        raise ValueError("At least two datasets are required")
+
+    for ds in datasets:
+        if not isinstance(ds, Dataset):
+            raise TypeError("All the arguments must be Dataset instances")
+
+    # Resolve labels
+    if labels is None:
+        labels_ = [f"ds{i}" for i in range(len(datasets))]
+    else:
+        if len(labels) != len(datasets):
+            raise ValueError("'labels' must have one entry per dataset")
+        labels_ = list(labels)
+
+    # Determine names to compare
+    if names:
+        for i, ds in enumerate(datasets):
+            missing = [name for name in names if name not in ds]
+            if missing:
+                raise KeyError(f"Signals {missing} missing in dataset #{i}")
+        names_ = list(names)
+    else:
+        common = set(datasets[0].names())
+        for ds in datasets[1:]:
+            common &= set(ds.names())
+        names_ = [name for name in datasets[0].names() if name in common]
+        if not names_:
+            raise ValueError("No common signals to compare")
+
+    # Align (resample) if requested
+    if not align:
+        datasets = list(datasets)
+    else:
+        reference_ds = datasets[0]
+        new_time = reference_ds.time()
+
+        for ds in datasets[1:]:
+            t = ds.time()
+            new_time = new_time[(new_time >= t[0]) & (new_time <= t[-1])]
+
+        if new_time.size == 0:
+            raise ValueError("Datasets do not overlap in time")
+
+        datasets = [ds.resample(new_time) for ds in datasets]
 
     fig, axes, _ = scope_subplots(
         len(names_),
