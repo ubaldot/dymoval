@@ -3,6 +3,11 @@
 Run it from anywhere:
 
     python -m dymoval_tutorial.tutorial_debug
+
+NOTE: Dataset.dataset_values() now returns (time, inputs, outputs) where
+inputs and outputs are 2-D arrays with shape (n_samples, n_signals). For
+single-input-single-output (SISO) use `u[:, 0]` or `u.squeeze()` when a
+1-D array is required.
 """
 
 from copy import deepcopy
