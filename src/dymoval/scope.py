@@ -739,6 +739,7 @@ class AmplitudeSpectrumScope(SpectrumScope):
         self._trim_cursors(keep=4)
 
     def reset(self, redraw: bool = True) -> None:
+        """Clear spectrum selections and reset the shared scope state."""
         self.phases.clear()
         super().reset(redraw=redraw)
 

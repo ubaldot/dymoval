@@ -14,13 +14,13 @@ To validate models you can just run the following:
        measured_in=u_meas,
        measured_out=y_meas,
        simulated_out=y_sim,
-       sampling_period = sampling_period
+       sampling_period=sampling_period
    )
 
 where `y_sim` is the simulated out, `u_meas` is the measured input, `y_meas`
 is the measured out arranged in :math:`N\times q`, :math:`N\times p` and
 :math:`N\times q` arrays, respectively, where :math:`N` is the number of
-observations sampled with period `sampled_period`, :math:`p` is the number of
+observations sampled with period `sampling_period`, :math:`p` is the number of
 inputs and :math:`q` is the number of outputs.
 
 For more accurate results, the bandwidths of the involved signals can be
@@ -118,18 +118,22 @@ behavior of our model. More precisely:
    stimulated, covering all aspects of the real system. This gives higher
    trust to our model if the other validation metrics are good.
 
--  If the residuals' whiteness is large, it indicates that some dynamics have
-   been poorly modeled, and therefore the model needs updates. In this case,
-   if the :math:`R^2` value is large, it only means that your model is fitting
-   well what has been modeled, but there are still underlying, non-modeled
-   dynamics. If the model is of the form :math:`\dot x = Ax + Bu`, then the
-   model between :math:`x` and :math:`\dot x`, namely the matrix :math:`A`,
-   shall be revised.
+-  If the residuals' whiteness is large, the residual sequence still contains
+   structure that the model does not explain. This may indicate missing or
+   incorrectly modeled dynamics, but it can also result from disturbances,
+   nonlinearities, or other modeling assumptions. The magnitude of the
+   residuals is a separate measure: large residual values indicate a poor
+   pointwise fit, whereas large residual whiteness indicates remaining
+   correlation over time. A large :math:`R^2` value only means that the model
+   fits the measured outputs well overall; it does not rule out unmodeled
+   dynamics.
 
--  If the input-residuals' whiteness level is large, it means that the
-   input-output model needs improvements. If our model is of the form
-   :math:`\dot x = Ax + Bu`, then the model between :math:`u` and :math:`\dot
-   x`, namely the matrix :math:`B`, shall be revised.
+-  If the input-residuals' whiteness level is large, the residuals remain
+   correlated with the inputs. This indicates that the model has not captured
+   some part of the input-output relationship. The cause may be missing
+   dynamics, incorrect parameters, nonlinear behavior, or other model
+   limitations; the correlation does not identify one particular state-space
+   matrix as the cause.
 
 For simulation models, which motivated the development of *dymoval*, we are
 more interested in the dynamic behavior of models than the point-wise fit of
@@ -162,7 +166,12 @@ things to check:
    filter cutoff frequency.
 
 -  The signals may be over-sampled. Consider estimating the signals'
-   bandwidths and pass this information to *dymoval* functions.
+   bandwidths and passing this information to *dymoval* functions. This lets
+   *dymoval* evaluate the correlation on a bandwidth-appropriate lag grid.
+   Alternatively, increase the lag window and inspect the correlation outside
+   the region around zero lag, where the short sampling interval can dominate
+   the result. When no bandwidth-based lag grid is used, each lag corresponds
+   to one sampling period.
 
 -  The input signal has some trend or some large mean values or offset, etc..
    Consider removing possible trends, mean values, etc. from the input signals
@@ -210,18 +219,26 @@ consider two signals :math:`x(t)` and :math:`y(t)`, then we obtain the
 The next question is: to how many seconds one lag corresponds to?
 
 The answer is given by the `delay time` (or `lag time`) :math:`\tau \in
-\mathbb{R}^+` which in *dymoval* is equal to :math:`\tau = T_s`, being
-:math:`T_s` the signal sampling period, or equal to :math:`\tau=1/2B_x`, where
-:math:`B_x` is the bandwidth of :math:`X`, if the value of :math:`B_x` is
-passed to *dymoval* API. It is not possible to take a larger lag time than
-:math:`\tau=1/2B_x` otherwise the Nyquist-Shannon criteria would be violated.
+\mathbb{R}^+`. Without bandwidth information, *dymoval* uses the signal
+sampling period :math:`T_s` as the spacing between adjacent lags, so lag
+:math:`k` corresponds to a delay of approximately :math:`kT_s`. When bandwidth
+information is supplied, *dymoval* uses a reduced lag grid with an effective
+spacing of approximately :math:`\tau=1/(2B_x)`, where :math:`B_x` is the
+bandwidth of :math:`X`.
 
-In case of cross-correlation between two signals :math:`x` and :math:`y` the
-`lag time` :math:`\tau` is equal to the sampling period :math:`T_s` of the
-signals - that must be the same - or to :math:`\tau = \min(1/2B_x, 1/2B_y)` if
-information about the bandwidths are passed to the *dymoval* API.
+This bandwidth-based spacing should not be confused with the maximum lag that
+may be inspected. The Shannon-Nyquist condition limits the sampling interval
+to :math:`T_s \leq 1/(2B_x)`; it does not prevent inspecting larger delays.
+To study the system memory, the lag window can extend well beyond
+:math:`1/(2B_x)`, for example by increasing ``nlags`` and checking whether
+the correlation has decayed outside the dominant time constants.
 
-*Dymval* also performs whiteness analysis of **multivariate signals** as it
+In case of cross-correlation between two signals :math:`x` and :math:`y`, the
+signals must have the same sampling period. Without bandwidth information,
+the lag spacing is :math:`T_s`; with bandwidth information, it is
+:math:`\tau = \min(1/(2B_x), 1/(2B_y))`.
+
+*Dymoval* also performs whiteness analysis of **multivariate signals** as
 follows.
 
 Let :math:`X` a signal of dimension :math:`p` with :math:`N` observations. The
@@ -245,5 +262,7 @@ whiteness estimation of :math:`X` is performed in three steps:
    default, *dymoval* take the :math:`\max` element of such an array, which
    correspond to the *worst-case* whiteness estimate.
 
-*Dymoval* consider **normalized** correlation functions, which means that the
-values of the *ACF*:s and *CCF*:s are always **between 0.0 and 1.0**.
+*Dymoval* considers **normalized** correlation functions, whose values are
+between :math:`-1.0` and :math:`1.0`. For an auto-correlation, the value at
+zero lag is one and is excluded from the whiteness estimate; whiteness is
+assessed from the non-zero lags.

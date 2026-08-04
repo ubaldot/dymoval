@@ -20,6 +20,7 @@ __all__ = [
 
 
 def is_interactive_shell() -> bool:
+    """Return whether the current process appears to be interactive."""
     if IS_INTERACTIVE is None:
         isinteractive = False
         try:

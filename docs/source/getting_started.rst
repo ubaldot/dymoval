@@ -6,7 +6,7 @@ Suppose you want to validate a model and you have the simulated out ``y_sim``
 the measured input ``u_meas``, and the measured out ``y_meas`` arranged in
 :math:`N\times q`, :math:`N\times p` and :math:`N\times q` arrays,
 respectively, where :math:`N` is the number of observations sampled with
-period ``sampled_period``, :math:`p` is the number of inputs and :math:`q` is
+period ``sampling_period``, :math:`p` is the number of inputs and :math:`q` is
 the number of outputs. Just call the following function:
 
 .. code::
@@ -111,19 +111,23 @@ decide whether to merge or reject the proposed changes.
  But why model validation?
 ***************************
 
-Imagine you are developing an innovative product. At various stages, you need
-to test it. Based on the test outcomes, you adjust your development direction.
-This cycle of development and testing continues iteratively until you achieve
-something deployable.
+Imagine that you are developing a new product or solution. At each stage, you
+need to test it and use the results to decide what to improve next. Testing in
+the target environment—the real-world setting where the solution will
+eventually be deployed—can be expensive, time-consuming, or even risky.
 
-Typically, testing in the target environment—the real-world setting where
-your product will ultimately be deployed—incurs costs in terms of money,
-time, and often personal stress.
+A simulation model provides a safer and cheaper environment for testing those
+ideas first. However, a simulation is only as useful as the model behind it.
+If a promising solution performs poorly in simulation, you may be tempted to
+discard it and never test it in the real system. That can mean rejecting a
+good solution because the model is inaccurate or incomplete. A failed
+simulation does not prove that the solution would fail in the target
+environment; it only shows that the solution does not work under the model's
+assumptions.
 
-To alleviate these challenges, you can run your tests in a virtual environment
-instead. If your work-product performs well in this virtual setting, it should
-theoretically perform well in the real-world environment too.
-
-However, this assumption holds true only if your virtual environment
-accurately represents the target environment and behaves similarly. And this
-is what model validation is all about.
+Model validation helps establish how much confidence you can place in those
+assumptions. By comparing the model with measurements from the target
+environment, you can identify where the model is trustworthy and where its
+predictions need to be treated with caution. Only then can simulation results
+provide meaningful guidance about which solutions are worth testing in
+reality.

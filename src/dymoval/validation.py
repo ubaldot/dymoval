@@ -116,6 +116,7 @@ class _XCorrSettings:
 
     @property
     def statistic_label(self) -> str:
+        """Return the combined local and global statistic label."""
         return f"{self.local_statistic}-{self.global_statistic}"
 
     def whiteness_of(self, R: XCorrelation) -> float:
@@ -544,6 +545,7 @@ class ValidationSession:
 
     @validation_thresholds.setter
     def validation_thresholds(self, val: dict[str, float]) -> None:
+        """Replace thresholds and recompute existing validation results."""
         self._check_validation_thresholds(val)
 
         self._validation_thresholds = val

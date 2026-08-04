@@ -22,13 +22,16 @@ different conditions to get a sufficiently *informative* measurement dataset.
    over, then it would be hard to disagree on that the collected measurements
    dataset is poorly informative.
 
-Ideally, the best approach would be to stimulate the system at every
-frequency. Ideally, such a stimulus should be a white noise signal. In
-practice, a white noise signal can be mimicked through a
-**Pseudo-Random-Binary-Sequence (PRBS)**, which is extremely easy to implement
-on digital platforms. Alternatively, you could use a chirp signal, or you
-could just manually drive your real system as randomly as possible. Regardless
-of the approach you choose, the goal is to hit as many corners as possible.
+Ideally, the excitation should be **persistently exciting**: it should contain
+enough independent variation over the frequency range that matters for the
+system and the model. White noise is a common example of a persistently
+exciting signal in the stochastic sense. In practice, a white-noise signal can
+be approximated with a **Pseudo-Random-Binary-Sequence (PRBS)**, which is easy
+to implement on digital platforms. A chirp or another carefully designed
+multisine can also be appropriate when the frequency content needs to be
+controlled explicitly. Regardless of the particular signal, the goal is to
+exercise the relevant dynamics over a sufficiently broad range of operating
+conditions.
 
 Next, let's say that we have completed your experiments. To assess the quality
 of the experiments, we can simply check how similar the input signal was to
@@ -71,21 +74,27 @@ metrics, see :py:meth:`~dymoval.statistics.compute_statistic`.
  Over-sampled signals
 **********************
 
-If the signal under examination is over-sampled, then the whiteness results
-may be inaccurate. This occurs because consecutive measurements are naturally
-correlated when a sensor pick samples too quickly, leading to higher values in
-the auto-correlation function. In this case you are analyzing how measurements
-are correlated whereas we are interested in the overall signal
-auto-correlation.
+If a signal is over-sampled, consecutive measurements are often correlated
+simply because the sampling interval is much shorter than the time scale of
+the signal. This can make the auto-correlation appear large near zero lag,
+even when the experiment contains useful excitation. The result may then
+describe the sampling rate more than the signal's relevant dynamics.
 
-To accommodate this issue, *dymoval* down-sample the auto-correlation function
-to the limit given by Shannon-Nyquist criteria. That is, *dymoval* compute the
-auto-correlation of signals by considering a lag time :math:`lag\_time =
-1/(2B)`, where :math:`B` is the signal bandwidth. This adjustment ensures that
-we are analyzing the auto-correlation of the actual signal rather than
-consecutive measurements. Dymoval handles this automatically, provided that
-the bandwidth and sampling period are supplied to the constructor of the
-:py:class:`~dymoval.xcorrelation.XCorrelation` class.
+There are two common ways to address this:
+
+* compute the auto-correlation over a sufficiently long lag window and
+  interpret the result outside the system's memory, that is, after the
+  dominant correlation has decayed over the relevant time constants; or
+* down-sample the signal so that consecutive samples are separated by a
+  time scale appropriate for its bandwidth, while still satisfying the
+  Shannon-Nyquist criterion.
+
+*Dymoval* uses the second approach when bandwidth and sampling-period
+information are supplied to :py:class:`~dymoval.xcorrelation.XCorrelation`.
+It selects a lag time of approximately :math:`1/(2B)`, where :math:`B` is the
+signal bandwidth, and evaluates the correlation on that reduced lag grid.
+This avoids treating densely packed, naturally correlated samples as
+independent evidence of poor excitation.
 
 .. note::
 

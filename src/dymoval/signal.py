@@ -125,6 +125,7 @@ class Signal:
         return Signal(**fields)
 
     def copy(self) -> "Signal":
+        """Return a copy with independent value and time arrays."""
         return self._replace(
             values=self.values.copy(),
             time=None if self.time is None else self.time.copy(),

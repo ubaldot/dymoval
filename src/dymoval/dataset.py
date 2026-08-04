@@ -254,6 +254,7 @@ class Dataset:
         target_sampling_period: float | None = None,
         name: str = "",
     ) -> "Dataset":
+        """Build a dataset from input and output signals."""
         return cls.from_dict(
             {"inputs": list(inputs or []), "outputs": list(outputs or [])},
             meta=meta,
@@ -277,26 +278,33 @@ class Dataset:
         return len(self.inputs) + len(self.outputs)
 
     def all_signals(self) -> dict[str, Signal]:
+        """Return all signals in one mapping, with inputs first."""
         return {**self.inputs, **self.outputs}
 
     def names(self) -> list[str]:
+        """Return the names of all signals, with inputs first."""
         return list(self.all_signals())
 
     def input_names(self) -> list[str]:
+        """Return the names of the input signals."""
         return list(self.inputs)
 
     def output_names(self) -> list[str]:
+        """Return the names of the output signals."""
         return list(self.outputs)
 
     def time(self) -> np.ndarray:
+        """Return the common time vector."""
         time = next(iter(self.all_signals().values())).time
         assert time is not None  # guaranteed by _validate()
         return time
 
     def get_sampling_period(self) -> float:
+        """Return the common sampling period."""
         return next(iter(self.all_signals().values())).get_sampling_period()
 
     def time_unit(self) -> str | None:
+        """Return the common time unit."""
         return next(iter(self.all_signals().values())).time_unit
 
     def kind_of(self, name: str) -> SignalKind:
@@ -560,9 +568,11 @@ class Dataset:
     # Copy / processing
     # ================================================
     def copy(self) -> Self:
+        """Return a deep copy of the dataset and its signal arrays."""
         return self._map(lambda sig: sig.copy())
 
     def detrend(self, *names: str) -> Self:
+        """Remove a linear trend from the selected signals."""
         return self._map(lambda sig: sig.detrend(), names)
 
     def remove_mean(self, *names: str) -> Self:
@@ -709,6 +719,7 @@ class Dataset:
         )
 
     def resample(self, new_time: np.ndarray) -> Self:
+        """Return a dataset resampled onto ``new_time``."""
         return self._map(lambda sig: sig.resample(new_time))
 
     # ================================================
@@ -822,6 +833,7 @@ class Dataset:
     # Pipeline
     # ================================================
     def pipe(self, func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+        """Pass this dataset to ``func`` and require a dataset result."""
         result = func(self, *args, **kwargs)
 
         if not isinstance(result, Dataset):

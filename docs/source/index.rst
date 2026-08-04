@@ -67,22 +67,17 @@ Measurements analysis and manipulation
 
 -  Time and frequency analysis
 -  Easy plotting, with interactive scopes
--  Linear filtering
--  Means and offsets removal
--  Re-sampling and alignment of signals
+-  Signal manipulation (filtering, resampling, mean and offset removal, and
+   more)
 -  Physical units
 
 Model validation
 ================
 
--  Validation metrics:
--  R-square fit
--  Residuals auto-correlation statistics
--  Input-Residuals cross-correlation statistics
--  Coverage region
+-  Validation metrics: R-square fit, Residuals auto-correlation, Input-Residuals cross-correlation, Coverage region
+-  Modeling-tool independent
 -  MIMO models
--  Independence of the modeling tool used.
--  API suitable for model unit-tests
+-  CI-friendly API for model tests
 
 *******
  Index
