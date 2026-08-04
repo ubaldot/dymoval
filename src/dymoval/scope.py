@@ -143,6 +143,7 @@ def scope_subplots(
 
     if with_scope:
         subfigs = fig.subfigures(1, 2, width_ratios=list(_PANEL_WIDTH_RATIOS))
+        assert isinstance(subfigs, np.ndarray)
         host: Any = subfigs[0]
         panel_ax: Axes | None = subfigs[1].add_subplot()
         assert panel_ax is not None
