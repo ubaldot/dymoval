@@ -13,7 +13,12 @@ High-level structure
 
 - Dataset: orchestration of aligned Signal objects. Responsible for grouping,
   resampling, dataset-wide plotting, and convenience methods that operate on
-  multiple signals consistently (e.g., dataset_values, fft across a dataset).
+  multiple signals consistently (e.g., dataset_values, fft across a dataset,
+  and nonparametric input/output frequency-response estimation).
+
+- FrequencyResponse: a nonparametric model estimated from a Dataset. It stores
+  MIMO response and noise spectra and evaluates the response at requested
+  frequencies without extrapolating.
 
 - ValidationSession / XCorrelation / statistics: model evaluation primitives
   and statistical diagnostics. They depend only on numpy/scipy and are

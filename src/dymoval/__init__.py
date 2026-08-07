@@ -2,6 +2,7 @@
 
 from .config import ATOL, COLORMAP
 from .dataset import ALIGN_MODES, SIGNAL_KIND, AlignMode, Dataset, SignalKind
+from .frequency_response import FrequencyResponse
 from .plotting import (
     plot_compare,
     plot_coverage_compare,
@@ -38,6 +39,7 @@ __all__ = [
     # core
     "Signal",
     "Dataset",
+    "FrequencyResponse",
     # type aliases and their runtime tuples
     "SpectrumMode",
     "SPECTRUM_MODES",

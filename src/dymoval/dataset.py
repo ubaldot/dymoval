@@ -27,6 +27,7 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from scipy.io import savemat
 
+from .frequency_response import FrequencyResponse, _estimate_spa
 from .scope import (
     _AX_HEIGHT,
     _AX_WIDTH,
@@ -828,6 +829,119 @@ class Dataset:
         return {
             sig.name: sig.spectrum(mode) for sig in self._select_signals(names)
         }
+
+    def spa(
+        self,
+        *,
+        inputs: Sequence[str] | str | None = None,
+        outputs: Sequence[str] | str | None = None,
+        window_size: int | None = None,
+        frequencies: Sequence[float] | np.ndarray | None = None,
+    ) -> FrequencyResponse:
+        """Estimate a nonparametric frequency response using spectral analysis.
+
+        This is a Blackman-Tukey estimate analogous to MATLAB's ``spa``.
+        Frequencies are angular frequencies in radians per dataset time unit.
+        By default all input and output signals are used. For SISO estimates,
+        the result also contains magnitude-squared coherence.
+        """
+
+        def channel_names(
+            selected: Sequence[str] | str | None,
+            available: dict[str, Signal],
+            kind: str,
+        ) -> tuple[str, ...]:
+            if selected is None:
+                return tuple(available)
+
+            names = (
+                (selected,) if isinstance(selected, str) else tuple(selected)
+            )
+            if not names:
+                raise ValueError(f"At least one {kind} signal is required")
+
+            duplicates = sorted(
+                name for name in set(names) if names.count(name) > 1
+            )
+            if duplicates:
+                raise ValueError(
+                    f"{kind.capitalize()} signal(s) selected more than once: "
+                    f"{duplicates}"
+                )
+
+            missing = sorted(name for name in names if name not in available)
+            if missing:
+                raise KeyError(
+                    f"{kind.capitalize()} signal(s) {missing} not found. "
+                    f"Available: {list(available)}"
+                )
+
+            return names
+
+        input_names = channel_names(inputs, self.inputs, "input")
+        output_names = channel_names(outputs, self.outputs, "output")
+        if not input_names or not output_names:
+            raise ValueError("spa requires at least one input and one output")
+
+        selected_inputs = [self.inputs[name] for name in input_names]
+        selected_outputs = [self.outputs[name] for name in output_names]
+        signals = [*selected_inputs, *selected_outputs]
+
+        if any(sig.has_nans() for sig in signals):
+            raise ValueError(
+                "spa does not support missing samples; call remove_nans first"
+            )
+
+        n_samples = len(self.time())
+        if n_samples < 3:
+            raise ValueError("spa requires at least three samples")
+
+        if window_size is None:
+            window_size = min(max(n_samples // 10, 1), 30)
+        elif (
+            isinstance(window_size, bool)
+            or not isinstance(window_size, int)
+            or not 1 <= window_size < n_samples
+        ):
+            raise ValueError(
+                "'window_size' must be an integer between 1 and "
+                f"{n_samples - 1}"
+            )
+
+        sampling_period = self.get_sampling_period()
+        nyquist = np.pi / sampling_period
+        if frequencies is None:
+            frequency = np.arange(1, 129, dtype=float) * nyquist / 128.0
+        else:
+            frequency = np.asarray(frequencies, dtype=float)
+            if frequency.ndim != 1 or len(frequency) == 0:
+                raise ValueError(
+                    "'frequencies' must be a non-empty 1-D sequence"
+                )
+            if not np.all(np.isfinite(frequency)):
+                raise ValueError(
+                    "'frequencies' must contain only finite values"
+                )
+            if np.any(frequency < 0.0) or np.any(frequency > nyquist):
+                raise ValueError(
+                    "'frequencies' must lie between zero and the Nyquist "
+                    f"frequency ({nyquist:.6g})"
+                )
+            if np.any(np.diff(frequency) <= 0.0):
+                raise ValueError("'frequencies' must be strictly increasing")
+
+        return _estimate_spa(
+            np.column_stack([sig.values for sig in selected_inputs]),
+            np.column_stack([sig.values for sig in selected_outputs]),
+            sampling_period=sampling_period,
+            frequencies=frequency,
+            window_size=window_size,
+            input_names=input_names,
+            output_names=output_names,
+            input_units=tuple(sig.unit for sig in selected_inputs),
+            output_units=tuple(sig.unit for sig in selected_outputs),
+            time_unit=self.time_unit(),
+        )
 
     # ================================================
     # Pipeline
