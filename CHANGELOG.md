@@ -121,7 +121,10 @@ point-by-point mapping of the old API onto the new one.
 
 - `Dataset.spa` estimates SISO and MIMO nonparametric frequency responses
   with Blackman-Tukey spectral analysis. The returned `FrequencyResponse`
-  provides `frf` interpolation, output-noise spectra, and SISO coherence.
+  provides `frf` interpolation, output-noise spectra, SISO coherence, and
+  Bode-style plotting.
+- Shared figure construction is separated from interactive scope behavior,
+  and nonparametric spectral estimation is separated from its result model.
 - `Signal` gained the whole processing toolbox that used to live on
   `Dataset` only: `trim`, `resample`, `detrend`, `remove_mean`,
   `remove_constant`, `low_pass_filter`, `apply`, `fft`, `spectrum`,

@@ -27,20 +27,23 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from scipy.io import savemat
 
-from .frequency_response import FrequencyResponse, _estimate_spa
-from .scope import (
+from ._figure import (
     _AX_HEIGHT,
     _AX_WIDTH,
     _COVERAGE_AX_HEIGHT,
     _COVERAGE_AX_WIDTH,
-    AmplitudeSpectrumScope,
-    DatasetScope,
     Layout,
-    SpectrumScope,
     _pick_time_interval,
     scope_subplots,
 )
+from .frequency_response import FrequencyResponse
+from .scope import (
+    AmplitudeSpectrumScope,
+    DatasetScope,
+    SpectrumScope,
+)
 from .signal import Scale, Signal, SpectrumMode, SpectrumScale, _check_mode
+from .spectral import _estimate_spa
 from .utils import _factorize
 
 __all__ = ["Dataset", "SIGNAL_KIND"]

@@ -13,17 +13,16 @@ from typing import Any, Callable, Literal, Sequence
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
-from .dataset import Dataset
-from .scope import (
+from ._figure import (
     _AX_HEIGHT,
     _AX_WIDTH,
     _COVERAGE_AX_HEIGHT,
     _COVERAGE_AX_WIDTH,
-    DatasetScope,
     Layout,
-    SpectrumScope,
     scope_subplots,
 )
+from .dataset import Dataset
+from .scope import DatasetScope, SpectrumScope
 from .signal import Scale, Signal, SpectrumMode, SpectrumScale, _check_mode
 
 __all__ = [

@@ -43,17 +43,18 @@ for example ``vs.dataset`` or ``ds.inputs["Voltage"]``, and nothing stops you
 from using the underlying *numpy* arrays directly through
 :py:attr:`Signal.values <dymoval.signal.Signal.values>`.
 
-Immutability
-^^^^^^^^^^^^
+Copy-on-transform behavior
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Every *dymoval* object is immutable: methods never modify the calling object,
-they return a modified copy of it. You must therefore re-assign the result::
+Manipulation methods do not modify the calling object; they return a new
+object. You must therefore re-assign the result::
 
    >>> ds.remove_mean()                 # discarded, ds is unchanged
    >>> ds_zero_mean = ds.remove_mean()  # this is what you want
 
-This also means that you should never assign to an attribute by hand: use the
-class methods, or build a new instance.
+The dataclasses and their underlying *numpy* arrays are not deeply immutable.
+Treat their fields as owned data: prefer class methods or build a new instance
+instead of assigning to attributes or mutating arrays in place.
 
 Plots
 ^^^^^
@@ -83,6 +84,7 @@ Package structure
 
    signal
    dataset
+   frequency_response
    plotting
    scope
    statistics
@@ -91,9 +93,10 @@ Package structure
    utils
    config
 
-The dependencies run one way only, from the top of that list to the bottom of
-it: ``signal`` knows nothing about ``dataset``, and ``dataset`` knows nothing
-about ``validation``.
+The domain dependencies are acyclic: ``signal`` knows nothing about
+``dataset``, and ``dataset`` knows nothing about ``validation``. Domain
+objects expose plotting methods and therefore use the internal figure and
+scope infrastructure at their presentation boundary.
 
 Everything you normally need is re-exported at the package top level, so
 ``import dymoval as dmv`` followed by ``dmv.Dataset``, ``dmv.Signal`` or

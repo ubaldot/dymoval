@@ -17,20 +17,20 @@ import matplotlib
 import numpy as np
 from matplotlib import pyplot as plt
 
+from ._figure import (
+    _GRID_AX_HEIGHT,
+    _GRID_AX_WIDTH,
+    Layout,
+    _pick_time_interval,
+    scope_subplots,
+)
 from .config import (
     COLORMAP,
     R2_Statistic_type,
     XCorr_Statistic_type,
 )
 from .dataset import Dataset
-from .scope import (
-    _GRID_AX_HEIGHT,
-    _GRID_AX_WIDTH,
-    DatasetScope,
-    Layout,
-    _pick_time_interval,
-    scope_subplots,
-)
+from .scope import DatasetScope
 from .signal import Signal
 from .statistics import rsquared
 from .utils import (

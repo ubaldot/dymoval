@@ -20,12 +20,14 @@ Design rules enforced here:
 
 from __future__ import annotations
 
-from typing import Any, Literal, Sequence, get_args
+from typing import Any, Sequence
 
-import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
+
+from . import _figure
+from ._figure import LAYOUTS, Layout, scope_subplots
 
 __all__ = [
     "BaseScope",
@@ -33,41 +35,24 @@ __all__ = [
     "DatasetScope",
     "SpectrumScope",
     "AmplitudeSpectrumScope",
+    "Layout",
+    "LAYOUTS",
     "scope_subplots",
 ]
 
-#: matplotlib layout engines accepted by the plotting API
-Layout = Literal["constrained", "compressed", "tight", "none"]
-LAYOUTS: tuple[str, ...] = get_args(Layout)
-
 _HINT = "Click on a signal\n(press 'r' to reset)"
 
-# ================================================
-# Default figure geometry, in inches.
-#
-# Every plotting entry point in the package sizes its figure from one of
-# these pairs, so that the look stays consistent and there is a single
-# place to tune it. `ax_height`/`ax_width` arguments override them.
-# ================================================
-
-#: one axes per signal, stacked vertically (time plots, spectra, ...)
-_AX_WIDTH = 10.0
-_AX_HEIGHT = 2.0
-
-#: coverage plots: a grid of narrow histograms
-_COVERAGE_AX_WIDTH = 7.0
-_COVERAGE_AX_HEIGHT = 1.8
-
-#: square-ish grids of small axes (residuals correlations, x/y plots)
-_GRID_AX_WIDTH = 4.445
-_GRID_AX_HEIGHT = 1.8
-
-#: standalone single-`Signal` figures
-_SIGNAL_FIGSIZE = (10.0, 5.0)
-_SIGNAL_SPECTRUM_FIGSIZE = (10.0, 4.0)
-
-#: width ratio between the plotting area and the scope info panel
-_PANEL_WIDTH_RATIOS = (3.8, 1.2)
+# Compatibility aliases for code that previously imported these private
+# names from dymoval.scope.
+_AX_HEIGHT = _figure._AX_HEIGHT
+_AX_WIDTH = _figure._AX_WIDTH
+_COVERAGE_AX_HEIGHT = _figure._COVERAGE_AX_HEIGHT
+_COVERAGE_AX_WIDTH = _figure._COVERAGE_AX_WIDTH
+_GRID_AX_HEIGHT = _figure._GRID_AX_HEIGHT
+_GRID_AX_WIDTH = _figure._GRID_AX_WIDTH
+_SIGNAL_FIGSIZE = _figure._SIGNAL_FIGSIZE
+_SIGNAL_SPECTRUM_FIGSIZE = _figure._SIGNAL_SPECTRUM_FIGSIZE
+_pick_time_interval = _figure._pick_time_interval
 
 # Half-width (in samples) of the window used to resolve which line was
 # clicked when several lines overlap.
@@ -110,107 +95,6 @@ def _real_lines(ax: Axes) -> list[Any]:
 def _tag_artifact(artist: Any) -> Any:
     artist._scope_artifact = True
     return artist
-
-
-def scope_subplots(
-    nrows: int = 1,
-    ncols: int = 1,
-    *,
-    with_scope: bool = True,
-    figsize: tuple[float, float] | None = None,
-    layout: Layout = "constrained",
-    **kwargs: Any,
-) -> tuple[Figure, list[Axes], Axes | None]:
-    """Create a figure laid out for an interactive scope.
-
-    When ``with_scope`` is set the figure is split into two subfigures: the
-    plotting area on the left and the scope info panel on the right. The
-    caller is left with attaching the scope itself, since only the caller
-    knows which scope class and which axes grouping it needs.
-
-    ``layout`` is the *matplotlib* figure layout engine; ``"none"`` disables
-    automatic layout altogether.
-
-    Returns ``(fig, axes, panel_ax)``, where ``axes`` is *flat* and
-    ``panel_ax`` is ``None`` when ``with_scope`` is ``False``.
-    """
-    if layout not in LAYOUTS:
-        raise ValueError(f"'layout' must be one of {LAYOUTS}, got {layout!r}")
-
-    fig = plt.figure(
-        layout=None if layout == "none" else layout, figsize=figsize
-    )
-
-    if with_scope:
-        subfigs = fig.subfigures(1, 2, width_ratios=list(_PANEL_WIDTH_RATIOS))
-        assert isinstance(subfigs, np.ndarray)
-        host: Any = subfigs[0]
-        panel_ax: Axes | None = subfigs[1].add_subplot()
-        assert panel_ax is not None
-        panel_ax.set_anchor("N")
-    else:
-        host = fig
-        panel_ax = None
-
-    axes = list(np.atleast_1d(host.subplots(nrows, ncols, **kwargs)).ravel())
-
-    return fig, axes, panel_ax
-
-
-def _pick_time_interval(
-    fig: Figure,
-    tin: float,
-    tout: float,
-    title: str = "Trim the data.",
-    verbosity: int = 0,
-) -> tuple[float, float]:  # pragma: no cover
-    """Let the user pick a time interval by zooming on ``fig``.
-
-    The interval is read from the x-limits of the first axes, which the
-    user adjusts with the matplotlib pan/zoom tools. The call blocks
-    until the figure is closed and then returns the last limits seen,
-    clipped to non-negative values. ``tin``/``tout`` are the values
-    returned if the user never zooms.
-
-    Note
-    ----
-    This cannot be covered by automated tests since it requires manual
-    interaction.
-    """
-    axes = fig.get_axes()
-
-    if not axes:
-        raise ValueError("Cannot pick a time interval on an empty figure.")
-
-    selection = {"tin": float(tin), "tout": float(tout)}
-
-    def update_time_interval(ax: Axes) -> None:
-        left, right = ax.get_xlim()
-        selection["tin"] = max(float(left), 0.0)
-        selection["tout"] = max(float(right), 0.0)
-
-        if verbosity != 0:
-            print(
-                f"Updated time interval: {selection['tin']} to "
-                f"{selection['tout']}"
-            )
-
-    cid = axes[0].callbacks.connect("xlim_changed", update_time_interval)
-    fig.suptitle(title)
-
-    try:
-        while fig in [plt.figure(num) for num in plt.get_fignums()]:
-            plt.pause(0.1)
-    except Exception as e:
-        print(f"An error occurred {e}")
-    finally:
-        axes[0].remove_callback(cid)
-        fig.clear()
-        manager = fig.canvas.manager
-        if manager is not None:
-            manager.destroy()
-
-    return selection["tin"], selection["tout"]
 
 
 # ============================================================

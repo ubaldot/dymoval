@@ -24,13 +24,15 @@ from scipy.interpolate import interp1d
 from scipy.signal import detrend as _detrend
 from scipy.signal import welch
 
-from .scope import (
+from ._figure import (
     _SIGNAL_FIGSIZE,
     _SIGNAL_SPECTRUM_FIGSIZE,
+    scope_subplots,
+)
+from .scope import (
     AmplitudeSpectrumScope,
     SignalScope,
     SpectrumScope,
-    scope_subplots,
 )
 
 __all__ = ["Signal", "SPECTRUM_MODES", "SCALES", "SPECTRUM_SCALES"]

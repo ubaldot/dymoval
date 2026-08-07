@@ -119,9 +119,10 @@ built.
 
 .. note::
 
-   Remember that *dymoval* objects are immutable: ``ds.trim(...)`` returns a
-   new :ref:`Dataset <Dataset>` and leaves ``ds`` untouched. The same holds
-   for every other manipulation method.
+   Remember that *dymoval* manipulation methods use copy-on-transform
+   semantics: ``ds.trim(...)`` returns a new :ref:`Dataset <Dataset>` and
+   leaves ``ds`` untouched. The same holds for every other manipulation
+   method.
 
 Analyzing and manipulating
 ==========================

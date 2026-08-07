@@ -20,8 +20,9 @@ Signal class
 
 .. currentmodule:: dymoval.signal
 
-A :ref:`Signal <signal>` is an immutable dataclass holding one uniformly
-sampled time-series.
+A :ref:`Signal <signal>` is a dataclass holding one uniformly sampled
+time-series. Its manipulation methods use copy-on-transform semantics: they
+return a new Signal and leave the caller unchanged.
 
 .. rubric:: Constructor
 .. autosummary::
@@ -157,6 +158,7 @@ As for :ref:`Signals <signal>`, each of these returns a new :ref:`Dataset
 
    Dataset.fft
    Dataset.spectrum
+   Dataset.spa
    Dataset.coverage
    Dataset.has_nans
    Dataset.nan_intervals
@@ -175,6 +177,42 @@ As for :ref:`Signals <signal>`, each of these returns a new :ref:`Dataset
    Dataset.dataset_values
    Dataset.to_signals
    Dataset.export_to_mat
+
+Nonparametric frequency response
+--------------------------------
+
+Use :py:meth:`Dataset.spa <dymoval.dataset.Dataset.spa>` to estimate the
+input/output frequency response directly from measurements. The estimator
+uses Blackman--Tukey spectral analysis and returns a
+:py:class:`~dymoval.frequency_response.FrequencyResponse`:
+
+.. code:: python
+
+   response = ds.spa(
+       inputs=("motor_voltage",),
+       outputs=("motor_speed",),
+       window_size=30,
+   )
+
+   # Bode magnitude and phase, plus SISO coherence.
+   fig = response.plot()
+   fig.savefig("measured_frequency_response.svg")
+
+   # Complex response at selected angular frequencies in rad/s.
+   H = response.frf([1.0, 10.0, 100.0])
+
+For MIMO datasets, ``response[k, i, j]`` is the response from input ``j`` to
+output ``i`` at ``frequency[k]``. The plot overlays every input/output
+channel. Pass ``show_coherence=False`` to omit the coherence panel from a
+SISO plot, or ``xscale="linear"`` to use a linear frequency axis.
+
+.. currentmodule:: dymoval.frequency_response
+
+.. rubric:: Frequency-response methods
+.. autosummary::
+
+   FrequencyResponse.frf
+   FrequencyResponse.plot
 
 Plotting several objects at once
 ================================

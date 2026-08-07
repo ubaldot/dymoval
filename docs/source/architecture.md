@@ -20,20 +20,31 @@ High-level structure
   MIMO response and noise spectra and evaluates the response at requested
   frequencies without extrapolating.
 
-- ValidationSession / XCorrelation / statistics: model evaluation primitives
-  and statistical diagnostics. They depend only on numpy/scipy and are
-  designed to be testable without plotting or interactive dependencies.
+- ValidationSession / XCorrelation / statistics: model evaluation and
+  statistical diagnostics. The numerical kernels use NumPy/SciPy;
+  ValidationSession and XCorrelation also expose plotting methods.
 
-- scope & plotting: interactive matplotlib layer kept separate from numeric
-  code. Scope implements figure geometry and click-to-inspect features. The
-  plotting module contains high-level convenience functions that combine
-  Signals/Datasets into multi-axes figures.
+- spectral: internal Blackman--Tukey estimation used by Dataset.spa. It is
+  separate from the FrequencyResponse result object and its plotting API.
+
+- _figure / scope / plotting: the presentation infrastructure. _figure owns
+  generic figure construction, layout types, and geometry defaults; scope
+  owns click-to-inspect interaction; plotting contains high-level functions
+  that combine several Signals or Datasets.
 
 Design decisions & trade-offs
 -----------------------------
-- Separation of concerns: numeric code (Signal, Dataset, statistics) is
-  independent from interactive plotting (scope, plotting). This reduces the
-  risk of UI-side changes breaking numerical behaviour and simplifies testing.
+- Separation of concerns: numerical kernels are kept separate from figure
+  construction and interaction. Domain objects deliberately provide
+  convenient plot methods, so Signal, Dataset, FrequencyResponse,
+  XCorrelation, and ValidationSession depend on the presentation layer at
+  their API boundary. Their numerical methods do not depend on interactive
+  scope state.
+
+- Copy-on-transform API: manipulation methods return new Signal or Dataset
+  instances and leave the caller unchanged. The dataclasses and their NumPy
+  arrays are not deeply immutable, so callers should treat their fields as
+  owned data rather than mutate them in place.
 
 - Conservative public API: most internal helper functions and plotting scope
   classes are intentionally private. The __init__ exports only the stable
@@ -52,11 +63,15 @@ Design decisions & trade-offs
 
 Recommendations for maintainers
 -------------------------------
-- Keep numeric code dependency-light (numpy/scipy only) and richly tested.
+- Keep numerical kernels dependency-light (NumPy/SciPy only) and richly
+  tested; keep Matplotlib imports at domain plotting boundaries.
 - Prefer making helpers private rather than exported — evolve public API in
   small, documented steps when strictly necessary.
-- When simplifying plotting, keep scope separate and small; collapse only
-  helpers that are genuinely single-use.
+- Keep generic figure construction in _figure and interactive behavior in
+  scope. Do not add numerical algorithms to either module.
+- Dataset and ValidationSession are orchestration-heavy. Extract cohesive
+  algorithms or presentation infrastructure when adding features rather than
+  splitting them into inheritance-based mixins solely to reduce file length.
 
 Contact
 -------
