@@ -1,0 +1,15 @@
+{
+    "api": 0.012,
+    "api_index/api": 1.024,
+    "getting_started": 0.008,
+    "index": 0.009,
+    "installation": 0.01,
+    "model_validation": 0.01,
+    "model_validation_index/create_dataset": 0.009,
+    "model_validation_index/doe": 0.008,
+    "model_validation_index/simulate_model": 0.008,
+    "model_validation_index/validation_session": 0.017,
+    "reference": 0.013,
+    "reference_index/dataset": 0.229,
+    "reference_index/validation": 0.259
+}
