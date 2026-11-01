@@ -5,17 +5,121 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from matplotlib import pyplot as plt
 from matplotlib.figure import Figure
 
 from dymoval import (
     Dataset,
     Signal,
+    ValidationSession,
     plot_compare,
     plot_coverage_compare,
     plot_dataset,
     plot_signals,
     plot_spectrum_compare,
 )
+from dymoval._figure import scope_subplots
+
+
+def test_scope_subplots_autosize_and_explicit_figsize() -> None:
+    with plt.rc_context({"figure.figsize": (8, 6)}):
+        fig, _, _ = scope_subplots(2, autosize=True)
+        assert fig.get_size_inches() == pytest.approx((10, 5))
+        plt.close(fig)
+
+        fig, _, _ = scope_subplots(2, autosize=True, figsize=(9, 7))
+        assert fig.get_size_inches() == pytest.approx((9, 7))
+        plt.close(fig)
+
+
+@pytest.mark.parametrize("autosize", [False, True])
+@pytest.mark.parametrize(
+    "draw, expected",
+    [
+        (lambda ds, vs, kw: ds["u1"].plot(**kw), (10, 5)),
+        (lambda ds, vs, kw: ds["u1"].plot(with_scope=False, **kw), (10, 5)),
+        (lambda ds, vs, kw: ds["u1"].plot_spectrum(**kw), (10, 4)),
+        (
+            lambda ds, vs, kw: ds["u1"].plot_spectrum(mode="amplitude", **kw),
+            (10, 5),
+        ),
+        (
+            lambda ds, vs, kw: ds["u1"].plot_spectrum(
+                mode="amplitude", with_scope=False, **kw
+            ),
+            (10, 5),
+        ),
+        (lambda ds, vs, kw: ds.plot(**kw), (10, 7)),
+        (lambda ds, vs, kw: ds.plot_xy(**kw), (10, 3)),
+        (lambda ds, vs, kw: ds.plot_coverage(**kw), (7, 6.4)),
+        (lambda ds, vs, kw: ds.plot_spectrum(**kw), (10, 7)),
+        (lambda ds, vs, kw: ds.plot_spectrum(mode="amplitude", **kw), (10, 8)),
+        (lambda ds, vs, kw: plot_signals(*ds.inputs.values(), **kw), (10, 3)),
+        (lambda ds, vs, kw: plot_dataset(ds, **kw), (10, 7)),
+        (lambda ds, vs, kw: plot_compare(ds, ds, **kw), (10, 7)),
+        (lambda ds, vs, kw: plot_coverage_compare(ds, ds, **kw), (7, 6.4)),
+        (lambda ds, vs, kw: plot_spectrum_compare(ds, ds, **kw), (10, 7)),
+        (lambda ds, vs, kw: ds.spa().plot(**kw), (10, 5)),
+        (lambda ds, vs, kw: vs.plot_simulations(**kw), (4.445, 4.85)),
+        (
+            lambda ds, vs, kw: vs.plot_residuals(plot_input=False, **kw)[0],
+            (8.89, 4.85),
+        ),
+    ],
+)
+def test_plot_geometry_respects_rc_and_autosize(
+    dataset: Dataset, draw, expected, autosize: bool
+) -> None:
+    measured = np.column_stack(
+        [sig.values for sig in dataset.outputs.values()]
+    )
+    vs = ValidationSession("geometry", dataset).append_simulation(
+        "model", dataset.output_names(), measured + 0.1
+    )
+    with plt.rc_context(
+        {
+            "figure.figsize": (8, 6),
+            "figure.constrained_layout.use": True,
+            "figure.autolayout": False,
+        }
+    ):
+        result = draw(dataset, vs, {"autosize": autosize})
+        fig = result if isinstance(result, Figure) else result.figure
+        assert fig.get_size_inches() == pytest.approx(
+            expected if autosize else (8, 6)
+        )
+        assert (
+            type(fig.get_layout_engine()).__name__ == "ConstrainedLayoutEngine"
+        )
+    plt.close("all")
+
+
+def test_explicit_geometry_overrides_rc_and_autosize(dataset: Dataset) -> None:
+    with plt.rc_context(
+        {
+            "figure.figsize": (8, 6),
+            "figure.autolayout": True,
+        }
+    ):
+        fig = dataset.plot(ax_width=12, layout="none")
+        assert fig.get_size_inches() == pytest.approx((12, 6))
+        assert type(fig.get_layout_engine()).__name__ != "TightLayoutEngine"
+
+        fig = dataset.plot(autosize=True, ax_height=3, layout="tight")
+        assert fig.get_size_inches() == pytest.approx((10, 10))
+        assert type(fig.get_layout_engine()).__name__ == "TightLayoutEngine"
+
+        fig = dataset["u1"].plot(autosize=True, figsize=(9, 7))
+        assert fig.get_size_inches() == pytest.approx((9, 7))
+        assert type(fig.get_layout_engine()).__name__ == "TightLayoutEngine"
+
+        fig, ax = plt.subplots()
+        dataset["u1"].plot(
+            ax=ax, autosize=True, figsize=(15, 10), layout="none"
+        )
+        assert fig.get_size_inches() == pytest.approx((8, 6))
+        assert type(fig.get_layout_engine()).__name__ == "TightLayoutEngine"
+    plt.close("all")
 
 
 def _plot_axes(fig: Figure) -> list:

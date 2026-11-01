@@ -10,69 +10,11 @@ Created on Thu Jul 14 11:43:21 2022
 
 import pytest
 
-from dymoval.utils import _difference_lists_of_str, _obj2list, open_tutorial
+from dymoval.utils import _obj2list, open_tutorial
 
 # import sys
 # import subprocess
 # import psutil
-
-
-class Test_difference_lists_of_str:
-    # This function returns elements not found.
-    @pytest.mark.parametrize(
-        "A,B, expected",
-        [
-            (
-                ["dog", "cat", "donkey"],
-                ["iguana", "dog", "cat", "donkey", "snake", "cow"],
-                [],
-            ),
-            (
-                ["banana", "dog", "cat", "orange", "apple"],
-                ["iguana", "dog", "cat", "donkey", "snake", "cow"],
-                ["banana", "orange", "apple"],
-            ),
-            (
-                "iguana",
-                ["iguana", "dog", "cat", "donkey", "snake", "cow"],
-                [],
-            ),
-            (
-                "orange",
-                ["iguana", "dog", "cat", "donkey", "snake", "cow"],
-                ["orange"],
-            ),
-            (
-                ["iguana", "dog", "cat", "donkey", "snake", "cow"],
-                "orange",
-                ["iguana", "dog", "cat", "donkey", "snake", "cow"],
-            ),
-            (
-                ["iguana", "dog", "cat", "donkey", "snake", "cow"],
-                "iguana",
-                ["dog", "cat", "donkey", "snake", "cow"],
-            ),
-            (
-                [],
-                ["iguana", "dog", "cat", "donkey", "snake", "cow"],
-                [],
-            ),
-            (
-                ["iguana", "dog", "cat", "donkey", "snake", "cow"],
-                [],
-                ["iguana", "dog", "cat", "donkey", "snake", "cow"],
-            ),
-        ],
-    )
-    def test_difference_lists_of_str(
-        self,
-        A: str | list[str],
-        B: str | list[str],
-        expected: list[str],
-    ) -> None:
-        # Nominal
-        elements_not_found = _difference_lists_of_str(A, B)
-        assert sorted(elements_not_found) == sorted(expected)
 
 
 class Test_obj2list:

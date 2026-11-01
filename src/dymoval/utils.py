@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Module containing some useful functions."""
+"""Small package utilities that do not belong to a domain object.
+
+The helpers here cover read-only array views, collection normalization,
+and installation of tutorial resources. Signal processing, plotting behavior,
+and validation logic remain in their own modules.
+"""
 
 import os
 import shutil
@@ -11,71 +16,14 @@ from typing import Any, TypeVar
 
 import numpy as np
 
-from .config import IS_INTERACTIVE
-
-__all__ = [
-    "is_interactive_shell",
-    "open_tutorial",
-]
+__all__ = ["open_tutorial"]
 
 
-def is_interactive_shell() -> bool:
-    """Return whether the current process appears to be interactive."""
-    if IS_INTERACTIVE is None:
-        isinteractive = False
-        try:
-            from IPython import get_ipython
-
-            if get_ipython():
-                isinteractive = True
-        except ImportError:
-            pass
-        if hasattr(sys, "ps1"):
-            isinteractive = True
-        return isinteractive
-    else:
-        return IS_INTERACTIVE
-
-
-def _factorize(n: int) -> tuple[int, int]:
-    r"""
-    Find the smallest and closest integers *(a,b)* such that :math:`n \le ab`.
-
-    """
-    a = int(np.ceil(np.sqrt(n)))
-    b = int(np.ceil(n / a))
-    return a, b
-
-
-def _difference_lists_of_str(
-    # Does it work only for strings?
-    A: str | list[str],
-    B: str | list[str],
-) -> list[str]:
-    r"""
-    Return the strings contained in the list `A` but not in the list `B`.
-
-    In set formalism, this function returns a list representing the
-    set difference :math:`A \backslash (A \cap B)`.
-    Note that the operation is not commutative.
-
-    Parameters
-    ----------
-    A : list of str
-        First list of strings.
-    B : list of str
-        Second list of strings.
-
-    Returns
-    -------
-    list of str
-        The set difference of `A` and `B`.
-    """
-
-    A = _obj2list(A)
-    B = _obj2list(B)
-
-    return list(set(A) - set(B))
+def _readonly_view(array: np.ndarray) -> np.ndarray:
+    """Return a zero-copy, read-only view of an array."""
+    view = array.view()
+    view.setflags(write=False)
+    return view
 
 
 T = TypeVar("T")

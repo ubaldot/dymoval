@@ -546,8 +546,10 @@ class Test_plot_geometry:
         assert height == pytest.approx(3.0 * len(dataset.names()) + 1)
 
     @pytest.mark.plots
-    def test_figsize_defaults_unchanged(self, dataset: Dataset) -> None:
-        fig = dataset.plot(with_scope=False)
+    def test_autosize_preserves_panel_dimensions(
+        self, dataset: Dataset
+    ) -> None:
+        fig = dataset.plot(with_scope=False, autosize=True)
 
         width, height = fig.get_size_inches()
 

@@ -16,10 +16,10 @@ dymoval.dataset module
    :undoc-members:
    :show-inheritance:
 
-dymoval.frequency_response module
+dymoval.frf module
 ---------------------------------
 
-.. automodule:: dymoval.frequency_response
+.. automodule:: dymoval.frf
    :members:
    :undoc-members:
    :show-inheritance:
@@ -74,15 +74,6 @@ dymoval.utils module
 --------------------
 
 .. automodule:: dymoval.utils
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
-dymoval.config module
----------------------
-
-.. automodule:: dymoval.config
    :members:
    :undoc-members:
    :show-inheritance:

@@ -11,6 +11,13 @@ point-by-point mapping of the old API onto the new one.
 
 ### Removed
 
+- Package-specific TOML configuration, `COLORMAP`, and the unused `ATOL`
+  constant. Validation plot colors now follow Matplotlib's `axes.prop_cycle`;
+  correlation titles use MathText or user-enabled `text.usetex`, without
+  detecting a LaTeX installation. `~/.dymoval/config.toml` is no longer read.
+- The obsolete `is_interactive` configuration key, `IS_INTERACTIVE` constant,
+  and unused `is_interactive_shell()` helper. Plotting never calls `show()`
+  and does not depend on environment detection.
 - **The `pandas` dependency.** `Signal` and `Dataset` are now built
   directly on `numpy`. The runtime dependencies are `numpy`, `scipy`,
   `matplotlib`, `control` and `h5py`.
@@ -27,6 +34,15 @@ point-by-point mapping of the old API onto the new one.
 
 ### Changed
 
+- Plot size and layout inherit Matplotlib rc settings by default.
+  `autosize=True` opts into panel-aware figure dimensions; explicit geometry
+  arguments take precedence.
+- Direct mutation of `Signal` arrays and `Dataset` signal mappings is
+  discouraged. Compatibility is retained, while `validate()` and shallow
+  read-only view properties provide safer access.
+- `FrequencyResponse` documents a frequency-first
+  `(n_frequencies, n_outputs, n_inputs)` convention and exposes channel
+  selection, dimensions, and physical-unit metadata.
 - `Signal` is a dataclass, not a `TypedDict`, and carries an explicit
   `time` vector rather than a `sampling_period`, so non-uniformly sampled
   measurements can be represented and then resampled.
@@ -40,8 +56,7 @@ point-by-point mapping of the old API onto the new one.
   forwarded to `matplotlib`.
 - `plot_spectrum`'s `kind` argument is now `mode`, and `xscale`/`yscale`
   are validated instead of silently falling back to linear.
-- Plotting functions never call `show()`; they return the `Figure`. The
-  `is_interactive` configuration key no longer influences plotting.
+- Plotting functions never call `show()`; they return the `Figure`.
 - `Signal.plot(ax=...)` and `Signal.plot_spectrum(ax=...)` draw on the
   passed axes instead of silently creating a scope figure of their own.
 - `Dataset.trim` picks the interval graphically when neither `tin` nor
@@ -119,12 +134,14 @@ point-by-point mapping of the old API onto the new one.
 
 ### Added
 
+- An end-to-end workflow covering measurement cleanup, SPA estimation,
+  and model validation.
 - `Dataset.spa` estimates SISO and MIMO nonparametric frequency responses
   with Blackman-Tukey spectral analysis. The returned `FrequencyResponse`
   provides `frf` interpolation, output-noise spectra, SISO coherence, and
   Bode-style plotting.
 - Shared figure construction is separated from interactive scope behavior,
-  and nonparametric spectral estimation is separated from its result model.
+  and frequency-response estimation and results are grouped in `frf.py`.
 - `Signal` gained the whole processing toolbox that used to live on
   `Dataset` only: `trim`, `resample`, `detrend`, `remove_mean`,
   `remove_constant`, `low_pass_filter`, `apply`, `fft`, `spectrum`,

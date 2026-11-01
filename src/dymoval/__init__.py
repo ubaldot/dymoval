@@ -1,8 +1,12 @@
-"""dymoval: analyze measurement data and validate models."""
+"""Public package interface for measurement analysis and model validation.
 
-from .config import ATOL, COLORMAP
+This module re-exports the stable classes, type aliases, statistics, plotting
+helpers, and validation entry points intended for normal use. Implementation
+details remain in their dedicated submodules.
+"""
+
 from .dataset import ALIGN_MODES, SIGNAL_KIND, AlignMode, Dataset, SignalKind
-from .frequency_response import FrequencyResponse
+from .frf import FrequencyResponse
 from .plotting import (
     plot_compare,
     plot_coverage_compare,
@@ -24,10 +28,7 @@ from .signal import (
     SpectrumScale,
 )
 from .statistics import compute_statistic, rsquared
-from .utils import (
-    is_interactive_shell,
-    open_tutorial,
-)
+from .utils import open_tutorial
 from .validation import (
     VALIDATION_KEYS,
     ValidationSession,
@@ -68,9 +69,5 @@ __all__ = [
     "rsquared",
     "whiteness_level",
     # utils
-    "is_interactive_shell",
     "open_tutorial",
-    # config
-    "COLORMAP",
-    "ATOL",
 ]

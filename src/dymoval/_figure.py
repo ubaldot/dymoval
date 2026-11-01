@@ -1,7 +1,8 @@
 """Shared matplotlib figure infrastructure.
 
-This internal module owns layout types, default geometry, and generic figure
-construction. Interactive behavior belongs in :mod:`dymoval.scope`.
+This internal module owns layout types, default geometry, generic figure
+construction, and interactive time-interval selection. Click-to-inspect scope
+behavior belongs in :mod:`dymoval.scope`.
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ from matplotlib.figure import Figure
 Layout = Literal["constrained", "compressed", "tight", "none"]
 LAYOUTS: tuple[str, ...] = get_args(Layout)
 
+# The following constants are used by other modules
 _AX_WIDTH = 10.0
 _AX_HEIGHT = 2.0
 
@@ -31,24 +33,68 @@ _SIGNAL_SPECTRUM_FIGSIZE = (10.0, 4.0)
 _PANEL_WIDTH_RATIOS = (3.8, 1.2)
 
 
+def _factorize(n: int) -> tuple[int, int]:
+    """Choose a near-square subplot grid with room for ``n`` axes."""
+    r = int(np.ceil(np.sqrt(n)))
+    b = int(np.ceil(n / r))
+    return r, b
+
+
+def _subplot_size(
+    nrows: int,
+    ncols: int = 1,
+    *,
+    autosize: bool = False,
+    ax_width: float | None = None,
+    ax_height: float | None = None,
+    defaults: tuple[float, float] = (_AX_WIDTH, _AX_HEIGHT),
+    padding: float = 1.0,
+) -> tuple[float, float] | None:
+    """Resolve panel sizing, leaving unspecified dimensions to rc defaults."""
+    if not autosize and ax_width is None and ax_height is None:
+        return None
+    rc_width, rc_height = plt.rcParams["figure.figsize"]
+    width = (
+        ncols * (ax_width if ax_width is not None else defaults[0])
+        if autosize or ax_width is not None
+        else rc_width
+    )
+    height = (
+        nrows * (ax_height if ax_height is not None else defaults[1]) + padding
+        if autosize or ax_height is not None
+        else rc_height
+    )
+    return float(width), float(height)
+
+
 def scope_subplots(
     nrows: int = 1,
     ncols: int = 1,
     *,
     with_scope: bool = True,
     figsize: tuple[float, float] | None = None,
-    layout: Layout = "constrained",
+    layout: Layout | None = None,
+    autosize: bool = False,
     **kwargs: Any,
 ) -> tuple[Figure, list[Axes], Axes | None]:
-    """Create plotting axes, optionally reserving a scope information panel."""
-    if layout not in LAYOUTS:
+    """Create axes with rc defaults, or panel-aware sizing when opted in.
+
+    Explicit ``figsize`` overrides ``autosize``. ``layout=None`` inherits
+    Matplotlib settings; ``layout="none"`` disables automatic layout.
+    """
+
+    if layout is not None and layout not in LAYOUTS:
         raise ValueError(f"'layout' must be one of {LAYOUTS}, got {layout!r}")
 
     fig = cast(
         Figure,
         plt.figure(
-            layout=None if layout == "none" else layout,
-            figsize=figsize,
+            layout=layout,
+            figsize=(
+                figsize
+                if figsize is not None
+                else _subplot_size(nrows, ncols, autosize=autosize)
+            ),
         ),
     )
 
@@ -78,6 +124,7 @@ def _pick_time_interval(
     verbosity: int = 0,
 ) -> tuple[float, float]:  # pragma: no cover
     """Let the user select a time interval with matplotlib pan/zoom tools."""
+
     axes = fig.get_axes()
     if not axes:
         raise ValueError("Cannot pick a time interval on an empty figure.")

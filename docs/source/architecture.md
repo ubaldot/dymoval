@@ -24,8 +24,8 @@ High-level structure
   statistical diagnostics. The numerical kernels use NumPy/SciPy;
   ValidationSession and XCorrelation also expose plotting methods.
 
-- spectral: internal Blackman--Tukey estimation used by Dataset.spa. It is
-  separate from the FrequencyResponse result object and its plotting API.
+- frf: FrequencyResponse results, interpolation, and plotting,
+  together with private Blackman--Tukey estimation helpers used by Dataset.spa.
 
 - _figure / scope / plotting: the presentation infrastructure. _figure owns
   generic figure construction, layout types, and geometry defaults; scope
@@ -43,8 +43,10 @@ Design decisions & trade-offs
 
 - Copy-on-transform API: manipulation methods return new Signal or Dataset
   instances and leave the caller unchanged. The dataclasses and their NumPy
-  arrays are not deeply immutable, so callers should treat their fields as
-  owned data rather than mutate them in place.
+  arrays are not deeply immutable. Read-only views guard the returned array
+  or mapping, but not nested objects or other aliases. They are the preferred
+  access path; direct mutation remains available for compatibility and can be
+  checked afterward with ``validate()``.
 
 - Conservative public API: most internal helper functions and plotting scope
   classes are intentionally private. The __init__ exports only the stable

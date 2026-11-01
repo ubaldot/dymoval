@@ -11,6 +11,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 from matplotlib.figure import Figure
+from types import MappingProxyType
 
 from dymoval import Dataset, Signal
 
@@ -44,6 +45,20 @@ class Test_introspection:
 
     def test_time_unit(self, dataset: Dataset) -> None:
         assert dataset.time_unit() == "s"
+
+    def test_readonly_views(self, dataset: Dataset) -> None:
+        assert isinstance(dataset.input_signals, MappingProxyType)
+        with pytest.raises(TypeError):
+            dataset.input_signals["new"] = dataset["u1"]  # type: ignore[index]
+
+        with pytest.raises(ValueError):
+            dataset.time_view[0] = 1.0
+
+    def test_validate_detects_direct_mutation(self, dataset: Dataset) -> None:
+        dataset.outputs["wrong"] = dataset["y0"]
+
+        with pytest.raises(ValueError, match="does not match"):
+            dataset.validate()
 
     def test_to_signals(self, dataset: Dataset) -> None:
         dumped = dataset.to_signals()

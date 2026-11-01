@@ -21,23 +21,16 @@ from ._figure import (
     _GRID_AX_HEIGHT,
     _GRID_AX_WIDTH,
     Layout,
+    _factorize,
     _pick_time_interval,
+    _subplot_size,
     scope_subplots,
-)
-from .config import (
-    COLORMAP,
-    R2_Statistic_type,
-    XCorr_Statistic_type,
 )
 from .dataset import Dataset
 from .scope import DatasetScope
 from .signal import Signal
-from .statistics import rsquared
-from .utils import (
-    _difference_lists_of_str,
-    _factorize,
-    _obj2list,
-)
+from .statistics import R2_Statistic_type, XCorr_Statistic_type, rsquared
+from .utils import _obj2list
 from .xcorrelation import XCorrelation, _validate_nlags
 
 __all__ = ["ValidationSession", "validate_models", "VALIDATION_KEYS"]
@@ -685,7 +678,9 @@ class ValidationSession:
             return self.simulations_names
 
         sims = _obj2list(list_sims)
-        sim_not_found = _difference_lists_of_str(sims, self.simulations_names)
+        sim_not_found = [
+            name for name in sims if name not in self.simulations_names
+        ]
 
         if sim_not_found:
             raise KeyError(
@@ -852,10 +847,11 @@ class ValidationSession:
         # Can be a positional or a keyword arg
         list_sims: str | list[str] | None = None,
         dataset: Literal["in", "out", "both"] | None = None,
-        layout: Layout = "tight",
-        ax_height: float = _GRID_AX_HEIGHT,
-        ax_width: float = _GRID_AX_WIDTH,
+        layout: Layout | None = None,
+        ax_height: float | None = None,
+        ax_width: float | None = None,
         with_scope: bool = True,
+        autosize: bool = False,
     ) -> matplotlib.figure.Figure:
         """Plot the stored simulation results.
 
@@ -883,7 +879,10 @@ class ValidationSession:
               dataset.
 
         layout:
-            Figure layout.
+            Figure layout. ``None`` inherits Matplotlib rc settings.
+        autosize:
+            Use panel-aware sizing instead of rc defaults. Explicit dimensions
+            take precedence.
         ax_height:
             Approximative height (inches) of each subplot.
         ax_width:
@@ -914,7 +913,20 @@ class ValidationSession:
         # Arrange the figure
         # ================================================================
         fig, axes, panel_ax = scope_subplots(
-            nrows, ncols, with_scope=with_scope, layout=layout, squeeze=False
+            nrows,
+            ncols,
+            with_scope=with_scope,
+            layout=layout,
+            squeeze=False,
+            figsize=_subplot_size(
+                nrows,
+                ncols,
+                autosize=autosize,
+                ax_width=ax_width,
+                ax_height=ax_height,
+                defaults=(_GRID_AX_WIDTH, _GRID_AX_HEIGHT),
+                padding=1.25,
+            ),
         )
 
         # Only the first "n" axes are used
@@ -922,13 +934,17 @@ class ValidationSession:
             ax.remove()
         axes = axes[:n]
 
-        cmap = plt.get_cmap(COLORMAP)
+        colors = (
+            matplotlib.rcParams["axes.prop_cycle"]
+            .by_key()
+            .get("color", ["black"])
+        )
 
         # ================================================================
         # Simulations
         # ================================================================
         for kk, sim in enumerate(sims):
-            color = cmap(kk % cmap.N)
+            color = colors[kk % len(colors)]
 
             for ii, sig in enumerate(self._simulations[sim]):
                 sig._plot_standard(
@@ -976,10 +992,6 @@ class ValidationSession:
 
         fig.suptitle("Simulations results.")
 
-        fig_width_inches = ncols * ax_width
-        fig_height_inches = nrows * ax_height + 1.25
-        fig.set_size_inches(fig_width_inches, fig_height_inches)
-
         if with_scope:
             assert panel_ax is not None
             DatasetScope(fig, axes, panel_ax)
@@ -991,9 +1003,10 @@ class ValidationSession:
         list_sims: str | list[str] | None = None,
         *,
         plot_input: bool = True,
-        layout: Layout = "tight",
-        ax_height: float = _GRID_AX_HEIGHT,
-        ax_width: float = _GRID_AX_WIDTH,
+        layout: Layout | None = None,
+        ax_height: float | None = None,
+        ax_width: float | None = None,
+        autosize: bool = False,
     ) -> tuple[matplotlib.figure.Figure, ...]:
         """Plot the residuals auto- and cross-correlation functions.
 
@@ -1008,7 +1021,10 @@ class ValidationSession:
         plot_input:
             Whether the input auto-correlation shall be plotted.
         layout:
-            Figures layout.
+            Figures layout. ``None`` inherits Matplotlib rc settings.
+        autosize:
+            Use panel-aware sizing instead of rc defaults. Explicit dimensions
+            take precedence.
         ax_height:
             Approximative height (inches) of each subplot.
         ax_width:
@@ -1019,18 +1035,33 @@ class ValidationSession:
         p = self._p
         q = self._q
 
-        cmap = plt.get_cmap(COLORMAP)
+        colors = (
+            matplotlib.rcParams["axes.prop_cycle"]
+            .by_key()
+            .get("color", ["black"])
+        )
         figs: list[matplotlib.figure.Figure] = []
 
         def _new_figure(
             nrows: int, ncols: int, title: str, sharex: bool = False
         ) -> np.ndarray:
             fig, axes = plt.subplots(
-                nrows, ncols, squeeze=False, sharex=sharex
+                nrows,
+                ncols,
+                squeeze=False,
+                sharex=sharex,
+                layout=layout,
+                figsize=_subplot_size(
+                    nrows,
+                    ncols,
+                    autosize=autosize,
+                    ax_width=ax_width,
+                    ax_height=ax_height,
+                    defaults=(_GRID_AX_WIDTH, _GRID_AX_HEIGHT),
+                    padding=1.25,
+                ),
             )
             fig.suptitle(title)
-            fig.set_size_inches(ncols * ax_width, nrows * ax_height + 1.25)
-            fig.set_layout_engine(layout)
             figs.append(fig)
 
             return axes
@@ -1053,7 +1084,7 @@ class ValidationSession:
                     x_symbol=x_symbol,
                     y_symbol=y_symbol,
                     label=sim_name,
-                    linefmt=matplotlib.colors.to_hex(cmap(kk % cmap.N)),
+                    linefmt=matplotlib.colors.to_hex(colors[kk % len(colors)]),
                 )
 
         # ===============================================================

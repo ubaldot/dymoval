@@ -1,5 +1,5 @@
 ##############################
- Installation & configuration
+ Installation & plotting
 ##############################
 
 **************
@@ -45,49 +45,52 @@ or
 
 .. _github: https://github.com/ubaldot/dymoval
 
-****************************
-Configuration
-****************************
-The configuration of `dymoval` is fairly straightforward since there are only
-few parameter that you can set.
-
-.. py:data:: color_map
-   :type: str
-   :value: "tab10"
-
-   The used ``matplotlib`` color map. Check ``Matplotlib`` docs for possible values.
-.. py:data:: float_tolerance
-   :type: float
-   :value: 1e-9
-
-   Tolerance for ``float`` operations, such as ``np.isclose()``, etc.
-
-.. py:data:: is_interactive
-   :type: bool | None
-   :value: None
-
-    Whether `dymoval` should consider the current environment interactive.
-    If `None`, the environment is auto-detected. This only backs the
-    :py:func:`is_interactive_shell <dymoval.utils.is_interactive_shell>`
-    helper: it does **not** influence plotting any more (see `Plots`_
-    below).
-
-
-These parameters can be set through a ``~/.dymoval/config.toml`` file. You
-have to create such a file manually.
-
-A ``~/.dymoval/config.toml`` could for example include the following content
-
-.. code-block::
-
-    color_map = "tab20"
-    float_tolerance = 1e-6
-
-The corresponding values are then available as ``dymoval.COLORMAP`` and
-``dymoval.ATOL``.
-
 Plots
 =====
+Use Matplotlib styles, ``matplotlibrc``, or ``plt.rc_context()`` to customize
+plot appearance. Validation plots use ``axes.prop_cycle`` to assign consistent
+colors to simulations across subplots. Correlation titles use built-in
+MathText; external LaTeX is only used when you enable ``text.usetex``.
+There is no package-specific configuration file.
+
+For example, apply styling locally without changing the rest of your session:
+
+.. code-block:: python
+
+    import matplotlib.pyplot as plt
+
+    with plt.rc_context({
+        "font.size": 12,
+        "lines.linewidth": 1.5,
+        "axes.prop_cycle": plt.cycler(color=["tab:blue", "tab:orange"]),
+    }):
+        fig = ds.plot(layout="tight", ax_width=12, ax_height=3)
+
+By default, plot size and layout inherit Matplotlib's ``figure.figsize``,
+``figure.constrained_layout.use``, and ``figure.autolayout`` settings.
+Pass ``autosize=True`` to opt into dymoval's panel-aware sizing, which grows
+with the subplot grid and is recommended for crowded scope-enabled plots:
+
+.. code-block:: python
+
+    fig = ds.plot(autosize=True, layout="constrained")
+
+``autosize`` controls size only, not layout or styling. Explicit ``layout``,
+``ax_width``, and ``ax_height`` arguments override the corresponding defaults.
+With ``autosize=False``, a dimension you leave unspecified still follows
+``figure.figsize``; with ``autosize=True`` it uses the panel sizing rule.
+``Signal.plot()`` and ``Signal.plot_spectrum()`` accept ``figsize`` instead of
+per-panel dimensions. Geometry options leave caller-supplied axes unchanged.
+Use ``layout="none"`` to disable automatic layout, or adjust returned figures
+with ``fig.set_layout_engine()`` and ``fig.set_size_inches()``. The relative
+width of the scope information panel remains an internal structural default.
+
+NumPy and SciPy do not provide a Matplotlib-style ``rcParams`` system.
+NumPy's ``set_printoptions()`` controls array display, while ``seterr()`` and
+``errstate()`` control floating-point error handling, not comparison
+tolerances. Numerical tolerances and algorithm options are supplied to the
+relevant functions explicitly.
+
 The `dymoval` plotting functions **never** call ``show()``: they build the
 figure and return it, leaving the display to you and to your `matplotlib`
 backend. In a script this means calling ``plt.show()`` yourself; in a

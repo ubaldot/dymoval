@@ -9,8 +9,10 @@ actual computation and the primitive plotting are delegated to ``Signal``.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import (
     Any,
     Callable,
@@ -28,23 +30,22 @@ from matplotlib.figure import Figure
 from scipy.io import savemat
 
 from ._figure import (
-    _AX_HEIGHT,
-    _AX_WIDTH,
     _COVERAGE_AX_HEIGHT,
     _COVERAGE_AX_WIDTH,
     Layout,
+    _factorize,
     _pick_time_interval,
+    _subplot_size,
     scope_subplots,
 )
-from .frequency_response import FrequencyResponse
+from .frf import FrequencyResponse, _estimate_spa
 from .scope import (
     AmplitudeSpectrumScope,
     DatasetScope,
     SpectrumScope,
 )
 from .signal import Scale, Signal, SpectrumMode, SpectrumScale, _check_mode
-from .spectral import _estimate_spa
-from .utils import _factorize
+from .utils import _readonly_view
 
 __all__ = ["Dataset", "SIGNAL_KIND"]
 
@@ -76,9 +77,10 @@ class Dataset:
     # Initialization / validation
     # ====================================================
     def __post_init__(self) -> None:
-        self._validate()
+        self.validate()
 
-    def _validate(self) -> None:
+    def validate(self) -> None:
+        """Raise if direct mutation has broken dataset invariants."""
         all_signals = list(self.all_signals().values())
 
         if not all_signals:
@@ -284,6 +286,21 @@ class Dataset:
     def all_signals(self) -> dict[str, Signal]:
         """Return all signals in one mapping, with inputs first."""
         return {**self.inputs, **self.outputs}
+
+    @property
+    def input_signals(self) -> Mapping[str, Signal]:
+        """Return a read-only view of the input mapping."""
+        return MappingProxyType(self.inputs)
+
+    @property
+    def output_signals(self) -> Mapping[str, Signal]:
+        """Return a read-only view of the output mapping."""
+        return MappingProxyType(self.outputs)
+
+    @property
+    def time_view(self) -> np.ndarray:
+        """Return a zero-copy, read-only view of the common time vector."""
+        return _readonly_view(self.time())
 
     def names(self) -> list[str]:
         """Return the names of all signals, with inputs first."""
@@ -1043,9 +1060,10 @@ class Dataset:
         with_scope: bool,
         color_input: str | None = None,
         color_output: str | None = _OUTPUT_COLOR,
-        layout: Layout = "constrained",
-        ax_height: float = _AX_HEIGHT,
-        ax_width: float = _AX_WIDTH,
+        layout: Layout | None = None,
+        ax_height: float | None = None,
+        ax_width: float | None = None,
+        autosize: bool = False,
         **kwargs: Any,
     ) -> Figure:
         groups = self._normalize_groups(names)
@@ -1053,7 +1071,12 @@ class Dataset:
         fig, axes, panel_ax = scope_subplots(
             len(groups),
             with_scope=with_scope,
-            figsize=(ax_width, ax_height * len(groups) + 1),
+            figsize=_subplot_size(
+                len(groups),
+                autosize=autosize,
+                ax_width=ax_width,
+                ax_height=ax_height,
+            ),
             layout=layout,
             sharex=True,
         )
@@ -1078,9 +1101,10 @@ class Dataset:
         with_scope: bool = True,
         color_input: str | None = None,
         color_output: str | None = _OUTPUT_COLOR,
-        layout: Layout = "constrained",
-        ax_height: float = _AX_HEIGHT,
-        ax_width: float = _AX_WIDTH,
+        layout: Layout | None = None,
+        ax_height: float | None = None,
+        ax_width: float | None = None,
+        autosize: bool = False,
         **kwargs: Any,
     ) -> Figure:
         """Plot the signals, one subplot per group.
@@ -1096,7 +1120,10 @@ class Dataset:
             Colors used for a subplot holding a *single* signal. ``None``
             means "use the matplotlib color cycle".
         layout:
-            *matplotlib* layout engine.
+            Matplotlib layout engine. ``None`` inherits rc settings.
+        autosize:
+            Use panel-aware figure dimensions instead of ``figure.figsize``.
+            Explicit ``ax_height`` and ``ax_width`` override these dimensions.
         ax_height:
             Height, in inches, of each subplot.
         ax_width:
@@ -1117,6 +1144,7 @@ class Dataset:
             layout=layout,
             ax_height=ax_height,
             ax_width=ax_width,
+            autosize=autosize,
             **kwargs,
         )
 
@@ -1180,9 +1208,10 @@ class Dataset:
         self,
         *pairs: str | tuple[str, str],
         ax: Axes | None = None,
-        layout: Layout = "constrained",
-        ax_height: float = _AX_HEIGHT,
-        ax_width: float = _AX_WIDTH,
+        layout: Layout | None = None,
+        ax_height: float | None = None,
+        ax_width: float | None = None,
+        autosize: bool = False,
         **kwargs: Any,
     ) -> Figure | Axes:
         """Plot signals against each other (*XY* plot), one subplot per pair.
@@ -1196,8 +1225,12 @@ class Dataset:
         ax:
             Draw on this *Axes* instead of creating a figure. Only one pair
             may be passed, and the *Axes* is returned instead of a *Figure*.
+            Geometry options leave the supplied axes unchanged.
         layout:
-            *matplotlib* layout engine.
+            Matplotlib layout engine. ``None`` inherits rc settings.
+        autosize:
+            Use panel-aware sizing instead of rc defaults. Explicit dimensions
+            take precedence.
         ax_height, ax_width:
             Height and width, in inches, of each subplot.
         **kwargs:
@@ -1228,7 +1261,13 @@ class Dataset:
             nrows,
             ncols,
             with_scope=False,
-            figsize=(ax_width * ncols, ax_height * nrows + 1),
+            figsize=_subplot_size(
+                nrows,
+                ncols,
+                autosize=autosize,
+                ax_width=ax_width,
+                ax_height=ax_height,
+            ),
             layout=layout,
             squeeze=False,
         )
@@ -1294,16 +1333,17 @@ class Dataset:
         color_output: str = _OUTPUT_COLOR,
         alpha: float = 1.0,
         histtype: Literal["bar", "barstacked", "step", "stepfilled"] = "bar",
-        layout: Layout = "constrained",
-        ax_height: float = _COVERAGE_AX_HEIGHT,
-        ax_width: float = _COVERAGE_AX_WIDTH,
+        layout: Layout | None = None,
+        ax_height: float | None = None,
+        ax_width: float | None = None,
+        autosize: bool = False,
     ) -> Figure:
         """Plot the histogram of the signal values, one subplot each.
 
         Coverage plots cannot be overlapped, hence groups (tuples) are
         not accepted here.
 
-        ``layout``, ``ax_height`` and ``ax_width`` control the figure
+        ``autosize``, ``layout``, ``ax_height`` and ``ax_width`` control the figure
         geometry as in :meth:`plot`.
         """
         overlapped = [name for name in names if not isinstance(name, str)]
@@ -1320,7 +1360,13 @@ class Dataset:
         fig, axes, _ = scope_subplots(
             len(selected),
             with_scope=False,
-            figsize=(ax_width, ax_height * len(selected) + 1),
+            figsize=_subplot_size(
+                len(selected),
+                autosize=autosize,
+                ax_width=ax_width,
+                ax_height=ax_height,
+                defaults=(_COVERAGE_AX_WIDTH, _COVERAGE_AX_HEIGHT),
+            ),
             layout=layout,
         )
 
@@ -1394,9 +1440,10 @@ class Dataset:
         xscale: Scale = "linear",
         yscale: SpectrumScale = "linear",
         with_scope: bool = False,
-        layout: Layout = "constrained",
-        ax_height: float = _AX_HEIGHT,
-        ax_width: float = _AX_WIDTH,
+        layout: Layout | None = None,
+        ax_height: float | None = None,
+        ax_width: float | None = None,
+        autosize: bool = False,
         **kwargs: Any,
     ) -> Figure:
         groups = self._normalize_groups(names)
@@ -1404,7 +1451,13 @@ class Dataset:
         fig, axes, panel_ax = scope_subplots(
             2 * len(groups),
             with_scope=with_scope,
-            figsize=(ax_width, ax_height * len(groups) + 2),
+            figsize=_subplot_size(
+                len(groups),
+                autosize=autosize,
+                ax_width=ax_width,
+                ax_height=ax_height,
+                padding=2,
+            ),
             layout=layout,
             sharex=True,
         )
@@ -1439,9 +1492,10 @@ class Dataset:
         xscale: Scale = "linear",
         yscale: SpectrumScale = "linear",
         mode: SpectrumMode = "psd_welch",
-        layout: Layout = "constrained",
-        ax_height: float = _AX_HEIGHT,
-        ax_width: float = _AX_WIDTH,
+        layout: Layout | None = None,
+        ax_height: float | None = None,
+        ax_width: float | None = None,
+        autosize: bool = False,
         **kwargs: Any,
     ) -> Figure:
         if mode == "amplitude":
@@ -1453,6 +1507,7 @@ class Dataset:
                 layout=layout,
                 ax_height=ax_height,
                 ax_width=ax_width,
+                autosize=autosize,
                 **kwargs,
             )
 
@@ -1461,7 +1516,12 @@ class Dataset:
         fig, axes, panel_ax = scope_subplots(
             len(groups),
             with_scope=with_scope,
-            figsize=(ax_width, ax_height * len(groups) + 1),
+            figsize=_subplot_size(
+                len(groups),
+                autosize=autosize,
+                ax_width=ax_width,
+                ax_height=ax_height,
+            ),
             layout=layout,
             sharex=True,
         )
@@ -1483,9 +1543,10 @@ class Dataset:
         xscale: Scale = "linear",
         yscale: SpectrumScale = "linear",
         mode: SpectrumMode = "psd_welch",
-        layout: Layout = "constrained",
-        ax_height: float = _AX_HEIGHT,
-        ax_width: float = _AX_WIDTH,
+        layout: Layout | None = None,
+        ax_height: float | None = None,
+        ax_width: float | None = None,
+        autosize: bool = False,
         **kwargs: Any,
     ) -> Figure:
         """Plot the spectra of the signals, one subplot per group.
@@ -1493,7 +1554,7 @@ class Dataset:
         With ``mode="amplitude"`` each group gets a magnitude *and* a
         phase subplot.
 
-        ``layout``, ``ax_height`` and ``ax_width`` control the figure
+        ``autosize``, ``layout``, ``ax_height`` and ``ax_width`` control the figure
         geometry as in :meth:`plot`, and ``**kwargs`` are forwarded to
         ``matplotlib.axes.Axes.plot``.
         """
@@ -1508,5 +1569,6 @@ class Dataset:
             layout=layout,
             ax_height=ax_height,
             ax_width=ax_width,
+            autosize=autosize,
             **kwargs,
         )

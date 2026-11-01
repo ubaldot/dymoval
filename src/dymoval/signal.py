@@ -27,6 +27,7 @@ from scipy.signal import welch
 from ._figure import (
     _SIGNAL_FIGSIZE,
     _SIGNAL_SPECTRUM_FIGSIZE,
+    Layout,
     scope_subplots,
 )
 from .scope import (
@@ -34,6 +35,7 @@ from .scope import (
     SignalScope,
     SpectrumScope,
 )
+from .utils import _readonly_view
 
 __all__ = ["Signal", "SPECTRUM_MODES", "SCALES", "SPECTRUM_SCALES"]
 
@@ -89,6 +91,10 @@ class Signal:
     time_unit: str | None = "s"
 
     def __post_init__(self) -> None:
+        self.validate()
+
+    def validate(self) -> None:
+        """Raise if the signal no longer satisfies its invariants."""
         if not isinstance(self.values, np.ndarray):
             raise TypeError(f"{self.name}: values must be numpy array")
 
@@ -113,6 +119,16 @@ class Signal:
     # ================================================
     # Convenience
     # ================================================
+    @property
+    def values_view(self) -> np.ndarray:
+        """Return a zero-copy, read-only view of the sample values."""
+        return _readonly_view(self.values)
+
+    @property
+    def time_view(self) -> np.ndarray | None:
+        """Return a zero-copy, read-only view of the time vector."""
+        return None if self.time is None else _readonly_view(self.time)
+
     def _replace(self, **changes: Any) -> "Signal":
         """Return a new ``Signal``, overriding the given fields."""
         fields: dict[str, Any] = dict(
@@ -573,8 +589,20 @@ class Signal:
 
         return ax
 
-    def _plot_scope(self, **kwargs: Any) -> Figure:
-        fig, axes, panel_ax = scope_subplots(figsize=_SIGNAL_FIGSIZE)
+    def _plot_scope(
+        self,
+        *,
+        autosize: bool = False,
+        figsize: tuple[float, float] | None = None,
+        layout: Layout | None = None,
+        **kwargs: Any,
+    ) -> Figure:
+        fig, axes, panel_ax = scope_subplots(
+            figsize=figsize
+            if figsize is not None
+            else (_SIGNAL_FIGSIZE if autosize else None),
+            layout=layout,
+        )
         ax = axes[0]
 
         self._plot_standard(ax=ax, **kwargs)
@@ -588,6 +616,10 @@ class Signal:
         self,
         ax: Axes | None = None,
         with_scope: bool | None = None,
+        *,
+        autosize: bool = False,
+        figsize: tuple[float, float] | None = None,
+        layout: Layout | None = None,
         **kwargs: Any,
     ) -> Figure | Axes:
         """Plot the signal, optionally with an interactive scope.
@@ -596,6 +628,10 @@ class Signal:
         itself when the caller provides one. A scope owns its whole
         figure, so passing ``ax`` turns it off unless ``with_scope`` is
         explicitly set, in which case it is an error.
+
+        Figure size and layout inherit Matplotlib rc settings by default.
+        ``autosize=True`` opts into panel-aware sizing; explicit ``figsize``
+        takes precedence. Geometry options do not modify a supplied ``ax``.
         """
         with_scope = ax is None if with_scope is None else with_scope
 
@@ -607,7 +643,19 @@ class Signal:
                     "or with_scope=True, not both."
                 )
 
-            return self._plot_scope(**kwargs)
+            return self._plot_scope(
+                autosize=autosize, figsize=figsize, layout=layout, **kwargs
+            )
+
+        if ax is None:
+            _, axes, _ = scope_subplots(
+                with_scope=False,
+                figsize=figsize
+                if figsize is not None
+                else (_SIGNAL_FIGSIZE if autosize else None),
+                layout=layout,
+            )
+            ax = axes[0]
 
         return self._plot_standard(ax=ax, **kwargs)
 
@@ -711,6 +759,10 @@ class Signal:
         with_scope: bool,
         xscale: Scale = "linear",
         yscale: SpectrumScale = "linear",
+        *,
+        autosize: bool = False,
+        figsize: tuple[float, float] | None = None,
+        layout: Layout | None = None,
         **kwargs: Any,
     ) -> Figure:
         """Build the stacked magnitude/phase figure."""
@@ -718,9 +770,10 @@ class Signal:
             2,
             1,
             with_scope=with_scope,
-            # the scope panel needs the extra width; without it, stick to
-            # the matplotlib default size
-            figsize=_SIGNAL_FIGSIZE if with_scope else None,
+            figsize=figsize
+            if figsize is not None
+            else (_SIGNAL_FIGSIZE if autosize else None),
+            layout=layout,
             sharex=True,
         )
         mag_ax, phase_ax = axes
@@ -745,14 +798,29 @@ class Signal:
         xscale: Scale = "linear",
         yscale: SpectrumScale = "linear",
         mode: SpectrumMode = "psd_welch",
+        *,
+        autosize: bool = False,
+        figsize: tuple[float, float] | None = None,
+        layout: Layout | None = None,
         **kwargs: Any,
     ) -> Figure:
         if mode == "amplitude":
             return self._plot_spectrum_amplitude_figure(
-                True, xscale=xscale, yscale=yscale, **kwargs
+                True,
+                xscale=xscale,
+                yscale=yscale,
+                autosize=autosize,
+                figsize=figsize,
+                layout=layout,
+                **kwargs,
             )
 
-        fig, axes, panel_ax = scope_subplots(figsize=_SIGNAL_SPECTRUM_FIGSIZE)
+        fig, axes, panel_ax = scope_subplots(
+            figsize=figsize
+            if figsize is not None
+            else (_SIGNAL_SPECTRUM_FIGSIZE if autosize else None),
+            layout=layout,
+        )
         ax = axes[0]
 
         self._plot_spectrum_standard(
@@ -772,6 +840,10 @@ class Signal:
         xscale: Scale = "linear",
         yscale: SpectrumScale = "linear",
         mode: SpectrumMode = "psd_welch",
+        *,
+        autosize: bool = False,
+        figsize: tuple[float, float] | None = None,
+        layout: Layout | None = None,
         **kwargs: Any,
     ) -> Figure | Axes:
         """Plot the spectrum of the signal.
@@ -781,6 +853,9 @@ class Signal:
 
         As for :meth:`plot`, passing ``ax`` turns the scope off, since a
         scope owns its whole figure.
+
+        Figure geometry follows :meth:`plot`: rc defaults are used unless
+        ``autosize=True`` or explicit ``figsize`` / ``layout`` are supplied.
         """
         with_scope = ax is None if with_scope is None else with_scope
 
@@ -793,7 +868,13 @@ class Signal:
                 )
 
             return self._plot_spectrum_scope(
-                xscale=xscale, yscale=yscale, mode=mode, **kwargs
+                xscale=xscale,
+                yscale=yscale,
+                mode=mode,
+                autosize=autosize,
+                figsize=figsize,
+                layout=layout,
+                **kwargs,
             )
 
         if mode == "amplitude":
@@ -804,8 +885,24 @@ class Signal:
                 )
 
             return self._plot_spectrum_amplitude_figure(
-                False, xscale=xscale, yscale=yscale, **kwargs
+                False,
+                xscale=xscale,
+                yscale=yscale,
+                autosize=autosize,
+                figsize=figsize,
+                layout=layout,
+                **kwargs,
             )
+
+        if ax is None:
+            _, axes, _ = scope_subplots(
+                with_scope=False,
+                figsize=figsize
+                if figsize is not None
+                else (_SIGNAL_SPECTRUM_FIGSIZE if autosize else None),
+                layout=layout,
+            )
+            ax = axes[0]
 
         return self._plot_spectrum_standard(
             ax=ax, xscale=xscale, yscale=yscale, mode=mode, **kwargs

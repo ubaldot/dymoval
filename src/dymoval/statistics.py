@@ -7,11 +7,20 @@ Pure numpy helpers: they know nothing about :class:`dymoval.signal.Signal`,
 
 from __future__ import annotations
 
+from typing import Literal, TypeAlias, get_args
+
 import numpy as np
 
-from .config import XCORR_STATISTIC_TYPE, XCorr_Statistic_type
-
 __all__ = ["compute_statistic", "rsquared"]
+
+XCorr_Statistic_type: TypeAlias = Literal[
+    "mean", "quadratic", "std", "max", "abs_mean"
+]
+XCORR_STATISTIC_TYPE: list[XCorr_Statistic_type] = list(
+    get_args(XCorr_Statistic_type)
+)
+
+R2_Statistic_type: TypeAlias = Literal["mean", "min"]
 
 
 def compute_statistic(

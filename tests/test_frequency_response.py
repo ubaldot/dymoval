@@ -133,6 +133,63 @@ def test_frequency_response_validates_diagnostic_shapes() -> None:
         )
 
 
+def test_mimo_frequency_response_rejects_coherence() -> None:
+    estimate = _linear_dataset(
+        np.array([[2.0, -0.5], [0.25, 3.0]])
+    ).spa()
+
+    with pytest.raises(ValueError, match="SISO"):
+        FrequencyResponse(
+            frequency=estimate.frequency,
+            response=estimate.response,
+            input_names=estimate.input_names,
+            output_names=estimate.output_names,
+            input_units=estimate.input_units,
+            output_units=estimate.output_units,
+            time_unit=estimate.time_unit,
+            noise_spectrum=estimate.noise_spectrum,
+            coherence=np.ones(estimate.n_frequencies),
+            response_std=estimate.response_std,
+            noise_spectrum_std=estimate.noise_spectrum_std,
+            window_size=estimate.window_size,
+        )
+
+
+def test_frequency_response_metadata_and_selection() -> None:
+    estimate = _linear_dataset(
+        np.array([[2.0, -0.5], [0.25, 3.0]])
+    ).spa()
+
+    assert estimate.shape == (128, 2, 2)
+    assert estimate.n_frequencies == 128
+    assert estimate.n_outputs == 2
+    assert estimate.n_inputs == 2
+    assert estimate.frequency_unit == "rad/s"
+    assert estimate.response_units == (
+        ("m/V", "m/V"),
+        ("m/V", "m/V"),
+    )
+
+    selected = estimate.select(inputs="u1", outputs="y0")
+
+    assert selected.shape == (128, 1, 1)
+    assert selected.input_names == ("u1",)
+    assert selected.output_names == ("y0",)
+    np.testing.assert_array_equal(
+        selected.response[:, 0, 0], estimate.response[:, 0, 1]
+    )
+
+
+def test_frequency_response_readonly_views() -> None:
+    estimate = _linear_dataset(np.array([[1.0]])).spa()
+
+    with pytest.raises(ValueError):
+        estimate.frequency_view[0] = 0.0
+
+    with pytest.raises(ValueError):
+        estimate.response_view[0, 0, 0] = 0.0
+
+
 @pytest.mark.plots
 def test_plot_siso_includes_coherence() -> None:
     estimate = _linear_dataset(np.array([[2.5]])).spa()

@@ -46,6 +46,20 @@ class Test_construction:
         sig = Signal(name="u", values=np.zeros(3))
         assert sig.time is None
 
+    def test_validate_detects_direct_mutation(self, signal: Signal) -> None:
+        signal.values = np.zeros((2, 2))
+
+        with pytest.raises(ValueError, match="1D"):
+            signal.validate()
+
+    def test_readonly_views(self, signal: Signal) -> None:
+        with pytest.raises(ValueError):
+            signal.values_view[0] = 0.0
+
+        assert signal.time_view is not None
+        with pytest.raises(ValueError):
+            signal.time_view[0] = 0.0
+
 
 # ============================================================
 # Sampling period

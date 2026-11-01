@@ -53,8 +53,11 @@ object. You must therefore re-assign the result::
    >>> ds_zero_mean = ds.remove_mean()  # this is what you want
 
 The dataclasses and their underlying *numpy* arrays are not deeply immutable.
-Treat their fields as owned data: prefer class methods or build a new instance
-instead of assigning to attributes or mutating arrays in place.
+Direct mutation remains available for compatibility but is discouraged
+because it can bypass invariants. Prefer class methods and the read-only
+``*_view`` / ``*_signals`` accessors. These protect the returned array or
+mapping itself, not nested objects or aliases to the underlying data. Call
+``validate()`` after unavoidable legacy mutation.
 
 Plots
 ^^^^^
@@ -84,14 +87,13 @@ Package structure
 
    signal
    dataset
-   frequency_response
+   frf
    plotting
    scope
    statistics
    xcorrelation
    validation
    utils
-   config
 
 The domain dependencies are acyclic: ``signal`` knows nothing about
 ``dataset``, and ``dataset`` knows nothing about ``validation``. Domain

@@ -37,6 +37,8 @@ return a new Signal and leave the caller unchanged.
    Signal.time
    Signal.unit
    Signal.time_unit
+   Signal.values_view
+   Signal.time_view
 
 The ``time`` vector may be ``None``, in which case the signal is
 sample-indexed. Every method below returns a **new** :ref:`Signal <signal>`:
@@ -54,6 +56,7 @@ nothing is ever modified in-place.
    Signal.remove_nans
    Signal.apply
    Signal.copy
+   Signal.validate
 
 .. rubric:: Analysis methods
 .. autosummary::
@@ -131,6 +134,9 @@ pick the grid yourself.
    Dataset.time
    Dataset.time_unit
    Dataset.get_sampling_period
+   Dataset.input_signals
+   Dataset.output_signals
+   Dataset.time_view
 
 .. rubric:: Manipulation methods
 .. autosummary::
@@ -149,6 +155,7 @@ pick the grid yourself.
    Dataset.add_output
    Dataset.remove_signals
    Dataset.copy
+   Dataset.validate
 
 As for :ref:`Signals <signal>`, each of these returns a new :ref:`Dataset
 <Dataset>`.
@@ -184,7 +191,7 @@ Nonparametric frequency response
 Use :py:meth:`Dataset.spa <dymoval.dataset.Dataset.spa>` to estimate the
 input/output frequency response directly from measurements. The estimator
 uses Blackman--Tukey spectral analysis and returns a
-:py:class:`~dymoval.frequency_response.FrequencyResponse`:
+:py:class:`~dymoval.frf.FrequencyResponse`:
 
 .. code:: python
 
@@ -206,13 +213,21 @@ output ``i`` at ``frequency[k]``. The plot overlays every input/output
 channel. Pass ``show_coherence=False`` to omit the coherence panel from a
 SISO plot, or ``xscale="linear"`` to use a linear frequency axis.
 
-.. currentmodule:: dymoval.frequency_response
+.. currentmodule:: dymoval.frf
 
 .. rubric:: Frequency-response methods
 .. autosummary::
 
    FrequencyResponse.frf
+   FrequencyResponse.select
    FrequencyResponse.plot
+   FrequencyResponse.validate
+
+The response uses the shape ``(n_frequencies, n_outputs, n_inputs)``.
+``frequency_unit`` and ``response_units`` describe its physical units;
+``response_std`` and ``noise_spectrum_std`` are asymptotic standard
+deviations. Use ``frequency_view`` and ``response_view`` for read-only,
+zero-copy array access.
 
 Plotting several objects at once
 ================================
@@ -239,18 +254,27 @@ eyeballing raw logs *before* a :ref:`Dataset <Dataset>` exists.
 Controlling the figures
 =======================
 
-Every figure-returning plot function or method accepts the same three
+Dataset plotting methods and multi-object plotting functions accept these
 geometry arguments:
 
+``autosize``
+   ``False`` by default: inherit Matplotlib's ``figure.figsize``.
+   ``True`` opts into panel-aware sizing that grows with the subplot grid.
+
 ``layout``
-   The *matplotlib* layout engine: ``"constrained"`` (the default),
+   ``None`` (the default) inherits Matplotlib rc settings. Explicit engines are
+   ``"constrained"``,
    ``"compressed"``, ``"tight"`` or ``"none"``.
 
 ``ax_height``
-   Height, in inches, of each subplot.
+   Optional height, in inches, of each subplot.
 
 ``ax_width``
-   Width, in inches, of the whole figure.
+   Optional width, in inches, of the whole figure (per column for grid plots).
+
+Explicit dimensions override ``autosize``. When automatic sizing is off,
+unspecified dimensions still follow rc settings. Signal plotting methods
+use a ``figsize`` argument instead of per-panel dimensions.
 
 Any further keyword argument is forwarded verbatim to *matplotlib*, so the
 usual ``linestyle``, ``alpha``, ``linewidth``, ... all work:

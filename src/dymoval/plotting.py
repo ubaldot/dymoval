@@ -14,11 +14,10 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
 from ._figure import (
-    _AX_HEIGHT,
-    _AX_WIDTH,
     _COVERAGE_AX_HEIGHT,
     _COVERAGE_AX_WIDTH,
     Layout,
+    _subplot_size,
     scope_subplots,
 )
 from .dataset import Dataset
@@ -37,9 +36,10 @@ __all__ = [
 def plot_signals(
     *signals: Signal | tuple[Signal, ...],
     with_scope: bool = True,
-    layout: Layout = "constrained",
-    ax_height: float = _AX_HEIGHT,
-    ax_width: float = _AX_WIDTH,
+    layout: Layout | None = None,
+    ax_height: float | None = None,
+    ax_width: float | None = None,
+    autosize: bool = False,
     **kwargs: Any,
 ) -> Figure:
     """Plot loose :class:`dymoval.signal.Signal`, one subplot per group.
@@ -56,7 +56,10 @@ def plot_signals(
     with_scope :
         Attach an interactive scope to the figure.
     layout :
-        *matplotlib* layout engine.
+        Matplotlib layout engine. ``None`` inherits rc settings.
+    autosize :
+        Use panel-aware sizing instead of rc defaults. Explicit dimensions
+        take precedence.
     ax_height :
         Height, in inches, of each subplot.
     ax_width :
@@ -81,7 +84,12 @@ def plot_signals(
     fig, axes, panel_ax = scope_subplots(
         len(groups),
         with_scope=with_scope,
-        figsize=(ax_width, ax_height * len(groups) + 1),
+        figsize=_subplot_size(
+            len(groups),
+            autosize=autosize,
+            ax_width=ax_width,
+            ax_height=ax_height,
+        ),
         layout=layout,
     )
 
@@ -127,9 +135,10 @@ def _compare(
     draw: Callable[[Axes, Signal, str], Any],
     scope_cls: type[DatasetScope],
     finish: Callable[[Axes, str], Any] | None = None,
-    layout: Layout = "constrained",
-    ax_height: float = _AX_HEIGHT,
-    ax_width: float = _AX_WIDTH,
+    layout: Layout | None = None,
+    ax_height: float | None = None,
+    ax_width: float | None = None,
+    autosize: bool = False,
 ) -> Figure:
     """Shared skeleton of the ``*_compare`` functions.
 
@@ -189,7 +198,12 @@ def _compare(
     fig, axes, panel_ax = scope_subplots(
         len(names_),
         with_scope=with_scope,
-        figsize=(ax_width, ax_height * len(names_) + 1),
+        figsize=_subplot_size(
+            len(names_),
+            autosize=autosize,
+            ax_width=ax_width,
+            ax_height=ax_height,
+        ),
         layout=layout,
         sharex=True,
     )
@@ -220,9 +234,10 @@ def plot_compare(
     labels: Sequence[str] | None = None,
     align: bool = True,
     with_scope: bool = True,
-    layout: Layout = "constrained",
-    ax_height: float = _AX_HEIGHT,
-    ax_width: float = _AX_WIDTH,
+    layout: Layout | None = None,
+    ax_height: float | None = None,
+    ax_width: float | None = None,
+    autosize: bool = False,
     **kwargs: Any,
 ) -> Figure:
     """Overlay the same signals coming from several datasets.
@@ -245,7 +260,10 @@ def plot_compare(
     with_scope :
         Attach an interactive scope to the figure.
     layout :
-        *matplotlib* layout engine.
+        Matplotlib layout engine. ``None`` inherits rc settings.
+    autosize :
+        Use panel-aware sizing instead of rc defaults. Explicit dimensions
+        take precedence.
     ax_height, ax_width :
         Height of each subplot and width of the figure, in inches.
     **kwargs :
@@ -267,6 +285,7 @@ def plot_compare(
         layout=layout,
         ax_height=ax_height,
         ax_width=ax_width,
+        autosize=autosize,
     )
 
 
@@ -279,9 +298,10 @@ def plot_coverage_compare(
     alpha: float = 1.0,
     histtype: Literal["bar", "barstacked", "step", "stepfilled"] = "step",
     align: bool = False,
-    layout: Layout = "constrained",
-    ax_height: float = _COVERAGE_AX_HEIGHT,
-    ax_width: float = _COVERAGE_AX_WIDTH,
+    layout: Layout | None = None,
+    ax_height: float | None = None,
+    ax_width: float | None = None,
+    autosize: bool = False,
     **kwargs: Any,
 ) -> Figure:
     """Overlay the coverage histograms of the same signals from several
@@ -313,7 +333,10 @@ def plot_coverage_compare(
         Resample every dataset on the common time base first. Off by
         default: a distribution does not need a shared time base.
     layout :
-        *matplotlib* layout engine.
+        Matplotlib layout engine. ``None`` inherits rc settings.
+    autosize :
+        Use panel-aware sizing instead of rc defaults. Explicit dimensions
+        take precedence.
     ax_height, ax_width :
         Height of each subplot and width of the figure, in inches.
     **kwargs :
@@ -371,7 +394,13 @@ def plot_coverage_compare(
     fig, axes, _ = scope_subplots(
         len(names_),
         with_scope=False,
-        figsize=(ax_width, ax_height * len(names_) + 1),
+        figsize=_subplot_size(
+            len(names_),
+            autosize=autosize,
+            ax_width=ax_width,
+            ax_height=ax_height,
+            defaults=(_COVERAGE_AX_WIDTH, _COVERAGE_AX_HEIGHT),
+        ),
         layout=layout,
     )
 
@@ -401,9 +430,10 @@ def plot_spectrum_compare(
     xscale: Scale = "linear",
     yscale: SpectrumScale = "linear",
     mode: SpectrumMode = "psd_welch",
-    layout: Layout = "constrained",
-    ax_height: float = _AX_HEIGHT,
-    ax_width: float = _AX_WIDTH,
+    layout: Layout | None = None,
+    ax_height: float | None = None,
+    ax_width: float | None = None,
+    autosize: bool = False,
     **kwargs: Any,
 ) -> Figure:
     """Overlay the spectra of the same signals from several datasets.
@@ -412,7 +442,7 @@ def plot_spectrum_compare(
     :meth:`dymoval.dataset.Dataset.plot_spectrum` on each dataset instead,
     since the magnitude/phase layout does not overlay meaningfully.
 
-    ``layout``, ``ax_height`` and ``ax_width`` control the figure geometry
+    ``autosize``, ``layout``, ``ax_height`` and ``ax_width`` control the figure geometry
     as in :func:`plot_compare`, and ``**kwargs`` are forwarded to
     ``matplotlib.axes.Axes.plot``.
     """
@@ -445,4 +475,5 @@ def plot_spectrum_compare(
         layout=layout,
         ax_height=ax_height,
         ax_width=ax_width,
+        autosize=autosize,
     )

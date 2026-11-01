@@ -198,8 +198,10 @@ straight to ``matplotlib``:
    # 1.0
    ds.plot(color_input="blue", linestyle="--", alpha=0.5)
 
-The ``layout``, ``ax_height`` and ``ax_width`` arguments are unchanged
-and are now available on *every* plotting function — see
+Plot size and layout now inherit Matplotlib rc settings by default.
+``autosize=True`` restores panel-aware sizing. Explicit ``layout``,
+``ax_height`` and ``ax_width`` arguments still take precedence, while Signal
+plotting methods accept ``figsize`` — see
 :ref:`figure_geometry`.
 
 *******************
@@ -256,8 +258,15 @@ Plotting functions **never** call ``show()`` any more: they return the
 <dymoval.validation.ValidationSession.plot_residuals>`). Call
 ``matplotlib.pyplot.show()`` yourself when you want a window.
 
-Consequently the ``is_interactive`` configuration key no longer
-influences plotting.
+The obsolete ``is_interactive`` configuration key and
+``is_interactive_shell()`` helper have been removed. Plotting behavior is
+explicit and does not depend on environment detection.
+
+The package-specific configuration loader and ``COLORMAP`` and ``ATOL``
+constants have been removed. ``~/.dymoval/config.toml`` is no longer read.
+Use Matplotlib styles or ``rcParams`` instead: validation plot colors follow
+``axes.prop_cycle``, and correlation titles render with MathText unless
+``text.usetex`` is enabled.
 
 Conversely, most plots now carry an interactive **scope**: click a curve
 to inspect it, press ``r`` to reset. Pass ``with_scope=False`` to opt

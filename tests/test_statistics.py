@@ -7,7 +7,6 @@ import numpy as np
 import pytest
 
 import dymoval as dmv
-from dymoval.config import ATOL
 from dymoval.statistics import compute_statistic
 
 
@@ -81,12 +80,12 @@ class Test_rsquared:
         rsquared_expected_MIMO = np.array([91.27830428, 91.89543218])
 
         assert np.isclose(
-            rsquared_expected_SISO, dmv.rsquared(y1, y1Calc), atol=ATOL
+            rsquared_expected_SISO, dmv.rsquared(y1, y1Calc), atol=1e-9
         )
         np.testing.assert_allclose(
             rsquared_expected_MIMO,
             dmv.rsquared(np.array([y1, y2]).T, np.array([y1Calc, y2Calc]).T),
-            atol=ATOL,
+            atol=1e-9,
         )
 
     @pytest.mark.parametrize(

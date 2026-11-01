@@ -35,8 +35,9 @@ intervals.
 *Dymoval* **is not** a tool for developing models. You have to develop your
 models with the tool you prefer.
 
-It is not a tool for *System Identification* either (but we don't exclude it
-can happen in the future ;-)).
+It does not build parametric state-space or transfer-function models.
+It does provide nonparametric frequency-response estimation to inspect
+measured dynamics and excitation quality before validation.
 
 *Dymoval* only checks if your models are good or not but you have to develop
 your models by yourself in the environment that you prefer.
@@ -88,6 +89,7 @@ Model validation
 
    installation
    getting_started
+   workflows
    model_validation
    reference
    migrating

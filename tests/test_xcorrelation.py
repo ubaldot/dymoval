@@ -7,7 +7,6 @@ import numpy as np
 import pytest
 
 import dymoval as dmv
-from dymoval.config import ATOL
 
 
 # ============================================================
@@ -292,7 +291,7 @@ class Test_whiteness_level:
 
         whiteness_actual, whiteness_matrix_actual = dmv.whiteness_level(x1)
 
-        assert np.isclose(whiteness_expected, whiteness_actual, atol=ATOL)
+        assert np.isclose(whiteness_expected, whiteness_actual, atol=1e-9)
         np.testing.assert_allclose(
             whiteness_matrix_expected, whiteness_matrix_actual
         )

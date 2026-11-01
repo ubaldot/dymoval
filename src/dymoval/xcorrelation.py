@@ -17,20 +17,17 @@ import scipy.signal as signal
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 
-from .config import (
+from .statistics import (
     XCORR_STATISTIC_TYPE,
     XCorr_Statistic_type,
-    is_latex_installed,
+    compute_statistic,
 )
-from .statistics import compute_statistic
 
 __all__ = ["XCorrelation", "whiteness_level", "correlation_title"]
 
-#: LaTeX and plain-text rendering of the signal symbols used in the
-#: correlation function titles.
-_SYMBOLS: dict[str, tuple[str, str]] = {
-    "u": ("u", "u"),
-    "eps": (r"\epsilon", "eps"),
+_SYMBOLS: dict[str, str] = {
+    "u": "u",
+    "eps": r"\epsilon",
 }
 
 
@@ -65,15 +62,10 @@ def correlation_title(x_symbol: str, y_symbol: str, ii: int, jj: int) -> str:
     r"""Title of the :math:`(i, j)`-th correlation function.
 
     ``x_symbol`` and ``y_symbol`` are keys of ``_SYMBOLS``, i.e. ``"u"`` for
-    an input and ``"eps"`` for a residual. LaTeX is used when available.
+    an input and ``"eps"`` for a residual. Matplotlib renders the math
+    notation using MathText, or LaTeX when ``text.usetex`` is enabled.
     """
-    latex_x, plain_x = _SYMBOLS[x_symbol]
-    latex_y, plain_y = _SYMBOLS[y_symbol]
-
-    if is_latex_installed:
-        return rf"$\hat r_{{{latex_x}_{ii}{latex_y}_{jj}}}$"
-
-    return f"r_{plain_x}{ii}{plain_y}{jj}"
+    return rf"$\hat r_{{{_SYMBOLS[x_symbol]}_{ii}{_SYMBOLS[y_symbol]}_{jj}}}$"
 
 
 # Util for defining XCorrelation elements.
@@ -297,9 +289,23 @@ class XCorrelation:
                 # At the end, for each pair (ii,jj) you have Rxy_values =
                 # r_{x_ii,y_jj}(\tau), therefore
                 # for each (ii,jj) we compute a correlation.
+                x_values = X[:, ii]
+                y_values = Y[:, jj]
+                x_std = np.std(x_values)
+                y_std = np.std(y_values)
+                x_standard = (
+                    np.full_like(x_values, np.nan, dtype=float)
+                    if x_std == 0.0
+                    else (x_values - np.mean(x_values)) / x_std
+                )
+                y_standard = (
+                    np.full_like(y_values, np.nan, dtype=float)
+                    if y_std == 0.0
+                    else (y_values - np.mean(y_values)) / y_std
+                )
                 values_full = signal.correlate(
-                    (X[:, ii] - np.mean(X[:, ii])) / np.std(X[:, ii]),
-                    (Y[:, jj] - np.mean(Y[:, jj])) / np.std(Y[:, jj]),
+                    x_standard,
+                    y_standard,
                 ) / min(len(X), len(Y))
 
                 # ------ Downsampling -------------------

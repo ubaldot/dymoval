@@ -5,10 +5,11 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from matplotlib import cycler
 from matplotlib import pyplot as plt
+from matplotlib.colors import to_rgba
 
 import dymoval as dmv
-from dymoval.config import ATOL
 from dymoval.signal import Signal
 from dymoval.validation import validate_models
 
@@ -206,8 +207,8 @@ class Test_ValidationSession_nominal:
 
         time = vs.dataset.time()
 
-        assert np.isclose(0.0, time[0], atol=ATOL)
-        assert np.isclose(4.0, time[-1], atol=ATOL)
+        assert np.isclose(0.0, time[0], atol=1e-9)
+        assert np.isclose(4.0, time[-1], atol=1e-9)
 
         sim_signals = vs.simulations["Model 1"]
 
@@ -408,6 +409,73 @@ class Test_ValidationSession_sim_validation:
 # Plots
 # ============================================================
 class Test_Plots:
+    def test_missing_simulations_preserve_requested_order(
+        self, dataset: dmv.Dataset
+    ) -> None:
+        measured = _stack(dataset.outputs.values())
+        vs = dmv.ValidationSession("selection", dataset).append_simulation(
+            "known", _sim_labels(measured.shape[1]), measured + 0.1
+        )
+
+        with pytest.raises(KeyError) as exc:
+            vs.plot_simulations(["missing-z", "known", "missing-a"])
+
+        assert "['missing-z', 'missing-a']" in str(exc.value)
+
+    @pytest.mark.parametrize("kind", ["simulations", "residuals"])
+    @pytest.mark.parametrize(
+        "prop_cycle, expected_colors",
+        [
+            (
+                cycler(color=["#123456", "#abcdef"]),
+                ["#123456", "#abcdef", "#123456"],
+            ),
+            (cycler(linestyle=["-", "--"]), ["black"] * 3),
+        ],
+    )
+    def test_validation_plots_follow_color_cycle(
+        self, dataset: dmv.Dataset, kind: str, prop_cycle, expected_colors
+    ) -> None:
+        measured = _stack(dataset.outputs.values())
+        rng = np.random.default_rng(42)
+        vs = dmv.ValidationSession("styled", dataset)
+        for i in range(3):
+            vs = vs.append_simulation(
+                f"Model {i}",
+                _sim_labels(measured.shape[1]),
+                measured + rng.normal(size=measured.shape),
+            )
+
+        with plt.rc_context(
+            {"axes.prop_cycle": prop_cycle, "text.usetex": False}
+        ):
+            if kind == "simulations":
+                figures = (vs.plot_simulations(with_scope=False),)
+            else:
+                figures = vs.plot_residuals(plot_input=False)
+
+            try:
+                for fig in figures:
+                    for ax in fig.axes:
+                        if kind == "simulations":
+                            colors = [
+                                line.get_color()
+                                for line in ax.lines
+                                if line.get_label().startswith("Model ")
+                            ]
+                        else:
+                            colors = [
+                                stem.markerline.get_color()
+                                for stem in ax.containers
+                            ]
+                        assert [to_rgba(c) for c in colors] == [
+                            to_rgba(c) for c in expected_colors
+                        ]
+                    fig.canvas.draw()
+            finally:
+                for fig in figures:
+                    plt.close(fig)
+
     @pytest.mark.plots
     @pytest.mark.parametrize("with_scope", [False, True])
     def test_plot_simulations_honours_layout(
