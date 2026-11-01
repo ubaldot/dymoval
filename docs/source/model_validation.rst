@@ -1,8 +1,18 @@
 .. _model_validation:
 
-##########################
- More on Model Validation
-##########################
+###########################
+ What is Model Validation?
+###########################
+
+Model validation means checking how well a model describes the real system
+for the tasks you want to use it for. You give the model the same inputs
+as the real system, then compare their outputs using measurements from
+experiments.
+
+The goal is not to prove that the model is perfect, but to understand where
+you can trust its predictions and where it needs improvement. That means
+looking beyond matching curves: the experiments you choose and the patterns
+left in the errors matter too.
 
 The model validation process happens in four steps:
 

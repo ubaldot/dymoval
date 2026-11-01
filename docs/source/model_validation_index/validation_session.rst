@@ -66,17 +66,21 @@ done automatically:
    Validation results:
    -------------------
    Thresholds:
-   Ruu_whiteness: 0.6000
+   Ruu_correlation: 0.6000
    r2: 35.0000
-   Ree_whiteness: 0.5000
-   Rue_whiteness: 0.5000
+   Ree_correlation: 0.5000
+   Rue_correlation: 0.5000
 
    Actuals:
-                                              Sim_0         Sim_1
-   Input whiteness (abs_mean-max)            0.0367        0.0367
-   R-Squared (%)                            99.8454       66.4326
-   Residuals whiteness (abs_mean-max)        0.1515        0.3663
-   Input-Res whiteness (abs_mean-max)        0.0795        0.1168
+                                                           Sim_0         Sim_1
+   Input auto-correlation (abs_mean-max)                   0.0367        0.0367
+   R-squared fit (%)                                     99.8454       66.4326
+   Residual auto-correlation (abs_mean-max)                0.1515        0.3663
+   Input-residual cross-correlation (abs_mean-max)         0.0795        0.1168
+
+   Correlation scores: lower means less correlation.
+   R-squared fit: higher is better.
+   Input auto-correlation describes excitation, not model quality.
 
             Sim_0  Sim_1
    Outcome: PASS   FAIL
@@ -89,13 +93,22 @@ plain dictionaries.
 
 The default validation procedure evaluates the following quantities:
 
--  *Input whiteness (optional)*,
+-  *Input auto-correlation (optional)*,
 -  :math:`R^2` fit of the measured and simulated outputs,
--  *Residuals whiteness*,
--  *Input-Residuals whiteness*,
+-  *Residual auto-correlation*,
+-  *Input-residual cross-correlation*,
 
-and compare them with some thresholds. If each individual quantity pass the
-test, then the overall test is passed. It is however possible to access all
+Lower correlation scores mean less correlation; higher fit scores mean
+closer agreement with measurements. Input auto-correlation describes the
+excitation, not model quality: colored inputs are not inherently invalid.
+The correlation scores summarize the selected lags and statistics, rather
+than performing a formal statistical whiteness test. Their dictionary keys
+are ``Ruu_correlation``, ``Ree_correlation``, and ``Rue_correlation``.
+Use these names in both statistics and threshold dictionaries; they replace
+the former ``*_whiteness`` keys. The ``r2`` key is unchanged.
+
+The scores are compared with thresholds. If each individual quantity passes
+its check, then the overall test passes. It is possible to access all
 the validation information for defining custom evaluation criteria in a fairly
 easy manner since it is possible to extract any kind on information from
 :py:class:`~dymoval.validation.ValidationSession` objects.

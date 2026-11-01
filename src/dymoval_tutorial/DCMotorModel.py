@@ -2,9 +2,9 @@
 This is the model that we want to validate.
 """
 
-import control as ct
-from dymoval_tutorial.virtual_lab import get_ss_matrices, Ts
+from scipy.signal import StateSpace
 
+from dymoval_tutorial.virtual_lab import Ts, get_ss_matrices
 
 # ====== Model to be validated =====================
 # This is the model to be validated. The parameters are perturbed.
@@ -28,5 +28,5 @@ A_model, B_model, C_model, D_model = get_ss_matrices(
     R=R_model, L=L_model, K=K_model, J=J_model, b=b_model
 )
 
-DCMotor_model_ct = ct.ss(A_model, B_model, C_model, D_model)
-DCMotor_model_dt = ct.sample_system(DCMotor_model_ct, Ts, method="zoh")
+DCMotor_model_ct = StateSpace(A_model, B_model, C_model, D_model)
+DCMotor_model_dt = DCMotor_model_ct.to_discrete(Ts, method="zoh")

@@ -14,15 +14,15 @@ In this script the following happens:
         d. We save the sensor readings to a h5 file.
 """
 
-import control as ct
+from copy import deepcopy
+from pathlib import Path
+from typing import Any
+
+import h5py
+import matplotlib
 import numpy as np
 from matplotlib import pyplot as plt
-import matplotlib
-from typing import Any
-import h5py
-from copy import deepcopy
-from scipy.signal import butter, lfilter
-from pathlib import Path
+from scipy.signal import StateSpace, butter, lfilter, lsim
 
 matplotlib.use("qtagg")
 plt.ioff()
@@ -100,7 +100,7 @@ b = 1e-4
 K = 0.1
 
 A, B, C, D = get_ss_matrices(R=R, L=L, K=K, J=J, b=b)
-DCMotor_nominal_ct = ct.ss(A, B, C, D)
+DCMotor_nominal_ct = StateSpace(A, B, C, D)
 
 # ============ Virtual electric-motor done ======================
 
@@ -120,18 +120,10 @@ time, u = get_low_frequency_input_signal(
     clip=True,
 )
 
-# TODO: Simulate "real" plant
-res_ct = ct.forced_response(
-    DCMotor_nominal_ct, T=time, X0=[0.0, 0.0, 0.0], U=u
+_, y_samples, _ = lsim(
+    DCMotor_nominal_ct, U=u, T=time, X0=[0.0, 0.0, 0.0], interp=True
 )
-# res_dt = ct.forced_response(
-#     ct.c2d(DCMotor_nominal_ct, 1 / sampling_rate),
-#     T=time,
-#     X0=[0.0, 0.0, 0.0],
-#     U=u,
-# )
-
-y = res_ct.y
+y = y_samples.T
 
 # ==================== Sensor model =====================================
 # Add noise to the measurements

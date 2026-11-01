@@ -6,7 +6,6 @@ dependencies:
   # Runtime, must mirror [project].dependencies in pyproject.toml
   - matplotlib
   - scipy
-  - control
   - numpy
   - h5py
   # Dev, must mirror [project.optional-dependencies].dev in pyproject.toml

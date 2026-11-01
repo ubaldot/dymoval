@@ -13,11 +13,11 @@ single-input-single-output (SISO) use `u[:, 0]` or `u.squeeze()` when a
 from copy import deepcopy
 from pathlib import Path
 
-import control as ct
 import h5py
 import matplotlib
 import matplotlib.pylab as plt
 import numpy as np
+from scipy.signal import dlsim
 
 import dymoval as dmv
 from dymoval_tutorial.DCMotorModel import DCMotor_model_dt
@@ -75,8 +75,7 @@ _ = dmv.plot_spectrum_compare(
 # ===== Validation =================================================
 (t, u, y) = ds_filt.dataset_values()
 
-res_sim = ct.forced_response(DCMotor_model_dt, X0=[0.0, 0.0, 0.0], U=u.T)
-y_sim = res_sim.y.T
+_, y_sim, _ = dlsim(DCMotor_model_dt, u=u, x0=[0.0, 0.0, 0.0])
 
 measured_signals = ds_filt.to_signals()
 

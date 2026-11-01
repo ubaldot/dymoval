@@ -18,15 +18,28 @@
 
 ---
 
+_Dymoval_ is a Python package for exploring measurement data and checking how
+well your models match the real world.
+
+## Why dymoval?
+
+Simulation lets you try ideas before taking them to the real system, where
+testing can be expensive, time-consuming, or risky. But what if a good idea
+looks bad just because the model is missing something?
+
+Comparing your model with real measurements helps you understand where you
+can trust it. Plotting the outputs together is a useful start, but a close
+match is only part of the story: did the inputs exercise the system enough,
+and do the errors show patterns?
+
 ## What is it?
 
-_Dymoval_ is a Python package for _analyzing measurement data_ and _validating
-models_.
+Dymoval helps you check your models without having to build your own
+analysis tools. Feed your model the inputs recorded during an experiment,
+then use dymoval to compare its outputs with the measured ones.
 
-_Dymoval_ validates models based only on _measurements_ and _simulated data_,
-and it is completely independent of the used modeling tool. That means that it
-does not matter if a model has been developed with Simulink, Modelica, etc.,
-_dymoval_ will only look at the produced data from the model.
+Your model can come from Simulink, Modelica, Python, or another tool.
+Dymoval only needs the signals, not the model itself.
 
 <div align="center"
 	<br>
@@ -37,13 +50,27 @@ _dymoval_ will only look at the produced data from the model.
 	<br>
 </div>
 
-If you are tracking your models changes in a CI/CD environment, then _dymoval_
-API can be easily used to run tests in Jenkins or GitHub Actions pipelines as
-it enables unit-testing on models.
+There is another challenge before you can even compare the results:
+real-world logs can be messy. One sensor records faster than another,
+some samples are missing, and noise makes it hard to see what is going on.
+Dymoval helps you get these signals ready to work with, without having to
+write the same cleanup code for every experiment.
 
-Finally, _dymoval_ provides a number of functions for for handling
-measurements data, addressing common issues such as noise, missing data, and
-varying sampling intervals.
+Once the data is ready, you can compare simulations, check fit scores, and
+look for patterns in the errors. You can also estimate frequency responses
+directly from measurements to explore how your system behaves.
+
+Work in a notebook, inspect plots interactively, or run the same checks
+automatically when your model changes, including in Jenkins or GitHub Actions.
+
+## What it is not
+
+Dymoval does not build or tune a parametric model for you, or run that
+model's simulations. Keep using the tools you like for those tasks, then
+bring the results to dymoval.
+
+Matching one experiment does not mean a model will work everywhere.
+You decide which experiments and checks matter for your application.
 
 ## Installation
 
@@ -62,10 +89,9 @@ conda install conda-forge::dymoval
 
 ## Getting started
 
-Suppose that you want to validate a model and you have the simulated out
-time-series`y_sim` along with the corresponding real-world measurements
-`y_meas` and the input time-series `u_meas`, and let `sampled_period` the
-sampling period of these signals. Then, just call the following function:
+Have measured inputs `u_meas`, measured outputs `y_meas`, and simulated
+outputs `y_sim` generated using those same inputs? If the signals are aligned
+and share a sampling period, you can start with:
 
 ```
 import dymoval as dmv
@@ -84,23 +110,27 @@ Displaying the returned object gives you something like the following:
 Validation results:
 -------------------
 Thresholds:
-Ruu_whiteness: 0.6000
+Ruu_correlation: 0.6000
 r2: 35.0000
-Ree_whiteness: 0.5000
-Rue_whiteness: 0.5000
+Ree_correlation: 0.5000
+Rue_correlation: 0.5000
 
 Actuals:
-                                           Sim_0
-Input whiteness (abs_mean-max)            0.3532
-R-Squared (%)                            65.9009
-Residuals whiteness (abs_mean-max)        0.1087
-Input-Res whiteness (abs_mean-max)        0.2053
+                                                        Sim_0
+Input auto-correlation (abs_mean-max)                   0.3532
+R-squared fit (%)                                     65.9009
+Residual auto-correlation (abs_mean-max)                0.1087
+Input-residual cross-correlation (abs_mean-max)         0.2053
+
+Correlation scores: lower means less correlation.
+R-squared fit: higher is better.
+Input auto-correlation describes excitation, not model quality.
 
          Sim_0
 Outcome: PASS
 ```
 
-Congrats! Your model passed the test!
+The results pass the selected thresholds for this experiment.
 
 But what if the test didn't pass? Don't worry, it might not be the model's
 fault.
@@ -114,35 +144,32 @@ Take a look at the tutorial to learn how to address such issues:
   dmv.open_tutorial()
 ```
 
-The above commands create a `dymoval_tutorial` folder containing all the files
-needed to run the tutorial in your `home` folder. All you have to do is to run
-Jupyter notebook named `dymoval_tutorial.ipynb`. You need an app for opening
-`.ipynb` files.
+These commands copy the tutorial files into a `dymoval_tutorial` folder in
+your home directory. Open `dymoval_tutorial.ipynb` with Jupyter to follow
+along.
 
 And if you want to discover more on model validation and _Dymoval_ check out
 the [docs](https://ubaldot.github.io/dymoval/).
 
 ## Main Features
 
-**Model validation**
+**Working with measurements**
 
-* Validation metrics:
-  * R-square fit
-  * Residuals auto-correlation statistics
-  * Input-Residuals cross-correlation statistics
-* Coverage region
-* MIMO models
-* Independence of the modeling tool used.
-* API suitable for model unit-tests
+* Explore signals in time and frequency
+* Estimate frequency responses with `Dataset.spa()`
+* Filter noise, align sampling times, fill gaps, and remove offsets or trends
+* See which values your measurements cover with histograms and statistics
+* Keep track of signal names and physical units
+* Click on plotted curves to inspect them with interactive scopes
 
-**Measurement data analysis and manipulation**
+**Checking your models**
 
-* Time and frequency analysis
-* Easy plotting, with interactive scopes
-* Linear filtering
-* Means and offsets removal
-* Re-sampling and alignment of signals
-* Physical units
+* Compare several simulations against the same measurements
+* Measure the fit with R-squared scores
+* Look for patterns in errors using residual correlation checks
+* Set your own thresholds for pass/fail checks
+* Work with one or several inputs and outputs (SISO and MIMO)
+* Run the same checks automatically when your model changes
 
 ## License
 

@@ -37,10 +37,10 @@ __all__ = ["ValidationSession", "validate_models", "VALIDATION_KEYS"]
 
 
 VALIDATION_KEYS: tuple[str, ...] = (
-    "Ruu_whiteness",
+    "Ruu_correlation",
     "r2",
-    "Ree_whiteness",
-    "Rue_whiteness",
+    "Ree_correlation",
+    "Rue_correlation",
 )
 """Keys of the validation statistics and of the validation thresholds."""
 
@@ -343,7 +343,7 @@ class ValidationSession:
             sampling_period=self._sampling_period,
         )
 
-        self._Ruu_whiteness = self._Ruu.whiteness_of(self._Ruu_tensor)
+        self._Ruu_correlation = self._Ruu.whiteness_of(self._Ruu_tensor)
 
         # ------------ Residuals -----------------------------
         self._Y_bandwidths = Y_bandwidths
@@ -405,13 +405,15 @@ class ValidationSession:
     # ====================================================
     def _statistics_labels(self) -> dict[str, str]:
         return {
-            "Ruu_whiteness": f"Input whiteness ({self._Ruu.statistic_label})",
-            "r2": "R-Squared (%)",
-            "Ree_whiteness": (
-                f"Residuals whiteness ({self._Ree.statistic_label})"
+            "Ruu_correlation": (
+                f"Input auto-correlation ({self._Ruu.statistic_label})"
             ),
-            "Rue_whiteness": (
-                f"Input-Res whiteness ({self._Rue.statistic_label})"
+            "r2": "R-squared fit (%)",
+            "Ree_correlation": (
+                f"Residual auto-correlation ({self._Ree.statistic_label})"
+            ),
+            "Rue_correlation": (
+                f"Input-residual cross-correlation ({self._Rue.statistic_label})"
             ),
         }
 
@@ -455,7 +457,7 @@ class ValidationSession:
 
         if self._ignore_input:
             inputs_acorr_str = f"Input ignored: {self._ignore_input}\n"
-            keys.remove("Ruu_whiteness")
+            keys.remove("Ruu_correlation")
         else:
             inputs_acorr_str = self._Ruu.summary("Inputs auto-correlation")
 
@@ -477,6 +479,9 @@ class ValidationSession:
             f"{thresholds_str}\n"
             "Actuals:\n"
             f"{self._statistics_table(keys)}\n\n"
+            "Correlation scores: lower means less correlation.\n"
+            "R-squared fit: higher is better.\n"
+            "Input auto-correlation describes excitation, not model quality.\n\n"
             f"{outcomes_head}\n"
             f"{outcomes_body}\n"
         )
@@ -572,14 +577,14 @@ class ValidationSession:
         self, ignore_input: bool
     ) -> dict[str, float]:
         validation_thresholds_default = {
-            "Ruu_whiteness": 0.6,
+            "Ruu_correlation": 0.6,
             "r2": 35.0,
-            "Ree_whiteness": 0.5,
-            "Rue_whiteness": 0.5,
+            "Ree_correlation": 0.5,
+            "Rue_correlation": 0.5,
         }
 
         if ignore_input is True:
-            del validation_thresholds_default["Ruu_whiteness"]
+            del validation_thresholds_default["Ruu_correlation"]
 
         return validation_thresholds_default
 
@@ -645,10 +650,10 @@ class ValidationSession:
         self._Rue_tensor[sim_name] = Rue
 
         self._validation_statistics[sim_name] = {
-            "Ruu_whiteness": self._Ruu_whiteness,
+            "Ruu_correlation": self._Ruu_correlation,
             "r2": r2,
-            "Ree_whiteness": self._Ree.whiteness_of(Ree),
-            "Rue_whiteness": self._Rue.whiteness_of(Rue),
+            "Ree_correlation": self._Ree.whiteness_of(Ree),
+            "Rue_correlation": self._Rue.whiteness_of(Rue),
         }
 
         # Compute PASS/FAIL outcome

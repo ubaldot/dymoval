@@ -20,7 +20,7 @@ point-by-point mapping of the old API onto the new one.
   and does not depend on environment detection.
 - **The `pandas` dependency.** `Signal` and `Dataset` are now built
   directly on `numpy`. The runtime dependencies are `numpy`, `scipy`,
-  `matplotlib`, `control` and `h5py`.
+  `matplotlib` and `h5py`.
 - `validate_signals` and `validate_dataframe`: the `Dataset` factories
   validate their input and raise on invalid data.
 - Construction of a `Dataset` from a `DataFrame`.
@@ -34,6 +34,11 @@ point-by-point mapping of the old API onto the new one.
 
 ### Changed
 
+- Validation statistics and threshold dictionary keys now use
+  `Ruu_correlation`, `Ree_correlation`, and `Rue_correlation` instead of
+  their former `*_whiteness` names. Scores and pass/fail rules are unchanged.
+- The motor tutorial uses SciPy state-space simulation and discretization,
+  removing the `control` dependency.
 - Plot size and layout inherit Matplotlib rc settings by default.
   `autosize=True` opts into panel-aware figure dimensions; explicit geometry
   arguments take precedence.

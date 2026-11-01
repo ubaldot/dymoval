@@ -1,5 +1,12 @@
+"""Print validation metrics for externally generated MATLAB CSV data.
+
+Run ``python scripts\\compare_matlab.py x.csv y.csv yhat.csv``.
+Regression checks for bundled CSV data live in ``tests``.
+"""
+
 import numpy as np
-from dymoval import rsquared, XCorrelation
+
+from dymoval import XCorrelation, rsquared
 
 if __name__ == "__main__":
     import argparse

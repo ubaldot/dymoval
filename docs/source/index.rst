@@ -1,84 +1,109 @@
-..
-   dymoval documentation master file, created by
-   sphinx-quickstart on Wed Aug 31 12:11:21 2022.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 ####################################
  Dymoval (Dynamic Model Validation)
 ####################################
+
+Dymoval is a Python package for exploring measurement data and checking how
+well your models match the real world.
+
+*************
+ Why dymoval?
+*************
+
+Imagine that you are developing a new product. At each stage, you
+need to test it and use the results to decide what to improve next. Testing in
+the target environment—the real-world setting where the solution will
+eventually be deployed—can be expensive, time-consuming, or even risky.
+
+A simulation model provides a safer and cheaper environment for testing those
+ideas first. However, a simulation is only as useful as the model behind it.
+If a promising solution performs poorly in simulation, you may be tempted to
+discard it and never test it in the real system. That can mean rejecting a
+good solution because the model is inaccurate or incomplete. A failed
+simulation does not prove that the solution would fail in the target
+environment; it only shows that the solution does not work under the model's
+assumptions.
+
+Model validation helps establish how much confidence you can place in those
+assumptions. By comparing the model with measurements from the target
+environment, you can identify where the model is trustworthy and where its
+predictions need to be treated with caution. This helps you make
+better-informed decisions about which solutions are worth testing in reality.
+
+It is tempting to stop at plotting simulated and measured outputs together.
+But a close match is only part of the story: did the inputs exercise the
+system enough, and do the errors show patterns? Looking at these questions
+alongside the fit score gives you a fuller picture.
 
 *************
  What is it?
 *************
 
-*Dymoval* is a Python package for *analyzing measurement data* and *validating
-models*.
+Dymoval helps you check your models without having to build your own
+analysis tools. Use it to clean up measurement logs, explore your signals,
+and compare your model's results with what actually happened.
 
-*Dymoval* validates models based only on *measurements* and *simulated data*,
-and it is completely independent of the used modeling tool. This means that it
-does not matter if a model has been developed with Simulink, Modelica, etc.,
-*dymoval* will only look at the produced data from the model.
+The idea is simple: feed your model the inputs recorded during an experiment,
+then compare its outputs with the measured ones. Your model can come from
+Simulink, Modelica, Python, or another tool. Dymoval only needs the signals,
+not the model itself.
 
-If you are tracking your models changes in a CI/CD environment, then *dymoval*
-API can be easily used to run tests in Jenkins or GitHub Actions pipelines as
-it enables unit-testing on models.
+There is another challenge before you can even compare the results:
+real-world logs can be messy. One sensor records faster than another,
+some samples are missing, and noise makes it hard to see what is going on.
+Dymoval helps you get these signals ready to work with, without having to
+write the same cleanup code for every experiment.
 
-Finally, *dymoval* provides a number of functions for handling measurement
-data, addressing common issues such as noise, trends and varying sampling
-intervals.
+Once the data is ready, you can plot measurements and simulations together,
+check how closely they match, and look for patterns in the errors. A good
+fit score is useful, but those patterns can reveal behavior your model
+is still missing.
 
-**************
- What is not.
-**************
+You can also estimate a frequency response directly from measurements to
+explore how your system responds at different frequencies, without first
+building a parametric model.
 
-*Dymoval* **is not** a tool for developing models. You have to develop your
-models with the tool you prefer.
+You can work in a notebook, inspect plots interactively, or turn your checks
+into automated tests. That makes it easier to catch changes in model behavior
+as you develop it, including in Jenkins or GitHub Actions.
 
-It does not build parametric state-space or transfer-function models.
-It does provide nonparametric frequency-response estimation to inspect
-measured dynamics and excitation quality before validation.
+****************
+ What it is not
+****************
 
-*Dymoval* only checks if your models are good or not but you have to develop
-your models by yourself in the environment that you prefer.
+Dymoval is not a replacement for your modeling tool. It does not build or
+tune a parametric model for you, or run that model's simulations. Keep using
+the tools you like for those tasks, then bring the results to dymoval.
 
-**************
- Why dymoval?
-**************
-
-Simulation results frequently deviate significantly from real-world
-measurements, leading to a growing skepticism towards simulation models.
-*Dymoval* is dedicated to bridging this gap, aiming to restore confidence in
-simulation accuracy and reliability.
-
-*Dymoval* specializes in model validation, offering robust solutions for a
-variety of models, including MIMO (Multiple Input Multiple Output) and stiff
-models, all in an easy and comprehensible manner. Additionally, *Dymoval*
-provides a comprehensive toolbox designed to handle real-world measurement
-data, which often comes with challenges such as noise, drift, and varying
-sampling intervals. This ensures that your models are not only
-validated but also capable of accurately reflecting real-world conditions.
+Of course, matching one experiment does not mean a model will work
+everywhere. Dymoval helps you check the data you have; you decide which
+experiments and checks matter for your application.
 
 ***************
  Main Features
 ***************
 
-Measurements analysis and manipulation
-======================================
+Working with measurements
+=========================
 
--  Time and frequency analysis
--  Easy plotting, with interactive scopes
--  Signal manipulation (filtering, resampling, mean and offset removal, and
-   more)
--  Physical units
+- Explore signals in time and frequency
+- Estimate frequency responses with ``Dataset.spa()``
+- Filter noise, align sampling times, fill gaps, and remove offsets or trends
+- See which values your measurements cover with histograms and statistics
+- Keep track of signal names and physical units
+- Click on plotted curves to inspect them with interactive scopes
 
-Model validation
-================
+Checking your models
+====================
 
--  Validation metrics: R-square fit, Residuals auto-correlation, Input-Residuals cross-correlation, Coverage region
--  Modeling-tool independent
--  MIMO models
--  CI-friendly API for model tests
+- Compare several simulations against the same measurements
+- Measure the fit with R-squared scores
+- Look for patterns in errors using residual correlation checks
+- Set your own thresholds for pass/fail checks
+- Work with one or several inputs and outputs (SISO and MIMO)
+- Run the same checks automatically when your model changes
+
+Ready to try it? Follow :doc:`getting_started` to clean some data, check a
+simple model, and explore a frequency response.
 
 *******
  Index
@@ -88,9 +113,8 @@ Model validation
    :maxdepth: 2
 
    installation
-   getting_started
-   workflows
    model_validation
+   getting_started
    reference
    migrating
    api

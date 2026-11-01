@@ -171,7 +171,15 @@ class Test_ValidationSession_nominal:
         )
 
         text = repr(vs)
-        assert "R-Squared (%)" in text
+        assert "R-squared fit (%)" in text
+        assert "Input auto-correlation (abs_mean-max)" in text
+        assert "Residual auto-correlation (abs_mean-max)" in text
+        assert "Input-residual cross-correlation (abs_mean-max)" in text
+        assert "lower means less correlation" in text
+        assert (
+            "Input auto-correlation describes excitation, not model quality."
+            in text
+        )
         assert "Model 1" in text
 
     def test_repr_ignore_input(self, good_dataset: tuple) -> None:
@@ -179,7 +187,7 @@ class Test_ValidationSession_nominal:
 
         vs = dmv.ValidationSession("my_validation", ds, ignore_input=True)
 
-        assert "Ruu_whiteness" not in vs.validation_thresholds
+        assert "Ruu_correlation" not in vs.validation_thresholds
 
         rng = np.random.default_rng(3)
         q = len(y_names)
@@ -228,10 +236,10 @@ class Test_ValidationSession_nominal:
         assert list(vs.outcome.values()) == ["PASS"]
 
         vs.validation_thresholds = {
-            "Ruu_whiteness": 0.0,
+            "Ruu_correlation": 0.0,
             "r2": 110.0,
-            "Ree_whiteness": 0.0,
-            "Rue_whiteness": 0.0,
+            "Ree_correlation": 0.0,
+            "Rue_correlation": 0.0,
         }
 
         assert list(vs.outcome.values()) == ["FAIL"]
@@ -246,10 +254,10 @@ class Test_ValidationSession_nominal:
         vs = validate_models(inputs, outputs, simulated_out=sim_good)
 
         with pytest.raises(KeyError):
-            vs.validation_thresholds = {"Ruu_whitenessssss": 0.0}
+            vs.validation_thresholds = {"Ruu_correlationssss": 0.0}
 
         with pytest.raises(ValueError):
-            vs.validation_thresholds = {"Ruu_whiteness": -1.0}
+            vs.validation_thresholds = {"Ruu_correlation": -1.0}
 
         # An empty mapping means "nothing to check", which would make
         # every simulation pass unconditionally.
@@ -679,10 +687,10 @@ class Test_validate_models:
             simulated_out=[sim_good, sim_bad],
             sampling_period=sampling_period,
             validation_thresholds={
-                "Ruu_whiteness": 0.35,
+                "Ruu_correlation": 0.35,
                 "r2": 100.0,  # impossible to achieve
-                "Ree_whiteness": 0.35,
-                "Rue_whiteness": 0.35,
+                "Ree_correlation": 0.35,
+                "Rue_correlation": 0.35,
             },
         )
 
