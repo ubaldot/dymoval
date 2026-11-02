@@ -41,7 +41,9 @@ VALIDATION_KEYS: tuple[str, ...] = (
     "r2",
     "rmse",
     "Ree_correlation",
+    "Ree_cross_correlation",
     "Rue_correlation",
+    "Ree_envelope",
 )
 """Keys of the validation statistics and of the validation thresholds."""
 
@@ -113,13 +115,21 @@ class _XCorrSettings:
         """Return the combined local and global statistic label."""
         return f"{self.local_statistic}-{self.global_statistic}"
 
-    def whiteness_of(self, R: XCorrelation) -> float:
+    def whiteness_of(
+        self,
+        R: XCorrelation,
+        *,
+        exclude_diagonal: bool = False,
+        diagonal_only: bool = False,
+    ) -> float:
         """Estimate the whiteness of ``R`` according to these settings."""
         estimate, _ = R.correlation_score(
             local_statistic=self.local_statistic,
             local_weights=self.local_weights,
             global_statistic=self.global_statistic,
             global_weights=self.global_weights,
+            exclude_diagonal=exclude_diagonal,
+            diagonal_only=diagonal_only,
         )
 
         return estimate
@@ -189,6 +199,23 @@ class ValidationSession:
         The result is stored under ``"rmse"`` in `validation_statistics`.
         An optional ``"rmse"`` validation threshold is an upper bound;
         no RMSE threshold is enabled by default.
+    Ree_envelope:
+        Gaussian acceptance limits for diagonal residual
+        auto-correlations: ``(b0, b_inf, time_scale)`` shared by all outputs,
+        or a dictionary mapping every measured output name to such a tuple.
+        Require ``0 < b_inf <= b0 <= 1`` and a positive time scale in dataset
+        time units. The limit at delay ``t`` is
+        ``b_inf + (b0 - b_inf) * exp(-(t / time_scale)**2)``.
+        Adds a separate ``Ree_envelope`` statistic (worst ratio across all
+        outputs and nonzero lags). Its default threshold is 1, inclusive.
+        ``Ree_correlation`` always summarizes diagonal entries only;
+        ``Ree_cross_correlation`` summarizes off-diagonal entries.
+        The envelope replaces the ordinary diagonal check.
+        Custom threshold dictionaries must explicitly include
+        ``Ree_envelope`` if that check is desired.
+        Defaults to ``"auto"``: ``(0.95, 0.1, 5 * sampling_period)``.
+        These are starting settings, not calibrated acceptance limits.
+        Pass ``None`` to use ordinary diagonal correlation scoring instead.
     Ruu_nlags:
         Positive-integer lag-window sizes for the input auto-correlation
         array `Ruu`. Each returned window is symmetric around zero, so its
@@ -278,6 +305,12 @@ class ValidationSession:
         Rue_local_weights: np.ndarray | None = None,
         Rue_global_weights: np.ndarray | None = None,
         rmse_statistic: Literal["mean", "max"] = "max",
+        Ree_envelope: (
+            tuple[float, float, float]
+            | dict[str, tuple[float, float, float]]
+            | Literal["auto"]
+            | None
+        ) = "auto",
     ) -> None:
         # Once you created a ValidationSession you should not change the
         # validation dataset. Create another ValidationSession with another
@@ -297,6 +330,39 @@ class ValidationSession:
         # Number of inputs and outputs
         self._p = len(validation_dataset.inputs)
         self._q = len(validation_dataset.outputs)
+        if isinstance(Ree_envelope, str):
+            if Ree_envelope != "auto":
+                raise ValueError("Ree_envelope string must be 'auto'")
+            Ree_envelope = (
+                0.95,
+                0.1,
+                5 * validation_dataset.get_sampling_period(),
+            )
+        self._Ree_envelope: dict[str, tuple[float, float, float]] | None = None
+        if Ree_envelope is not None:
+            parameters = (
+                Ree_envelope
+                if isinstance(Ree_envelope, dict)
+                else dict.fromkeys(
+                    validation_dataset.output_names(), Ree_envelope
+                )
+            )
+            if set(parameters) != set(validation_dataset.output_names()):
+                raise ValueError("Ree_envelope must specify every output name")
+            self._Ree_envelope = {}
+            for output, values in parameters.items():
+                array = np.asarray(values, dtype=float)
+                if array.shape != (3,) or not np.all(np.isfinite(array)):
+                    raise ValueError(
+                        "Ree_envelope needs three finite parameters"
+                    )
+                b0, floor, scale = map(float, array)
+                if not 0 < floor <= b0 <= 1 or scale <= 0:
+                    raise ValueError(
+                        "Ree_envelope requires 0 < b_inf <= b0 <= 1 "
+                        "and time_scale > 0"
+                    )
+                self._Ree_envelope[output] = (b0, floor, scale)
 
         self.name: str = name  # The validation session name.
         """ValidationSession object name."""
@@ -407,6 +473,10 @@ class ValidationSession:
             "Ree_correlation": (
                 f"Residual auto-correlation ({self._Ree.statistic_label})"
             ),
+            "Ree_cross_correlation": (
+                f"Residual cross-correlation ({self._Ree.statistic_label})"
+            ),
+            "Ree_envelope": "Residual auto-correlation (Gaussian envelope ratio)",
             "Rue_correlation": (
                 f"Input-residual cross-correlation ({self._Rue.statistic_label})"
             ),
@@ -428,6 +498,12 @@ class ValidationSession:
         ]
 
         for k in keys:
+            if k == "Ree_cross_correlation" and self._q == 1:
+                lines.append(
+                    f"{labels[k]:<{label_width}}"
+                    + "".join(f"  {'N/A':>{col_width}}" for _ in sims)
+                )
+                continue
             values = "".join(
                 f"  {self._validation_statistics[s][k]:>{col_width}.4f}"
                 for s in sims
@@ -449,6 +525,10 @@ class ValidationSession:
                 outcomes_body += f"{v}"
 
         keys = list(VALIDATION_KEYS)
+        if self._Ree_envelope is None:
+            keys.remove("Ree_envelope")
+        else:
+            keys.remove("Ree_correlation")
 
         if self._ignore_input:
             inputs_acorr_str = f"Input ignored: {self._ignore_input}\n"
@@ -466,6 +546,13 @@ class ValidationSession:
             + inputs_acorr_str
             + "\n"
             + self._Ree.summary("Residuals auto-correlation:")
+            + (
+                f"Gaussian limits (b0, b_inf, time_scale): "
+                f"{self._Ree_envelope}\n"
+                "Envelope ratio <= threshold passes; zero lag excluded.\n"
+                if self._Ree_envelope is not None
+                else ""
+            )
             + "\n"
             + self._Rue.summary("Input-residuals cross-correlation:")
             + "\n"
@@ -562,6 +649,12 @@ class ValidationSession:
                 raise KeyError(f"Keys must be {allowed_keys}.")
             if v < 0.0:
                 raise ValueError("Thresholds must be positive.")
+            if k == "Ree_envelope" and self._Ree_envelope is None:
+                raise ValueError("Ree_envelope threshold requires an envelope")
+            if k == "Ree_cross_correlation" and self._q == 1:
+                raise ValueError(
+                    "Residual cross-correlation needs multiple outputs"
+                )
 
     @property
     def validation_statistics(self) -> dict[str, dict[str, float]]:
@@ -580,6 +673,11 @@ class ValidationSession:
 
         if ignore_input is True:
             del validation_thresholds_default["Ruu_correlation"]
+        if self._Ree_envelope is not None:
+            validation_thresholds_default["Ree_envelope"] = 1.0
+            del validation_thresholds_default["Ree_correlation"]
+        if self._q > 1:
+            validation_thresholds_default["Ree_cross_correlation"] = 0.5
 
         return validation_thresholds_default
 
@@ -643,13 +741,38 @@ class ValidationSession:
         self._Ree_tensor[sim_name] = Ree
         self._Rue_tensor[sim_name] = Rue
 
+        if self._Ree_envelope is not None and any(
+            not np.any(Ree.R[ii, ii].lags != 0) for ii in range(self._q)
+        ):
+            raise ValueError(
+                "Envelope scoring requires at least one nonzero lag "
+                "per output; increase Ree_nlags"
+            )
+
         self._validation_statistics[sim_name] = {
             "Ruu_correlation": self._Ruu_correlation,
             "r2": r2,
             "rmse": rmse_value,
-            "Ree_correlation": self._Ree.whiteness_of(Ree),
+            "Ree_correlation": self._Ree.whiteness_of(Ree, diagonal_only=True),
             "Rue_correlation": self._Rue.whiteness_of(Rue),
         }
+        if self._q > 1:
+            self._validation_statistics[sim_name]["Ree_cross_correlation"] = (
+                self._Ree.whiteness_of(Ree, exclude_diagonal=True)
+            )
+        if self._Ree_envelope is not None:
+            scores = []
+            for ii, output in enumerate(self.dataset.output_names()):
+                entry = Ree.R[ii, ii]
+                nonzero = entry.lags != 0
+                limit = self._residual_envelope(output, entry.lags[nonzero])
+                ratios = np.abs(entry.values[nonzero]) / limit
+                scores.append(
+                    float(np.max(ratios))
+                    if np.all(np.isfinite(ratios))
+                    else float("inf")
+                )
+            self._validation_statistics[sim_name]["Ree_envelope"] = max(scores)
 
         # Compute PASS/FAIL outcome
         statistics = self._validation_statistics[sim_name]
@@ -658,10 +781,20 @@ class ValidationSession:
         for k, threshold in self._validation_thresholds.items():
             if k == "r2":
                 local_outcome.append(statistics[k] > threshold)
+            elif k == "Ree_envelope":
+                local_outcome.append(statistics[k] <= threshold)
             else:
                 local_outcome.append(statistics[k] < threshold)
 
         self._outcome[sim_name] = "PASS" if all(local_outcome) else "FAIL"
+
+    def _residual_envelope(self, output: str, lags: np.ndarray) -> np.ndarray:
+        assert self._Ree_envelope is not None
+        b0, floor, scale = self._Ree_envelope[output]
+        delay = lags * self.dataset.get_sampling_period()
+        return np.asarray(
+            floor + (b0 - floor) * np.exp(-np.square(delay / scale))
+        )
 
     def _sim_list_validate(self) -> None:
         if not self.simulations_names:
@@ -1086,6 +1219,20 @@ class ValidationSession:
                     label=sim_name,
                     linefmt=matplotlib.colors.to_hex(colors[kk % len(colors)]),
                 )
+            if tensors is self._Ree_tensor and self._Ree_envelope is not None:
+                for ii, output in enumerate(self.dataset.output_names()):
+                    lags = tensors[sims[0]].R[ii, ii].lags
+                    limit = self._residual_envelope(output, lags)
+                    axes[ii, ii].fill_between(
+                        lags,
+                        -limit,
+                        limit,
+                        color="gray",
+                        alpha=0.2,
+                        label="Gaussian acceptance limits",
+                        zorder=0,
+                    )
+                    axes[ii, ii].legend()
 
         # ===============================================================
         # Input auto-correlation

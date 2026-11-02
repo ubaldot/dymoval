@@ -32,11 +32,13 @@ Each layer has one job:
 :ref:`Dataset <Dataset>`
    A group of :ref:`Signals <signal>` sharing one time vector, split into
    inputs and outputs. It knows how to *align* signals and how to lay out a
-   figure made of many of them.
+   figure made of many of them. Input Gram-matrix and eigenvalue diagnostics
+   assess excitation independently of model predictions.
 
 :ref:`ValidationSession <ValidationSession>`
    One :ref:`Dataset <Dataset>` plus the simulation results to be validated
-   against it, and the metrics that score them.
+   against it, and the metrics that score them: fit, residual RMSE, and
+   correlation summaries, with configurable Gaussian diagonal residual limits.
 
 You reach an inner object from an outer one through plain attribute access,
 for example ``vs.dataset`` or ``ds.inputs["Voltage"]``, and nothing stops you

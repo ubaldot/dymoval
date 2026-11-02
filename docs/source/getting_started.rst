@@ -5,6 +5,14 @@
 Let's walk through a small example: prepare some measurements, check a
 simple model, and explore the system's frequency response.
 
+You do not need to be a statistics expert to run these checks and inspect
+the plots. Interpreting them still requires knowledge of your experiment
+and what the model will be used for. **PASS means the configured checks
+passed on this dataset, not that the model is correct everywhere.** A FAIL
+is a reason to investigate, not an automatic rejection. The defaults help
+you start; they are not calibrated acceptance criteria.
+See :ref:`model_ci_cd` before using the results as an automatic release gate.
+
 **************************
  Prepare measurement data
 **************************
@@ -126,7 +134,7 @@ The results for this example look like:
    Thresholds:
    Ruu_correlation: 0.6000
    r2: 35.0000
-   Ree_correlation: 0.5000
+   Ree_envelope: 1.0000
    Rue_correlation: 0.5000
 
    Actuals:
@@ -134,7 +142,8 @@ The results for this example look like:
    Input auto-correlation (abs_mean-max)                   0.0157
    R-squared fit (%)                                     99.2913
    Residual RMSE (max)                                   0.0287
-   Residual auto-correlation (abs_mean-max)                0.2676
+   Residual auto-correlation (Gaussian envelope ratio)     1.7550
+   Residual cross-correlation (abs_mean-max)                 N/A
    Input-residual cross-correlation (abs_mean-max)         0.0831
 
    Correlation scores: lower means less correlation.
@@ -143,18 +152,21 @@ The results for this example look like:
    Input auto-correlation describes excitation, not model quality.
 
             Sim_0
-   Outcome: PASS
+   Outcome: FAIL
 
-Our LPF passes the default thresholds for this experiment. Here is how to
+Our LPF has a high fit, but exceeds the starting Gaussian residual limit.
+This illustrates why fit alone is not the whole assessment. Here is how to
 read the scores:
 
--  **Input auto-correlation (optional)**: Lower values indicate whiter
+-  **Input auto-correlation (optional)**: Lower values indicate less redundant
    excitation, not necessarily a better model or experiment. Colored inputs
    can also be useful.
 -  :math:`\mathbf{R^2}`: A good model should have this value as large as
    possible.
--  **Residual auto-correlation**: Values near zero suggest that the errors
-   have little correlation across the evaluated lags.
+-  **Residual RMSE**: Error magnitude in output units; lower is better.
+   There is no default RMSE acceptance threshold.
+-  **Residual auto-correlation**: The Gaussian ratio must be at or below 1
+   to meet the configured envelope at every evaluated nonzero lag.
 -  **Input-residual cross-correlation**: Values near zero suggest little
    correlation between the inputs and the errors at the evaluated lags.
 
@@ -169,6 +181,51 @@ as the fit. See :ref:`theory` for the calculations and
 
 We used SciPy here, but dymoval does not need to know how you produced
 ``simulated_output``. Results from another simulation tool work just as well.
+
+Customize delay-dependent residual limits
+=========================================
+
+Diagonal residual auto-correlation uses a Gaussian envelope by default:
+``Ree_envelope="auto"`` selects ``(0.95, 0.1, 5*sampling_period)``.
+The limits are starting settings, not universal criteria. Customize them
+when you have justified tolerances for short- and long-delay correlation:
+
+.. code-block:: python
+
+   vs_envelope = dmv.validate_models(
+       measured_in=measured_input,
+       measured_out=measured_output,
+       simulated_out=simulated_output,
+       sampling_period=sampling_period,
+       Ree_envelope=(0.95, 0.1, 0.05),
+   )
+   print(vs_envelope)
+   residual_figures = vs_envelope.plot_residuals(plot_input=False)
+
+These illustrative parameters are ``(short_delay_limit, long_delay_floor,
+time_scale)``. Here the time scale is in seconds; it must be chosen from
+acceptable error behavior, not adjusted until a model passes.
+
+``Ree_envelope`` is the worst ratio of absolute diagonal residual
+auto-correlation to its limit, excluding zero lag. A ratio at or below 1
+passes the default envelope check. The residual plot shades the allowed
+region on the diagonal only.
+
+The report separates residual auto-correlation (diagonal) from residual
+cross-correlation (off-diagonal). With an envelope, the diagonal report row
+uses the Gaussian ratio and its default check replaces ``Ree_correlation``.
+The ordinary diagonal statistic remains available under ``Ree_correlation``.
+``Ree_cross_correlation`` always covers off-diagonal pairs; for this
+single-output example it is omitted from statistics and thresholds and
+displayed as N/A. Input-residual scores are unchanged.
+Here the explicit parameters equal the automatic defaults. The ratio is
+about 1.755, so the envelope check fails. That is not a universal verdict
+on the LPF: the envelope expresses a different, application-specific
+requirement.
+Pass ``Ree_envelope=None`` to use the ordinary diagonal statistic instead.
+Custom threshold dictionaries must include ``"Ree_envelope": 1.0`` if you
+want this check. See :ref:`validation_session` for per-output envelopes,
+reference-model baselines, and tuning guidance.
 
 *************************************************
  Extra: estimate and inspect a frequency response
@@ -266,6 +323,8 @@ return a tuple, so:
 It is suggested to disable the `matplotlib` interactivity with
 ``plt.ioff()`` if working with `IPython`.
 
+.. _model_ci_cd:
+
 *********************************
  Enabling models CI/CD pipelines
 *********************************
@@ -275,20 +334,61 @@ changes to a repository where an automation server (like Jenkins or GitLab)
 automatically assesses whether your changes can be integrated into the
 codebase by executing some tests.
 
-*Dymoval* allows you to do the same with models. All you need is a good
-measurement dataset and a mechanism to run simulations on an automation
-server. Then, you can use the *Dymoval* API to validate the model changes and
-decide whether to merge or reject the proposed changes.
+*Dymoval* can provide repeatable checks in a model-development pipeline.
+However, putting a PASS/FAIL check in CI does not turn it into automatic
+model certification. It becomes a useful **acceptance gate for a defined
+use and operating region** only after you establish what the checks must
+demonstrate.
 
-For example, after computing ``vs`` as above, make the pipeline fail if a
-simulation does not pass:
+Before enabling automatic acceptance:
+
+* **Define the intended use and coverage.** Specify the operating conditions,
+  relevant dynamics, outputs, and acceptable errors. Use several representative
+  experiments, including important boundary conditions. Assess input excitation
+  and measurement quality separately: a low correlation score alone does not
+  establish dataset suitability.
+* **Calibrate the checks.** Choose lag windows, aggregation statistics,
+  Gaussian envelopes, and thresholds from application requirements and
+  representative measurements, rather than accepting the defaults unchanged.
+  Include an error-magnitude limit such as RMSE: normalized correlations
+  cannot tell you whether the errors are acceptably small. RMSE has no
+  default threshold and retains output units; mixed-unit outputs need
+  separate limits or justified scaling.
+* **Check the gate itself.** Test trusted models and known inadequate
+  candidates. If a trusted reference helps define an envelope, allow for
+  variation across repeated experiments. Freeze the criteria before assessing
+  candidates on independent validation records; do not tune them merely to
+  make a failing revision pass.
+* **Make runs reproducible and complete.** Version datasets, preprocessing,
+  simulation settings, validation settings, and dependencies. Keep them fixed
+  across model comparisons. Require every planned experiment and simulation
+  to finish; missing results, invalid data, and execution errors must fail
+  the pipeline rather than silently skip checks.
+* **Keep evidence and review exceptions.** Save scores, plots, settings, and
+  model/data revisions as build artifacts. Investigate failures before changing
+  limits, and review coverage when the intended use or operating conditions
+  change. A threshold-based gate does not replace any required safety or
+  regulatory assessment.
+
+For a minimal pipeline check, after computing ``vs`` with your calibrated
+settings, return a nonzero exit status if there are no results or any
+simulation fails:
 
 .. code-block:: python
 
-   assert all(result == "PASS" for result in vs.outcome.values()), vs
+   if not vs.outcome or any(result != "PASS" for result in vs.outcome.values()):
+       print(vs)
+       raise SystemExit(1)
 
-Keep the measurement data and validation settings fixed so that you can
-compare model revisions consistently.
+This only checks the results present in one session. Your pipeline must
+also verify that all expected experiments and model results are present.
+The earlier LPF example deliberately fails its starting envelope check;
+the snippet does not override that outcome. Custom threshold dictionaries
+enable only their listed checks, so explicitly retain every required check,
+including ``Ree_envelope``.
+
+Unlike ``assert``, this check still runs when Python optimization is enabled.
+Let simulation and validation exceptions fail the job too.
 
 For a longer, hands-on example with motor measurements, copy the bundled
 notebook into your home directory:

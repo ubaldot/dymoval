@@ -14,6 +14,141 @@ from dymoval.signal import Signal
 from dymoval.validation import validate_models
 
 
+def test_gaussian_residual_envelope_scores_thresholds_and_plots() -> None:
+    rng = np.random.default_rng(72)
+    u = rng.normal(size=(200, 1))
+    y = rng.normal(size=(200, 2))
+    error = rng.normal(size=(200, 2))
+    error[1:] += 0.6 * error[:-1]
+    parameters = {"y0": (0.95, 0.1, 2.0), "y1": (0.8, 0.2, 4.0)}
+    vs = validate_models(
+        u, y, y - error, sampling_period=0.5,
+        Ree_envelope=parameters,
+    )
+    expected = []
+    for ii, name in enumerate(vs.dataset.output_names()):
+        entry = vs.Ree["Sim_0"].R[ii, ii]
+        mask = entry.lags != 0
+        b0, floor, scale = parameters[name]
+        limit = floor + (b0 - floor) * np.exp(
+            -(entry.lags[mask] * 0.5 / scale)**2
+        )
+        expected.append(np.max(np.abs(entry.values[mask]) / limit))
+    score = max(expected)
+    assert vs.validation_statistics["Sim_0"]["Ree_envelope"] == pytest.approx(score)
+    local = vs.Ree["Sim_0"].correlation_score()[1]
+    ordinary = validate_models(u, y, y - error, sampling_period=0.5, Ree_envelope=None)
+    assert ordinary.validation_statistics["Sim_0"]["Ree_correlation"] == pytest.approx(
+        max(local[0, 0], local[1, 1])
+    )
+    assert ordinary.validation_statistics["Sim_0"]["Ree_cross_correlation"] == pytest.approx(
+        max(local[0, 1], local[1, 0])
+    )
+    assert "Ree_correlation" not in vs.validation_thresholds
+    assert ordinary.validation_thresholds["Ree_cross_correlation"] == 0.5
+    assert vs.validation_statistics["Sim_0"]["Ree_cross_correlation"] == pytest.approx(
+        max(local[0, 1], local[1, 0])
+    )
+    assert vs.validation_statistics["Sim_0"]["Ree_correlation"] == pytest.approx(
+        max(local[0, 0], local[1, 1])
+    )
+    assert vs.validation_thresholds["Ree_envelope"] == 1
+    vs.validation_thresholds = {"Ree_envelope": score}
+    assert vs.outcome["Sim_0"] == "PASS"
+    vs.validation_thresholds = {"Ree_envelope": score * 0.9}
+    assert vs.outcome["Sim_0"] == "FAIL"
+    assert "Gaussian limits" in repr(vs)
+    figures = vs.plot_residuals(plot_input=False)
+    try:
+        axes = figures[0].axes
+        for index in (0, 3):
+            shaded = [c for c in axes[index].collections
+                      if c.get_label() == "Gaussian acceptance limits"]
+            assert len(shaded) == 1
+            vertices = shaded[0].get_paths()[0].vertices
+            assert np.max(vertices[:, 1]) == pytest.approx(
+                parameters[f"y{index // 3}"][0]
+            )
+        for index in (1, 2):
+            assert not any(c.get_label() == "Gaussian acceptance limits"
+                           for c in axes[index].collections)
+        assert not any(c.get_label() == "Gaussian acceptance limits"
+                       for ax in figures[1].axes for c in ax.collections)
+    finally:
+        for figure in figures:
+            plt.close(figure)
+    trimmed = vs.trim(10, 70)
+    assert np.isfinite(trimmed.validation_statistics["Sim_0"]["Ree_envelope"])
+    assert vs.drop_simulations("Sim_0").validation_statistics == {}
+
+
+def test_shared_envelope_single_output_and_opt_in() -> None:
+    rng = np.random.default_rng(73)
+    u = rng.normal(size=(100, 1))
+    y = rng.normal(size=(100, 1))
+    simulated = y + rng.normal(size=y.shape)
+    baseline = validate_models(u, y, simulated, sampling_period=1, Ree_envelope=None)
+    assert "Ree_envelope" not in baseline.validation_statistics["Sim_0"]
+    vs = validate_models(
+        u, y, simulated, sampling_period=1, Ree_envelope=(1, 1, 2),
+        validation_thresholds={"Ree_envelope": 1},
+    )
+    assert "Ree_cross_correlation" not in vs.validation_statistics["Sim_0"]
+    assert "N/A" in repr(vs)
+    with pytest.raises(ValueError, match="multiple outputs"):
+        vs.validation_thresholds = {"Ree_cross_correlation": 0.5}
+    assert "Residual auto-correlation (Gaussian envelope ratio)" in repr(vs)
+    assert vs.outcome["Sim_0"] == "PASS"
+    integer_y = np.arange(100, dtype=float)[:, None]
+    constant_residual = validate_models(
+        u, integer_y, integer_y + 1, sampling_period=1,
+        Ree_envelope=(1, 0.1, 2),
+        validation_thresholds={"Ree_envelope": 1},
+    )
+    assert np.isinf(
+        constant_residual.validation_statistics["Sim_0"]["Ree_envelope"]
+    )
+    assert constant_residual.outcome["Sim_0"] == "FAIL"
+    with pytest.raises(ValueError, match="requires an envelope"):
+        baseline.validation_thresholds = {"Ree_envelope": 1}
+    with pytest.raises(ValueError, match="nonzero lag"):
+        validate_models(
+            u, y, simulated, sampling_period=1, Ree_envelope=(1, 0.1, 2),
+            Ree_nlags=np.array([[1]]),
+        )
+
+
+@pytest.mark.parametrize("parameters", [
+    (0.9, 0, 2), (0.5, 0.8, 2), (1.1, 0.1, 2),
+    (0.9, 0.1, 0), (0.9, 0.1, np.inf), (0.9, 0.1), {},
+])
+def test_invalid_residual_envelope(parameters) -> None:
+    u = np.random.default_rng(74).normal(size=(100, 1))
+    with pytest.raises(ValueError, match="Ree_envelope"):
+        validate_models(
+            u, u, u + 0.1, sampling_period=1, Ree_envelope=parameters
+        )
+
+
+@pytest.mark.parametrize("sampling_period", [0.01, 2.0])
+def test_default_envelope_scales_with_sampling_period(sampling_period) -> None:
+    rng = np.random.default_rng(77)
+    u = rng.normal(size=(200, 1))
+    y = rng.normal(size=(200, 1))
+    simulated = y + rng.normal(size=y.shape)
+    automatic = validate_models(
+        u, y, simulated, sampling_period=sampling_period
+    )
+    explicit = validate_models(
+        u, y, simulated, sampling_period=sampling_period,
+        Ree_envelope=(0.95, 0.1, 5 * sampling_period),
+    )
+    assert automatic.validation_statistics == explicit.validation_statistics
+    assert automatic.outcome == explicit.outcome
+    assert automatic.validation_thresholds["Ree_envelope"] == 1
+    assert "Ree_correlation" not in automatic.validation_thresholds
+
+
 def _sim_labels(n_outputs: int) -> list[str]:
     return [f"my_y{ii + 1}" for ii in range(n_outputs)]
 
@@ -40,7 +175,7 @@ def test_residual_rmse_report_and_lifecycle(statistic: str) -> None:
             Signal("current", measured[:, 1], time, "A"),
         ],
     )
-    empty = dmv.ValidationSession("RMSE", ds, rmse_statistic=statistic)
+    empty = dmv.ValidationSession("RMSE", ds, rmse_statistic=statistic, Ree_envelope=None)
     vs = empty.append_simulation(
         "model", ["speed", "current"], measured + errors
     )
@@ -52,7 +187,9 @@ def test_residual_rmse_report_and_lifecycle(statistic: str) -> None:
     report = repr(vs)
     assert f"Residual RMSE ({statistic})" in report
     assert f"{aggregate(expected):.4f}" in report
-    assert set(vs.validation_statistics["model"]) == set(dmv.VALIDATION_KEYS)
+    assert set(vs.validation_statistics["model"]) == (
+        set(dmv.VALIDATION_KEYS) - {"Ree_envelope"}
+    )
     assert "rmse" not in vs.validation_thresholds
 
     trimmed = vs.trim(50, 99)
@@ -230,7 +367,7 @@ class Test_ValidationSession_nominal:
         text = repr(vs)
         assert "R-squared fit (%)" in text
         assert "Input auto-correlation (abs_mean-max)" in text
-        assert "Residual auto-correlation (abs_mean-max)" in text
+        assert "Residual auto-correlation (Gaussian envelope ratio)" in text
         assert "Input-residual cross-correlation (abs_mean-max)" in text
         assert "lower means less correlation" in text
         assert (
@@ -288,7 +425,7 @@ class Test_ValidationSession_nominal:
         measured = _stack(outputs)
         sim_good = measured + rng.uniform(0.0, 1e-4, size=measured.shape)
 
-        vs = validate_models(inputs, outputs, simulated_out=sim_good)
+        vs = validate_models(inputs, outputs, simulated_out=sim_good, Ree_envelope=None)
 
         assert list(vs.outcome.values()) == ["PASS"]
 
@@ -682,7 +819,8 @@ class Test_validate_models:
         sim_bad2 = rng.random((n, q))
 
         vs = validate_models(
-            inputs, outputs, simulated_out=[sim_good, sim_bad, sim_bad2]
+            inputs, outputs, simulated_out=[sim_good, sim_bad, sim_bad2],
+            Ree_envelope=None,
         )
 
         assert list(vs.outcome.values()) == ["PASS", "FAIL", "FAIL"]

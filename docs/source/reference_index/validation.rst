@@ -75,6 +75,38 @@ simulation is scored against the same set of thresholds, and
 :py:attr:`outcome <dymoval.validation.ValidationSession.outcome>` reports
 whether each of them passed.
 
+Statistics and acceptance limits
+--------------------------------
+
+``validation_statistics`` contains ``r2``, ``rmse``, ``Ruu_correlation``,
+``Ree_correlation``, and ``Rue_correlation`` for each simulation, plus
+``Ree_cross_correlation`` for multiple outputs. RMSE is
+computed per output, then aggregated with ``rmse_statistic="max"`` or
+``"mean"``; outputs need comparable units/scaling. No RMSE threshold is
+enabled by default.
+
+Gaussian limits are enabled by default using ``Ree_envelope="auto"``:
+``(0.95, 0.1, 5*Ts)``. These are starting tolerances, not calibrated limits.
+Pass ``Ree_envelope=(b0, b_inf, time_scale)`` to customize limits for
+diagonal residual auto-correlations. A dictionary keyed by every measured
+output name allows separate limits. The additional ``Ree_envelope`` score
+is the maximum nonzero-lag violation ratio, with a default inclusive upper
+threshold of 1, replacing the default ordinary diagonal check.
+``Ree_correlation`` always covers diagonal entries, and
+``Ree_cross_correlation`` covers off-diagonal entries. The report displays
+the Gaussian ratio on the diagonal row when enabled, otherwise its ordinary
+score when ``Ree_envelope=None``. Single-output residual cross-correlation is displayed as N/A and
+omitted from statistics and thresholds.
+
+``plot_residuals()`` shades the positive/negative limits on residual diagonal
+plots only. Time scales use dataset time units; plotted lag offsets still
+use samples. Custom threshold dictionaries enable only their listed checks.
+R-squared uses a strict lower bound, ordinary correlation scores and RMSE
+strict upper bounds, and the envelope ratio an inclusive upper bound.
+
+See :ref:`validation_session` for the formulas, parameter constraints,
+examples, and guidance on choosing meaningful tolerances.
+
 .. rubric:: Constructor
 
 .. autosummary::

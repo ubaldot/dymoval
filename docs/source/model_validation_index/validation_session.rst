@@ -4,410 +4,444 @@
  Validate your model
 #####################
 
-To validate models you can just run the following:
+You have measurements and a model simulated with the same inputs. Now comes
+the useful question: how well does the model describe what happened?
+Start by comparing the outputs, then look at the errors and their patterns.
+Dymoval brings these checks together in a validation session.
 
-.. code::
+************************
+ Start with a comparison
+************************
 
-   from dymoval.validation import validate_models
+.. code:: python
+
+   from dymoval import validate_models
 
    vs = validate_models(
        measured_in=u_meas,
        measured_out=y_meas,
        simulated_out=y_sim,
-       sampling_period=sampling_period
+       sampling_period=sampling_period,
+   )
+   print(vs)
+   fig = vs.plot_simulations()
+
+The arrays must be aligned: ``u_meas`` has shape ``(N, p)``, while
+``y_meas`` and ``y_sim`` have shape ``(N, q)``. Here, ``N`` is the number
+of samples, ``p`` the number of inputs, and ``q`` the number of outputs.
+You can also pass measured ``Signal`` objects to retain names and units.
+
+The returned :py:class:`~dymoval.validation.ValidationSession` contains the
+measurements, simulations, scores, thresholds, and outcomes. Compare another
+model or parameter setting by appending its simulated outputs:
+
+.. code:: python
+
+   vs = vs.append_simulation(
+       sim_name="Another model",
+       y_names=vs.dataset.output_names(),
+       y_data=y_sim2,
    )
 
-where `y_sim` is the simulated out, `u_meas` is the measured input, `y_meas`
-is the measured out arranged in :math:`N\times q`, :math:`N\times p` and
-:math:`N\times q` arrays, respectively, where :math:`N` is the number of
-observations sampled with period `sampling_period`, :math:`p` is the number of
-inputs and :math:`q` is the number of outputs.
+.. _theory:
 
-Correlation lags use one-sample spacing. Choose the lag-window sizes to cover
-the physical delays relevant to your application. Signal bandwidth
-arguments are no longer accepted; no automatic lag thinning is performed.
+************************************
+ Understand the residuals and delays
+************************************
 
-The function :py:meth:`~dymoval.validation.validate_models` returns a
-:py:class:`~dymoval.validation.ValidationSession` object that stores the
-validation outcome.
+The *residuals* are simply the differences between measured and simulated
+outputs:
 
-If you have other simulated data, coming from other models or from the same
-model with different settings, then you can append them to the same
-:py:class:`~dymoval.validation.ValidationSession` object. The evaluation is
-done automatically:
+.. math::
 
-.. code::
+   \varepsilon_i(t) =
+   y_{\mathrm{measured},i}(t)-y_{\mathrm{simulated},i}(t).
 
-   # vs is a ValidationSession object
-   vs = vs.append_simulation(sim_name='Sim_1', y_names=['out0'], y_data=y_sim2)
-   print(vs)
+Their magnitude tells you how far the predictions are from the measurements.
+Their correlation tells you whether the errors contain repeated or shared
+patterns. These are different questions: small errors can still have
+structure, and uncorrelated errors can still be too large to be useful.
 
-The report shows the validation settings, thresholds, scores for each
-simulation, and PASS/FAIL outcomes.
+Auto-correlation compares a signal with delayed copies of itself.
+Cross-correlation compares two different signals at different delays.
+Dymoval computes three arrays of correlation functions:
 
-The same numbers are available programmatically through
-:py:attr:`~dymoval.validation.ValidationSession.validation_statistics`,
-:py:attr:`~dymoval.validation.ValidationSession.validation_thresholds` and
-:py:attr:`~dymoval.validation.ValidationSession.outcome`, all of which are
-plain dictionaries.
+.. list-table::
+   :header-rows: 1
+   :widths: 20 15 65
 
-The report includes the following quantities:
+   * - Array
+     - Shape
+     - What its entries compare
+   * - ``Ruu``
+     - ``p x p``
+     - Input channels with themselves and with other input channels.
+   * - ``Ree``
+     - ``q x q``
+     - Residual components with themselves and with other residual components.
+   * - ``Rue``
+     - ``p x q``
+     - Each input channel with each residual component.
 
--  *Input auto-correlation (optional)*,
--  :math:`R^2` fit of the measured and simulated outputs,
--  *Residual root mean squared error (RMSE)*,
--  *Residual auto-correlation*,
--  *Input-residual cross-correlation*,
+The diagonal of ``Ree`` contains scalar residual auto-correlations
+:math:`\varepsilon_i` versus :math:`\varepsilon_i`. Its off-diagonal entries
+are cross-correlations :math:`\varepsilon_i` versus :math:`\varepsilon_j`.
+Every entry of ``Rue`` is a cross-correlation, including :math:`u_i` versus
+:math:`\varepsilon_i`: matching indices do not make them the same signal.
+The same diagonal/off-diagonal distinction applies to ``Ruu``.
 
-You can finally visually inspect both the simulations results with the
-:py:meth:`~dymoval.validation.ValidationSession.plot_simulations` method and
-the residuals with the
-:py:meth:`~dymoval.validation.ValidationSession.plot_residuals` method.
+What does one lag mean?
+=======================
 
-*******************************
- How to interpret the results?
-*******************************
+One lag is one sampling period :math:`T_s`. Lag :math:`k` therefore means
+a physical delay of :math:`kT_s`. Dymoval does not automatically thin
+correlation lags based on bandwidth.
 
-The scores describe different aspects of the experiment and the model:
+Both ``XCorrelation`` and ``ValidationSession`` default to 41 points:
+-20 through +20 sample offsets, limited by record length. To inspect delays
+up to :math:`KT_s` in either direction, request ``2*K+1`` points per pair.
+The session settings are ``Ruu_nlags`` (``p x p``), ``Ree_nlags``
+(``q x q``), and ``Rue_nlags`` (``p x q``).
 
--  **R-squared fit** measures agreement with the measured outputs relative
-   to their variation. Higher is better, but a high value does not rule out
-   missing dynamics.
+For example, with :math:`T_s=0.5` seconds, the following residual window
+covers -10 to +10 seconds, provided enough data is available:
 
--  **Residual RMSE** measures the magnitude of the errors
-   :math:`\varepsilon = y_{\mathrm{measured}} - y_{\mathrm{simulated}}`.
-   It is computed as :math:`\sqrt{\mathrm{mean}(\varepsilon^2)}` per output,
-   without removing the residual mean, so bias contributes too. Lower is
-   better; zero means a perfect match. Unlike R-squared, RMSE retains the
-   output units.
+.. code:: python
 
--  **Input auto- and cross-correlation** describe repetition and redundancy
-   in the excitation, not model quality. Low scores are generally desirable,
-   but do not establish that all relevant behavior was exercised. Colored
-   inputs can also be useful. See :ref:`doe` for input-excitation assessment.
+   import numpy as np
 
--  **Residual auto-correlation:** a large score means the residuals contain
-   structure that the model does not explain. This may indicate missing or
-   incorrectly modeled dynamics, but it can also result from disturbances,
-   nonlinearities, or measurement problems. Correlation describes patterns
-   over time; RMSE describes error magnitude. Neither replaces the other.
+   q = y_meas.shape[1]
+   residual_windows = np.full((q, q), 41, dtype=int)
+   # Pass Ree_nlags=residual_windows when creating the session.
 
--  **Input-residual cross-correlation:** a large score means the residuals
-   remain correlated with the inputs. This can indicate that the model has
-   not captured part of the input-output relationship. The cause may be missing
-   dynamics, incorrect parameters, nonlinear behavior, or other model
-   limitations; the correlation does not identify one particular state-space
-   matrix as the cause.
+Increasing the window extends the inspected delay range, not the spacing.
+Plots and returned ``lags`` use sample offsets; multiply by :math:`T_s`
+to obtain delays in the dataset's time units.
 
-Correlation scores summarize the selected lags and statistics: lower means
-less correlation. They are not formal statistical tests. Low residual
-correlation alone does not make a model suitable: acceptable fit and error
-magnitude depend on what you want to use the model for.
+******************************
+ How dymoval computes scores
+******************************
+
+Each simulation gets one scalar per reported statistic. Here is how the
+measurements and correlation curves become those numbers.
+
+Output fit and error magnitude
+==============================
+
+For each output, dymoval computes:
+
+.. math::
+
+   R_i^2 = 100\left(
+       1-\frac{\sum_t\varepsilon_i(t)^2}
+       {\sum_t(y_i(t)-\overline y_i)^2}\right),
+   \qquad
+   \mathrm{RMSE}_i =
+       \sqrt{\frac{1}{N}\sum_t\varepsilon_i(t)^2}.
+
+**R-squared** measures fit relative to the measured output's variation.
+Higher is better; it can be negative and is undefined for a constant
+reference output. **Residual RMSE** measures error magnitude in output
+units. Lower is better, and a residual bias contributes because its mean
+is not removed.
+
+For multiple outputs, ``r2_statistic="min"`` selects the lowest fit and
+``rmse_statistic="max"`` selects the largest RMSE by default. Both also
+support ``"mean"``. Outputs need comparable units and scaling before
+aggregating RMSE. Use :py:func:`~dymoval.statistics.rmse` directly if you
+want the individual output values.
+
+The session stores the aggregates under ``"r2"`` and ``"rmse"`` in
+``validation_statistics``. There is no default RMSE threshold.
+
+Ordinary correlation scores: local, then global
+===============================================
+
+Dymoval first subtracts each signal's mean and divides by its standard
+deviation. It computes the correlation sums and normalizes by record
+length, then keeps the requested lag window. For aligned, equal-length
+signals, the resulting correlations lie between -1 and 1. Constant
+channels have undefined normalized correlation.
+
+Scoring happens in two stages:
+
+1. **Local score:** summarize each channel pair's correlation curve over
+   its evaluated lags. The default ``"abs_mean"`` is the mean absolute
+   correlation. For diagonal self-correlations, the zero-lag peak is
+   excluded; cross-correlations still include zero lag.
+2. **Global score:** summarize the resulting array of local scores. The
+   default ``"max"`` selects the largest, so the worst channel pair sets
+   the reported score.
+
+These settings are separate for ``Ruu``, ``Ree``, and ``Rue``. For example,
+``Ree_local_statistic_type`` selects the statistic over lags, while
+``Ree_global_statistic_type`` selects the statistic over channel pairs.
+The corresponding ``*_local_weights`` and ``*_global_weights`` provide
+weighting. See :py:meth:`~dymoval.xcorrelation.XCorrelation.correlation_score`
+and :py:func:`~dymoval.statistics.compute_statistic` for the available
+statistics and weight conventions.
+
+The reported keys are ``"Ruu_correlation"``, ``"Ree_correlation"``,
+``"Ree_cross_correlation"``, and ``"Rue_correlation"``.
+``Ree_correlation`` aggregates diagonal residual auto-correlations only;
+``Ree_cross_correlation`` aggregates off-diagonal residual cross-correlations.
+With one output, there are no off-diagonal pairs: the latter statistic and
+threshold are omitted, and the report displays N/A.
+
+.. important::
+
+   An ``abs_mean`` score depends on the lag window. Adding many near-zero
+   correlations can dilute a short-delay peak without improving the model.
+   ``max`` avoids this dilution but cannot distinguish one peak from
+   sustained correlation. Choose and report the window, statistic, and
+   threshold together, keeping them fixed across model comparisons.
+   These summaries are not formal statistical tests.
+
+Default diagonal score: Gaussian acceptance envelope
+=====================================================
+
+Sometimes you have reason to tolerate stronger residual correlation at
+short delays, but want tighter limits at longer delays. An *acceptance
+envelope* expresses that requirement without ignoring the central region.
+It is a chosen limit, not the derivative of the correlation or a curve
+fitted to each candidate model.
+
+For each output, the Gaussian limit is
+
+.. math::
+
+   b(t)=b_\infty+(b_0-b_\infty)\exp[-(t/T_b)^2],
+   \qquad 0<b_\infty\leq b_0\leq1,\quad T_b>0.
+
+Dymoval compares each nonzero-lag diagonal correlation with its limit and
+takes the worst ratio across delays and outputs:
+
+.. math::
+
+   S=\max_i\max_{k\ne0}
+       \frac{|\hat\rho_{\varepsilon_i\varepsilon_i}(k)|}
+       {b_i(|k|T_s)}.
+
+**A score at or below 1 means every evaluated diagonal value meets its
+limit.** A score above 1 identifies an exceedance. Adding near-zero
+correlations cannot dilute a violation. This only assesses the chosen
+window, not every possible delay.
+
+Gaussian scoring is enabled by default with ``Ree_envelope="auto"``:
+``b0=0.95``, ``b_inf=0.1``, and ``time_scale=5*Ts``. These are starting
+settings, not calibrated acceptance limits. The width follows the sampling
+period, not an inferred system or residual time constant; review it when
+changing sampling rates.
+
+Override the parameters when creating a session:
+
+.. code:: python
+
+   vs = validate_models(
+       measured_in=u_meas,
+       measured_out=y_meas,
+       simulated_out=y_sim,
+       sampling_period=sampling_period,
+       Ree_envelope=(0.95, 0.1, 5.0),
+   )
+   figures = vs.plot_residuals()
+
+The tuple is ``(b0, b_inf, time_scale)``, shared across outputs. Parameters
+must be finite and satisfy the constraints above. The time scale uses
+dataset time units, not lag indices. With array measurements it uses the
+same time unit as ``sampling_period``.
+
+For separate limits, supply every measured output name:
+
+.. code:: python
+
+   limits = {
+       "temperature": (0.95, 0.1, 5.0),
+       "flow": (0.8, 0.05, 2.0),
+   }
+   # Pass Ree_envelope=limits with correspondingly named measured Signals.
+   # Array measurements instead get names y0, y1, and so on.
+
+With an envelope enabled:
+
+* ``Ree_envelope`` stores the maximum diagonal ratio. Its default
+  acceptance threshold is 1, inclusive.
+* The diagonal report row uses the Gaussian ratio instead of the ordinary
+  ``Ree_correlation`` score. Its default check is replaced by the envelope
+  check. The ordinary diagonal score remains available in the statistics.
+* ``Ree_cross_correlation`` retains ordinary off-diagonal scoring.
+* ``plot_residuals()`` shades the region between the positive and negative
+  Gaussian limits on diagonal residual plots only. Zero lag is displayed
+  but not scored.
+
+The envelope ratio does not use ``Ree_local_weights``,
+``Ree_global_weights``, or the ordinary aggregation settings. It always
+takes the maximum. Each diagonal window must contain a nonzero lag;
+undefined diagonal correlations produce an infinite ratio.
+Input and input-residual scoring are unchanged.
+
+Pass ``Ree_envelope=None`` to use ordinary diagonal correlation scoring.
+Envelope ratios and ordinary correlation magnitudes are kept separate:
+they should not be averaged together as if they meant the same thing.
+
+*****************************
+ Choose meaningful envelopes
+*****************************
+
+The parameters control different parts of the acceptance limit:
+
+* **Increase** :math:`b_0` to allow more short-delay correlation.
+* **Lower** :math:`b_\infty` to demand less long-delay correlation.
+* **Increase** :math:`T_b` to let the limit stay permissive for longer.
+  At :math:`t=T_b`, the allowance above the floor has fallen to
+  :math:`1/e` of its initial value.
+
+For illustration, :math:`b_0=0.95`, :math:`b_\infty=0.1`, and
+:math:`T_b=5` seconds give limits of about 0.92 at one second and 0.12
+at ten seconds. These are not recommended defaults.
+
+.. figure:: ../figures/ResidualCorrelationEnvelope.svg
+   :alt: A Gaussian limit allows correlation of 0.75 at one second
+         but rejects correlation of 0.88 at ten seconds.
+   :align: center
+   :width: 100%
+
+   Short delays are checked against permissive limits, not discarded.
+
+A Gaussian is flatter near zero and tightens more sharply later than an
+exponential. This can suit a rounded central cluster, but residual
+correlations need not be Gaussian. The envelope expresses acceptable
+behavior, not a universal model of the errors.
+
+Choose limits from application requirements, sensor/filter knowledge, or
+independent experiments. A trusted reference model is a useful baseline:
+use several representative logs, allow for run-to-run variation, and
+freeze the limits before evaluating candidates on separate data.
+Keep sampling, preprocessing, operating conditions, and evaluated delays
+comparable. Do not tune the envelope merely until a model passes.
+
+A slow output does not automatically justify a wide envelope: its slow
+response may cancel in the residuals. Account for finite-record estimation
+fluctuations too. Retain an RMSE criterion, since identical normalized
+correlation can accompany much larger errors.
+
+What about cross-correlations?
+===============================
+
+Off-diagonal residual entries and all input-residual entries can retain
+``abs_mean``, ``max``, or the other ordinary statistics, including zero lag.
+When near-zero correlation is the target, a constant tolerance is a
+reasonable starting point. ``max`` divided by that tolerance is equivalent
+to a flat-envelope violation ratio; ``abs_mean`` instead measures average
+correlation and can hide localized peaks.
+
+Different outputs can share disturbances or sensor effects, so residual
+cross-correlations need not vanish for accurate modeled dynamics.
+Feedback and input-related disturbances can also complicate input-residual
+correlation. Treat the scores accordingly rather than assuming every
+nonzero correlation proves model error.
+
+********************************
+ Interpret results and PASS/FAIL
+********************************
+
+Fit and RMSE describe agreement and error magnitude. Residual correlation
+reveals temporal or shared patterns; input-residual correlation can expose
+missed input-output behavior. Input correlation describes excitation, not
+model quality. Use :ref:`doe` to assess input richness and dataset suitability.
 
 .. note::
 
-   Small residual correlations are generally desirable, but are not a
-   universal requirement for a correct simulation model. Colored sensor
-   noise or unmeasured disturbances can produce correlated residuals even
-   when the modeled dynamics are accurate. These simulation residuals are
-   not necessarily the one-step prediction errors of a model that also
-   describes the noise.
+   Low residual correlation is generally desirable, but not a universal
+   requirement for a correct simulation model. Colored noise and unmeasured
+   disturbances can produce correlated errors. These residuals are not
+   necessarily one-step prediction errors from a model of both dynamics
+   and noise. Clean, meaningful measurements and knowledge of the experiment
+   are essential to interpreting the scores.
 
-   Clean, meaningful measurements are essential: check timing alignment,
-   sensor quality, excitation, and operating conditions before attributing
-   residual patterns to the model. Interpret correlation alongside output
-   plots, RMSE, and knowledge of the experiment, rather than trying to make
-   the score small at any cost.
+The default ordinary thresholds are:
 
-Both R-squared and residual RMSE are stored as scalar values for each
-simulation in ``vs.validation_statistics``, under ``"r2"`` and ``"rmse"``.
-For multiple outputs, ``r2_statistic="min"`` selects the lowest fit by
-default, while ``rmse_statistic="max"`` selects the largest per-output RMSE.
-Both also support ``"mean"``. Outputs should have comparable units and
-scaling before aggregating RMSE.
+.. list-table::
+   :header-rows: 1
 
-The correlation keys are ``"Ruu_correlation"``, ``"Ree_correlation"``, and
-``"Rue_correlation"``. The report compares scores with the configured
-thresholds: R-squared must be strictly above its threshold, and the other
-scores strictly below theirs. All configured checks must pass.
-Use ``ignore_input=True`` to disable the input-correlation check.
+   * - Key
+     - Passing condition
+   * - ``Ruu_correlation``
+     - Less than 0.6
+   * - ``r2``
+     - Greater than 35 (%)
+   * - ``Ree_correlation``
+     - Less than 0.5 (diagonal; only with ``Ree_envelope=None``)
+   * - ``Ree_cross_correlation``
+     - Less than 0.5 (off-diagonal; multiple outputs only)
+   * - ``Rue_correlation``
+     - Less than 0.5
 
-There is no RMSE threshold enabled by default, since an acceptable error
-depends on the output units and application. To add one while retaining the
-current checks:
+RMSE is reported without a default threshold. The default diagonal check is
+``Ree_envelope <= 1``. All configured checks must pass. These defaults are
+starting settings, not universal suitability criteria.
+
+``ignore_input=True`` omits the input check from the default thresholds.
+With custom thresholds, omit ``Ruu_correlation`` yourself if you do not
+want that check. Custom dictionaries enable only their listed checks;
+include ``"Ree_envelope": 1.0`` explicitly to check an enabled envelope.
+
+Inspect or reuse the results as plain dictionaries:
+
+.. code:: python
+
+   print(vs.validation_statistics)
+   print(vs.validation_thresholds)
+   print(vs.outcome)
+
+To add an RMSE tolerance without dropping existing checks:
 
 .. code:: python
 
    thresholds = dict(vs.validation_thresholds)
-   thresholds["rmse"] = 0.1  # Example only: choose a meaningful tolerance.
+   thresholds["rmse"] = 0.1  # Illustrative: choose for your units/application.
    vs.validation_thresholds = thresholds
 
-Choose thresholds for your application, or use the underlying data to build
-your own evaluation criteria.
+Setting thresholds recomputes existing outcomes. Ordinary correlation
+and RMSE thresholds are strict upper bounds; R-squared uses a strict lower
+bound. The envelope threshold is an inclusive upper bound.
 
-In any case, it is important that you deliver your model along with the
-validation results and the coverage region, so users know within which limits
-they can trust the model.
+Inspect the plots too:
 
-Envelope-based residual auto-correlation score (proposed)
-======================================================================
+.. code:: python
 
-A single correlation threshold treats every delay alike. Sometimes you have
-reason to tolerate stronger residual correlation at short delays, but want
-to reject correlation that persists for longer. An *acceptance envelope*
-expresses those different limits.
+   fig = vs.plot_simulations()
+   figures = vs.plot_residuals()
 
-First, distinguish the entries of the residual correlation matrix
-:math:`R_{\varepsilon\varepsilon}`, which has shape :math:`q\times q`:
-
-* The diagonal entries compare each residual :math:`\varepsilon_i` with
-  delayed copies of itself. These are scalar auto-correlations.
-* The off-diagonal entries compare different residual components
-  :math:`\varepsilon_i` and :math:`\varepsilon_j`. These are
-  cross-correlations, even though they belong to the vector's
-  auto-correlation matrix.
-
-The proposed envelope applies only to the diagonal entries. The
-off-diagonal entries can retain existing statistics such as ``abs_mean``
-or ``max``. All entries of the input-residual matrix
-:math:`R_{u\varepsilon}` are cross-correlations, including
-:math:`u_i` versus :math:`\varepsilon_i`: matching indices do not make
-them the same signal.
-
-The envelope is a positive limit curve :math:`b(t)` that you choose, not a
-curve fitted to the observed auto-correlation and not its derivative.
-At each evaluated nonzero lag :math:`k`, compare the absolute normalized
-residual auto-correlation with the limit at delay :math:`|k|T_s`:
-
-.. math::
-
-   |\hat\rho_\varepsilon(k)| \leq b(|k|T_s).
-
-One scalar can summarize the worst violation:
-
-.. math::
-
-   S = \max_{k \ne 0}
-       \frac{|\hat\rho_\varepsilon(k)|}{b(|k|T_s)}.
-
-Here, :math:`S \leq 1` means every evaluated lag is within its limit;
-:math:`S>1` means at least one exceeds it. Unlike an average, adding
-near-zero correlations cannot dilute an existing violation. The result
-only covers the evaluated delay window, not all possible delays.
-The zero-lag auto-correlation peak is excluded, as in the existing scores.
-
-How would you choose the envelope?
-----------------------------------
-
-A Gaussian-shaped limit with a positive floor is a useful starting point
-when you have reason to tolerate a rounded central cluster:
-
-.. math::
-
-   b(t) = b_\infty + (b_0-b_\infty)\exp[-(t/T_b)^2],
-   \qquad 0 < b_\infty \leq b_0 \leq 1,\quad T_b>0.
-
-* :math:`b_0` sets the short-delay tolerance. Increasing it permits
-  stronger correlation near zero, but does not exclude those delays.
-* :math:`b_\infty` sets the long-delay tolerance. Lowering it makes
-  persistent correlation harder to accept.
-* :math:`T_b` controls how quickly the limit tightens. Increasing it
-  tolerates short-delay correlation for longer. It is an acceptance
-  time scale, not automatically the output's time constant. At
-  :math:`t=T_b`, the allowance above the floor has fallen to
-  :math:`1/e` of its initial value.
-
-Compared with an exponential limit, this shape is flatter near zero and
-tightens more sharply later. Neither shape is universally correct, and
-residual auto-correlations need not be Gaussian. Choose a limit that
-expresses acceptable behavior, not simply one that resembles the data.
-
-For illustration only, take :math:`b_0=0.95`, :math:`b_\infty=0.1`, and
-:math:`T_b=5` seconds. The limit is about 0.92 at one second and 0.12 at
-ten seconds. Correlation of 0.75 at one second would meet its limit,
-while correlation of 0.88 at ten seconds would not. These numbers are
-not recommended defaults.
-
-.. figure:: ../figures/ResidualCorrelationEnvelope.svg
-   :alt: A decaying acceptance limit allows correlation of 0.75 at one
-         second but rejects correlation of 0.88 at ten seconds.
-   :align: center
-   :width: 100%
-
-   An acceptance envelope checks short delays rather than ignoring them,
-   while imposing tighter limits at longer delays.
-
-Choose the limits using application requirements, sensor/filter knowledge,
-or independent reference experiments. Do not tune them merely until the
-candidate model passes. A slow measured output alone does not justify a
-permissive short-delay envelope: its residuals may have a different time
-scale. Finite-record uncertainty matters too; an envelope below the normal
-estimation fluctuations can reject useful models.
-
-A trusted reference model can also provide an empirical baseline. If its
-performance is known to be acceptable, use its diagonal residual
-auto-correlations to help define the envelope. Prefer several representative
-logs and include a margin for run-to-run variation rather than fitting a
-limit tightly to one curve. Freeze the envelope before evaluating candidate
-models on separate data, keeping sampling, preprocessing, operating
-conditions, and evaluated delays comparable.
-
-This asks whether a candidate's residual dependence stays within accepted
-reference behavior, not whether its residuals are statistically white.
-Retain an RMSE criterion too: normalized correlation can look identical
-even when the candidate's errors are much larger.
-
-Keep the envelope and maximum evaluated physical delay fixed when comparing
-models under comparable experimental conditions. Inspect the full
-correlation plot and RMSE alongside the score. Different outputs can need
-different envelopes; a combined score could take the largest violation
-across outputs without mixing their physical units.
-
-This is an optional application-specific acceptance criterion, not a
-universal requirement, a statistical confidence band, or a formal test.
-
-Envelope scores are ratios to a limit, whereas existing correlation scores
-summarize correlation magnitudes. Do not feed both directly into the same
-global aggregation as though they had the same meaning. Assess them
-separately, or divide each ordinary score by its own positive acceptance
-threshold before combining violation ratios.
-
-.. note::
-
-   Envelope-based scoring is not implemented yet. The formula above defines
-   a proposed criterion; it is not an available API option and does not
-   change the existing scores or PASS/FAIL behavior.
-
-What about the cross-correlation entries?
------------------------------------------
-
-The off-diagonal residual entries and all input-residual entries can keep
-the current statistics, including zero lag. There is no self-correlation
-peak that must be excluded for these pairs.
-
-Different residual outputs can share disturbances or sensor effects, so
-their cross-correlation need not vanish even for accurate modeled dynamics.
-Treat these entries as diagnostics unless low cross-correlation is a
-justified application requirement.
-
-When residuals are expected to be uncorrelated with the inputs, the target
-is approximately zero at every evaluated delay, including zero delay.
-A constant acceptance limit is then a reasonable starting point: there is
-no auto-correlation peak of one that must be excluded.
-
-The existing ``abs_mean`` and ``max`` statistics remain useful summaries.
-However, ``abs_mean`` can hide a localized cross-correlation peak and can
-be diluted by extending the lag window. ``max`` checks the strongest peak;
-dividing it by a constant positive limit is the constant-envelope version
-of the score above.
-
-Neither provides a universal threshold. Finite-data fluctuations depend
-on record length and signal correlation, and feedback or disturbances
-related to the inputs can complicate the interpretation. A flat
-acceptance limit is a choice, not a guarantee of a flat observed
-cross-correlation or a constant statistical uncertainty.
+Deliver the results alongside the experiment's operating-region coverage
+and acceptance settings. A PASS only describes these checks on this data.
+It does not certify that the model is correct, nor does a FAIL necessarily
+mean that the model is unusable. Beginners can use the scores and plots to
+guide an investigation, but choosing acceptable errors and interpreting
+residual patterns still needs knowledge of the application.
+Before using outcomes for automatic acceptance, calibrate and freeze the
+criteria, assess independent representative records, and verify that the
+gate detects known inadequate models. See :ref:`model_ci_cd` for a practical
+checklist.
 
 *******************************
  The results are disappointing
 *******************************
 
-When the validation results are bad does not necessarily mean that the model
-is bad. It may be that the validation procedure needs some tweak. Here are few
-things to check:
+A failed check is a reason to investigate, not automatically to reject the
+model or relax the threshold.
 
--  Noisy measurements can obscure the response you want to validate.
-   Filtering may help, but can also hide model errors or introduce
-   correlation and phase shifts. If you filter, define the frequency range
-   you intend to validate and treat measured and simulated outputs
-   consistently. Do not smooth the data merely to improve a score.
-
--  Slowly varying residuals can have large correlations at short delays.
-   Inspect correlation against physical delay and choose a meaningful
-   evaluation window. Do not automatically discard short delays: they may
-   reveal model errors. Increasing the window can dilute an ``abs_mean``
-   score with small correlations; keep the window fixed when comparing
-   models, or use ``max`` to avoid that dilution.
-
--  The input signal has some trend or some large mean values or offset, etc..
-   The normalized correlation diagnostics already subtract signal means;
-   they do not automatically remove trends. Any preprocessing should be
-   consistent with the model's input/output conventions. Residual offsets
-   do not necessarily cancel: a bias contributes to RMSE even when it is
-   removed by the correlation calculation.
-
-.. _theory:
-
-**********************************
- Some theory: what are residuals?
-**********************************
-
-The residuals, denoted as :math:`\varepsilon`, are simply the error between
-the measured outputs and the simulated outputs, defined as :math:`\varepsilon
-= y_{\mathrm{measured}} - y_{\mathrm{simulated}}`.
-
-Residual correlation helps us look for structure left in the errors.
-For a signal :math:`x(t), t=1,\dots,N`, auto-correlation measures similarity
-with delayed copies of itself. The function :math:`r_{x,x}(k)` is
-called *auto-correlation function (ACF)* of the signal :math:`x(t)` and it
-represents how similar :math:`x(t)` is with delayed copies of itself at
-different lags :math:`k\in \mathbb Z`. If instead of considering one signal we
-consider two signals :math:`x(t)` and :math:`y(t)`, then we obtain the
-*cross-correlation function (CCF)* :math:`r_{x,y}(k)` between :math:`x(t)` and
-:math:`y(t)`.
-
-The next question is: to how many seconds one lag corresponds to?
-
-One lag corresponds to one sampling period :math:`T_s`, so lag :math:`k`
-represents a physical delay :math:`kT_s`. Signals being compared must share
-the same sampling period. No automatic bandwidth-based lag thinning is used.
-
-To inspect delays up to :math:`KT_s` in either direction, request
-``nlags=2*K+1`` for each channel pair. In a validation session, these sizes
-are supplied as arrays through ``Ruu_nlags``, ``Ree_nlags``, and
-``Rue_nlags``. For example, with :math:`T_s=0.5` seconds, a window of 41
-points covers delays from -10 to +10 seconds, provided the record is long
-enough. Returned ``lags`` remain integer sample offsets; multiply them by
-:math:`T_s` to express delays in time units.
-
-Increasing the window extends the inspected delay range; it does not
-change the spacing or exclude the central region. A slow measured output
-does not necessarily imply slow residuals: the modeled slow response may
-cancel when taking their difference.
-
-If residual correlation stays high across the displayed window, extending
-it can reveal how long the pattern persists. However, an ``abs_mean`` score
-depends on the window: adding many near-zero values can lower the score
-without improving the model. The ``max`` statistic avoids this dilution,
-but does not distinguish an isolated peak from persistent correlation.
-Choose and report the window, statistic, and threshold together, keeping
-them fixed across model comparisons. Neither statistic is a universal
-model-quality test.
-
-*Dymoval* also summarizes correlation for **multivariate signals** as
-follows.
-
-Let :math:`X` a signal of dimension :math:`p` with :math:`N` observations. The
-correlation scoring of :math:`X` is performed in three steps:
-
-#. That is, the `auto-/cross-correlation` functions :math:`r_{i,j}(k)` of each
-   pair of components :math:`x_i, x_j \in X` for :math:`i,j = 1 \dots p` is
-   computed and arranged in :math:`p\times p`
-   :py:class:`~dymoval.xcorrelation.XCorrelation` object.
-
-#. For each element :math:`r_{i,j}(k), i,j = 1 \dots p` of the
-   :py:class:`~dymoval.xcorrelation.XCorrelation` object, correlation is
-   summarized over the selected symmetric lag window (by default, 20
-   negative lags, zero, and 20 positive lags). The default statistic is the *mean of
-   the absolute value* of the realizations of the
-   :py:class:`~dymoval.xcorrelation.XCorrelation` function. The results are
-   arranged in a :math:`p\times p` array where each element is `float`.
-
-#. Another statistic is finally computed on the resulting flattened array. By
-   default, *dymoval* take the :math:`\max` element of such an array, which
-   corresponds to the largest local correlation score.
-
-*Dymoval* considers **normalized** correlation functions, whose values are
-between :math:`-1.0` and :math:`1.0`. For an auto-correlation, the value at
-zero lag is one for a nonconstant channel. These diagonal zero-lag peaks
-are excluded from the score; cross-correlations between different channels
-still include zero lag.
+* **Check the measurements.** Verify timing alignment, sensor quality,
+  actual actuator behavior, excitation, and operating conditions.
+* **Be careful with filtering.** It may help separate relevant behavior
+  from noise, but can hide errors or introduce correlation and phase shifts.
+  Define the frequency range being validated and treat measured and
+  simulated outputs consistently.
+* **Inspect the delay range.** If correlation stays high across the plotted
+  window, extend it to understand its persistence. Do not use the resulting
+  dilution of ``abs_mean`` as evidence that the model improved.
+* **Check offsets and trends.** Correlation diagnostics remove means but
+  not trends. A constant bias can disappear from correlation while still
+  contributing to RMSE. Preprocessing must match the model conventions.
+* **Inspect the model response.** Incorrect initial conditions, timing
+  differences, and missed dynamics can all leave residual patterns.

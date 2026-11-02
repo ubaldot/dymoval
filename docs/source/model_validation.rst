@@ -34,6 +34,15 @@ single number or a convincing-looking plot.
 The aim is not to prove that the model is perfect, but to understand where
 you can trust its predictions and where more investigation is needed.
 
+Dymoval makes these checks accessible without requiring you to implement
+the statistics yourself. It is a tool for **guided model assessment**, not
+an automatic certificate of correctness. Its default tolerances are starting
+settings: interpreting the results requires knowledge of the experiment
+and the model's intended use. A PASS means the configured checks passed
+on the evaluated data; a FAIL calls for investigation.
+For automated acceptance, see :ref:`model_ci_cd` for guidance on calibrating
+criteria, checking coverage, and handling incomplete runs.
+
 The model validation process happens in four steps:
 
 #. **Design a Set of Experiments**: Define a set of experiments to be carried
@@ -64,8 +73,9 @@ The model validation process happens in four steps:
    returns a pass/fail value but in general it returns the evaluation of some
    model quality metrics.
 
-If the results of step 4. are good, then you can trust what your model says
-within its validation region.
+Good results from step 4. provide evidence for using the model within the
+evaluated region and for the intended task. They do not guarantee accuracy
+under untested conditions or for other uses.
 
 Let's see how steps 1-4 can be applied.
 

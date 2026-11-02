@@ -66,8 +66,9 @@ Checking your models
 ====================
 
 - Compare several simulations against the same measurements
-- Measure the fit with R-squared scores
+- Measure fit with R-squared and residual RMSE scores
 - Look for patterns in errors using residual correlation checks
+- Customize Gaussian limits for diagonal residual auto-correlation
 - Set your own thresholds for pass/fail checks
 - Work with one or several inputs and outputs (SISO and MIMO)
 - Run the same checks automatically when your model changes

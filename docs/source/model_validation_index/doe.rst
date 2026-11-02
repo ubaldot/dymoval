@@ -120,7 +120,7 @@ These are practical screening checks, not a certificate that the data is
 informative. Colored inputs can be useful, while small correlation scores
 do not guarantee that the input excites the dynamics you need.
 
-Over-sampled signals (TODO)
+Sampling and correlation
 ---------------------------
 
 If a signal is over-sampled, consecutive measurements are often correlated
@@ -129,14 +129,12 @@ the signal. This can make the auto-correlation appear large near zero lag,
 even when the experiment contains useful excitation. The result may then
 describe the sampling rate more than the signal's relevant dynamics.
 
-There are two common ways to address this:
-
-* compute the auto-correlation over a sufficiently long lag window and
-  interpret the result outside the system's memory, that is, after the
-  dominant correlation has decayed over the relevant time constants; or
-* down-sample the signal so that consecutive samples are separated by a
-  time scale appropriate for its bandwidth, while still satisfying the
-  Shannon-Nyquist criterion.
+Inspect the correlation against physical delay, not just lag index, over
+a window relevant to the behavior you want to validate. Correlated input
+samples do not automatically mean the experiment is unsuitable, and
+excluding delays within a system time constant can hide useful information.
+If you deliberately resample a log, preserve the relevant dynamics and
+apply appropriate anti-alias filtering before reducing the sampling rate.
 
 *Dymoval* evaluates correlations at one-sample spacing; it does not
 automatically change the lag grid based on bandwidth. Choose a meaningful
@@ -397,4 +395,4 @@ system's dynamics, as shown in the next example.
 
 At the end of this phase, check both operating-region coverage and whether
 the variations in the data reveal the dynamics you want to model. Neither
-input whiteness nor a broad range of amplitudes alone is enough.
+low input correlation nor a broad range of amplitudes alone is enough.

@@ -72,6 +72,19 @@ bring the results to dymoval.
 Matching one experiment does not mean a model will work everywhere.
 You decide which experiments and checks matter for your application.
 
+Dymoval supports **guided model assessment, not automatic certification**.
+You do not need to implement the statistics yourself, but interpreting the
+results still requires knowledge of your experiment and intended use.
+**PASS means the configured checks passed on this dataset**, not that the
+model is correct everywhere. FAIL is a reason to investigate, not an
+automatic rejection; the default tolerances are starting settings.
+
+For automated acceptance, calibrate and freeze the criteria, assess
+representative independent records, and verify that the gate detects known
+inadequate models. Require all expected results and retain the evidence.
+See the [CI/CD guidance](https://ubaldot.github.io/dymoval/getting_started.html#model-ci-cd)
+for coverage, error limits, reproducibility, and failure handling.
+
 ## Installation
 
 Dymoval exists on both `pip` and `conda`, so you can choose between the
@@ -104,7 +117,8 @@ vs = dmv.validate_models(
 )
 ```
 
-Displaying the returned object gives you something like the following:
+Displaying the returned object gives you something like the following
+(illustrative values):
 
 ```
 Validation results:
@@ -112,18 +126,21 @@ Validation results:
 Thresholds:
 Ruu_correlation: 0.6000
 r2: 35.0000
-Ree_correlation: 0.5000
+Ree_envelope: 1.0000
 Rue_correlation: 0.5000
 
 Actuals:
                                                         Sim_0
 Input auto-correlation (abs_mean-max)                   0.3532
 R-squared fit (%)                                     65.9009
-Residual auto-correlation (abs_mean-max)                0.1087
+Residual RMSE (max)                                   25.1090
+Residual auto-correlation (Gaussian envelope ratio)     0.8000
+Residual cross-correlation (abs_mean-max)                   N/A
 Input-residual cross-correlation (abs_mean-max)         0.2053
 
 Correlation scores: lower means less correlation.
 R-squared fit: higher is better.
+Residual RMSE: lower is better; output units/scaling must be comparable.
 Input auto-correlation describes excitation, not model quality.
 
          Sim_0
@@ -131,6 +148,35 @@ Outcome: PASS
 ```
 
 The results pass the selected thresholds for this experiment.
+
+Residual RMSE is available alongside R-squared in
+`vs.validation_statistics`; it has no default acceptance threshold.
+Use `rmse_statistic="max"` (default) or `"mean"` to aggregate outputs with
+comparable units/scaling.
+
+Gaussian diagonal residual limits are enabled by default:
+`Ree_envelope="auto"` uses `(0.95, 0.1, 5*Ts)` as starting settings.
+Review these tolerances for your experiment; the width is not inferred from
+the system dynamics. Use `Ree_envelope=None` for ordinary diagonal scoring.
+For application-specific diagonal residual auto-correlation limits, pass
+`Ree_envelope=(0.95, 0.1, 5.0)` to `validate_models` or `ValidationSession`.
+These illustrative Gaussian parameters are the short-delay limit,
+long-delay floor, and time scale in dataset time units—not universal defaults.
+You can instead provide a dictionary of tuples keyed by output name.
+`vs.plot_residuals()` shades the allowed region on the residual diagonal.
+The separate `Ree_envelope` statistic is the worst violation ratio and
+passes at or below 1 by default, replacing the ordinary diagonal check.
+`Ree_correlation` always describes diagonal residual auto-correlations;
+`Ree_cross_correlation` separately describes off-diagonal pairs. The report
+shows the Gaussian ratio on the auto-correlation row when enabled, otherwise
+the ordinary diagonal score. For one output, residual cross-correlation is
+N/A and omitted from statistics and thresholds.
+
+Correlation lags always use one-sample spacing. Choose a meaningful lag
+window and keep it fixed across comparisons; extending it can dilute
+`abs_mean`. No automatic bandwidth-based lag adjustment is performed.
+Custom threshold dictionaries check only the listed keys; explicitly include
+`"Ree_envelope": 1.0` to retain that check.
 
 But what if the test didn't pass? Don't worry, it might not be the model's
 fault.

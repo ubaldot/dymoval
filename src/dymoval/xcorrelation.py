@@ -291,6 +291,9 @@ class XCorrelation:
         ) = None,  # shall be p*q matrix where each element is a 1-D array.
         global_statistic: XCorr_Statistic_type = "max",
         global_weights: np.ndarray | None = None,  # Shall be a p*q matrix
+        *,
+        exclude_diagonal: bool = False,
+        diagonal_only: bool = False,
     ) -> tuple[float, np.ndarray]:
         r"""Summarize correlation using the selected statistics.
 
@@ -314,6 +317,13 @@ class XCorrelation:
         global_statistic:
             Statistic used to aggregate the flattened :math:`p \times q`
             array of per-channel correlation scores.
+        exclude_diagonal:
+            Aggregate only off-diagonal entries, for a square correlation
+            matrix. Returns zero if there are no off-diagonal entries.
+            The returned local score matrix still includes all entries.
+        diagonal_only:
+            Aggregate only diagonal entries of a square matrix. Cannot be
+            combined with ``exclude_diagonal``.
 
         global_weights:
             Weights associated with each element of the resulting
@@ -344,6 +354,10 @@ class XCorrelation:
         R = self.R
         p = R.shape[0]  # Number of rows
         q = R.shape[1]  # Number of columns
+        if (exclude_diagonal or diagonal_only) and p != q:
+            raise ValueError("Diagonal selection requires a square matrix")
+        if exclude_diagonal and diagonal_only:
+            raise ValueError("Diagonal selections are mutually exclusive")
 
         # ---- statistics type is correct ----
         if (
@@ -415,10 +429,21 @@ class XCorrelation:
                 )
 
         # Compute the overall statistic of the resulting matrix
-        whiteness_estimate = compute_statistic(
-            statistic=global_statistic,
-            weights=W_global.flatten(),
-            data=whiteness_matrix.flatten(),
+        selected = (
+            ~np.eye(p, dtype=bool)
+            if exclude_diagonal
+            else np.ones((p, q), dtype=bool)
+        )
+        if diagonal_only:
+            selected = np.eye(p, dtype=bool)
+        whiteness_estimate = (
+            compute_statistic(
+                statistic=global_statistic,
+                weights=np.asarray(W_global).reshape(p, q)[selected],
+                data=whiteness_matrix[selected],
+            )
+            if np.any(selected)
+            else 0.0
         )
 
         return whiteness_estimate, whiteness_matrix
