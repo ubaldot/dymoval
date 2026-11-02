@@ -63,76 +63,6 @@ class Test_XCorrelation:
         assert Rxy.kind == "cross-correlation"
         assert dmv.XCorrelation("foo", X, X).kind == "auto-correlation"
 
-    def test_initializer_with_bandwidth_args(
-        self, correlation_tensors: tuple
-    ) -> None:
-        (
-            Rx0y0_expected,
-            Rx1y0_expected,
-            _,
-            Rx0y1_expected_partial,
-            _,
-            Rx1y1_expected_partial,
-            X,
-            Y,
-            X_bandwidths,
-            Y_bandwidths,
-            sampling_period,
-        ) = correlation_tensors
-
-        lags_short = np.arange(-1, 2)
-        lags_long = np.arange(-5, 6)
-
-        Rxy = dmv.XCorrelation(
-            "foo", X, Y, np.full((2, 2), 11),
-            X_bandwidths, Y_bandwidths, sampling_period
-        )
-        R = Rxy.R
-
-        np.testing.assert_allclose(R[0, 0].values, Rx0y0_expected, atol=1e-3)
-        np.testing.assert_allclose(
-            R[0, 1].values, Rx0y1_expected_partial, atol=1e-3
-        )
-        np.testing.assert_allclose(R[1, 0].values, Rx1y0_expected, atol=1e-3)
-        np.testing.assert_allclose(
-            R[1, 1].values, Rx1y1_expected_partial, atol=1e-3
-        )
-
-        np.testing.assert_allclose(R[0, 0].lags, lags_long)
-        np.testing.assert_allclose(R[0, 1].lags, lags_short)
-        np.testing.assert_allclose(R[1, 0].lags, lags_long)
-        np.testing.assert_allclose(R[1, 1].lags, lags_short)
-
-    def test_initializer_with_not_all_args_passed(
-        self, correlation_tensors: tuple
-    ) -> None:
-        # Downsampling needs the two bandwidths *and* the sampling period.
-        # Supplying only some of them used to be silently ignored, which
-        # gave a non-downsampled correlation with no indication that the
-        # arguments had no effect.
-        (
-            *_,
-            X,
-            Y,
-            X_bandwidths,
-            Y_bandwidths,
-            sampling_period,
-        ) = correlation_tensors
-
-        partial_arguments = [
-            {"X_bandwidths": X_bandwidths, "sampling_period": sampling_period},
-            {"Y_bandwidths": Y_bandwidths, "sampling_period": sampling_period},
-            {"X_bandwidths": X_bandwidths, "Y_bandwidths": Y_bandwidths},
-            {"X_bandwidths": X_bandwidths},
-        ]
-
-        for kwargs in partial_arguments:
-            with pytest.raises(ValueError, match="all of them or none"):
-                dmv.XCorrelation("foo", X, Y, None, **kwargs)
-
-        # The sampling period on its own means "no downsampling" and is fine
-        dmv.XCorrelation("foo", X, Y, None, sampling_period=sampling_period)
-
     def test_initializer_with_no_downsampling_args(
         self, correlation_tensors: tuple
     ) -> None:
@@ -177,24 +107,18 @@ class Test_XCorrelation:
     ) -> None:
         X = correlation_tensors[6]
         Y = correlation_tensors[7]
-        X_bandwidths = correlation_tensors[8]
-        Y_bandwidths = correlation_tensors[9]
-        sampling_period = correlation_tensors[10]
 
         R = dmv.XCorrelation(
             name="foo",
             X=X,
             Y=Y,
             nlags=np.array([[5, 3], [6, 4]]),
-            X_bandwidths=X_bandwidths,
-            Y_bandwidths=Y_bandwidths,
-            sampling_period=sampling_period,
         ).R
 
         np.testing.assert_allclose(R[0, 0].lags, np.arange(-2, 3))
         np.testing.assert_allclose(R[0, 1].lags, np.arange(-1, 2))
         np.testing.assert_allclose(R[1, 0].lags, np.arange(-3, 4))
-        np.testing.assert_allclose(R[1, 1].lags, np.arange(-1, 2))
+        np.testing.assert_allclose(R[1, 1].lags, np.arange(-2, 3))
 
     @pytest.mark.parametrize(
         ("nlags", "error"),
@@ -215,25 +139,6 @@ class Test_XCorrelation:
 
         with pytest.raises(error):
             dmv.XCorrelation("foo", X, Y, nlags=nlags)
-
-    def test_initializer_with_wrong_params(
-        self, correlation_tensors: tuple
-    ) -> None:
-        X = correlation_tensors[6]
-        Y = correlation_tensors[7]
-        Y_bandwidths = correlation_tensors[9]
-        sampling_period = correlation_tensors[10]
-
-        with pytest.raises(IndexError):
-            dmv.XCorrelation(
-                "foo",
-                X,
-                Y,
-                None,
-                np.array([2]),
-                Y_bandwidths,
-                sampling_period,
-            )
 
     def test_correlation_score(self, correlation_tensors: tuple) -> None:
         X = correlation_tensors[6]

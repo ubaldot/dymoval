@@ -60,8 +60,8 @@ Design decisions & trade-offs
   one-sided amplitude/power semantics).
 
 - Defensive checks: many runtime validations protect users from mis-using
-  the API (shape mismatches, sampling-period checks, inconsistent
-  bandwidth arguments). This increases robustness at the cost of verbosity.
+  the API (shape mismatches, sampling-period checks, invalid lag-window
+  sizes). This increases robustness at the cost of verbosity.
 
 Recommendations for maintainers
 -------------------------------

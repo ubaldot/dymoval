@@ -23,8 +23,9 @@ is the measured out arranged in :math:`N\times q`, :math:`N\times p` and
 observations sampled with period `sampling_period`, :math:`p` is the number of
 inputs and :math:`q` is the number of outputs.
 
-For more accurate results, the bandwidths of the involved signals can be
-passed to the *dymoval* functions.
+Correlation lags use one-sample spacing. Choose the lag-window sizes to cover
+the physical delays relevant to your application. Signal bandwidth
+arguments are no longer accepted; no automatic lag thinning is performed.
 
 The function :py:meth:`~dymoval.validation.validate_models` returns a
 :py:class:`~dymoval.validation.ValidationSession` object that stores the
@@ -148,6 +149,164 @@ In any case, it is important that you deliver your model along with the
 validation results and the coverage region, so users know within which limits
 they can trust the model.
 
+Envelope-based residual auto-correlation score (proposed)
+======================================================================
+
+A single correlation threshold treats every delay alike. Sometimes you have
+reason to tolerate stronger residual correlation at short delays, but want
+to reject correlation that persists for longer. An *acceptance envelope*
+expresses those different limits.
+
+First, distinguish the entries of the residual correlation matrix
+:math:`R_{\varepsilon\varepsilon}`, which has shape :math:`q\times q`:
+
+* The diagonal entries compare each residual :math:`\varepsilon_i` with
+  delayed copies of itself. These are scalar auto-correlations.
+* The off-diagonal entries compare different residual components
+  :math:`\varepsilon_i` and :math:`\varepsilon_j`. These are
+  cross-correlations, even though they belong to the vector's
+  auto-correlation matrix.
+
+The proposed envelope applies only to the diagonal entries. The
+off-diagonal entries can retain existing statistics such as ``abs_mean``
+or ``max``. All entries of the input-residual matrix
+:math:`R_{u\varepsilon}` are cross-correlations, including
+:math:`u_i` versus :math:`\varepsilon_i`: matching indices do not make
+them the same signal.
+
+The envelope is a positive limit curve :math:`b(t)` that you choose, not a
+curve fitted to the observed auto-correlation and not its derivative.
+At each evaluated nonzero lag :math:`k`, compare the absolute normalized
+residual auto-correlation with the limit at delay :math:`|k|T_s`:
+
+.. math::
+
+   |\hat\rho_\varepsilon(k)| \leq b(|k|T_s).
+
+One scalar can summarize the worst violation:
+
+.. math::
+
+   S = \max_{k \ne 0}
+       \frac{|\hat\rho_\varepsilon(k)|}{b(|k|T_s)}.
+
+Here, :math:`S \leq 1` means every evaluated lag is within its limit;
+:math:`S>1` means at least one exceeds it. Unlike an average, adding
+near-zero correlations cannot dilute an existing violation. The result
+only covers the evaluated delay window, not all possible delays.
+The zero-lag auto-correlation peak is excluded, as in the existing scores.
+
+How would you choose the envelope?
+----------------------------------
+
+A Gaussian-shaped limit with a positive floor is a useful starting point
+when you have reason to tolerate a rounded central cluster:
+
+.. math::
+
+   b(t) = b_\infty + (b_0-b_\infty)\exp[-(t/T_b)^2],
+   \qquad 0 < b_\infty \leq b_0 \leq 1,\quad T_b>0.
+
+* :math:`b_0` sets the short-delay tolerance. Increasing it permits
+  stronger correlation near zero, but does not exclude those delays.
+* :math:`b_\infty` sets the long-delay tolerance. Lowering it makes
+  persistent correlation harder to accept.
+* :math:`T_b` controls how quickly the limit tightens. Increasing it
+  tolerates short-delay correlation for longer. It is an acceptance
+  time scale, not automatically the output's time constant. At
+  :math:`t=T_b`, the allowance above the floor has fallen to
+  :math:`1/e` of its initial value.
+
+Compared with an exponential limit, this shape is flatter near zero and
+tightens more sharply later. Neither shape is universally correct, and
+residual auto-correlations need not be Gaussian. Choose a limit that
+expresses acceptable behavior, not simply one that resembles the data.
+
+For illustration only, take :math:`b_0=0.95`, :math:`b_\infty=0.1`, and
+:math:`T_b=5` seconds. The limit is about 0.92 at one second and 0.12 at
+ten seconds. Correlation of 0.75 at one second would meet its limit,
+while correlation of 0.88 at ten seconds would not. These numbers are
+not recommended defaults.
+
+.. figure:: ../figures/ResidualCorrelationEnvelope.svg
+   :alt: A decaying acceptance limit allows correlation of 0.75 at one
+         second but rejects correlation of 0.88 at ten seconds.
+   :align: center
+   :width: 100%
+
+   An acceptance envelope checks short delays rather than ignoring them,
+   while imposing tighter limits at longer delays.
+
+Choose the limits using application requirements, sensor/filter knowledge,
+or independent reference experiments. Do not tune them merely until the
+candidate model passes. A slow measured output alone does not justify a
+permissive short-delay envelope: its residuals may have a different time
+scale. Finite-record uncertainty matters too; an envelope below the normal
+estimation fluctuations can reject useful models.
+
+A trusted reference model can also provide an empirical baseline. If its
+performance is known to be acceptable, use its diagonal residual
+auto-correlations to help define the envelope. Prefer several representative
+logs and include a margin for run-to-run variation rather than fitting a
+limit tightly to one curve. Freeze the envelope before evaluating candidate
+models on separate data, keeping sampling, preprocessing, operating
+conditions, and evaluated delays comparable.
+
+This asks whether a candidate's residual dependence stays within accepted
+reference behavior, not whether its residuals are statistically white.
+Retain an RMSE criterion too: normalized correlation can look identical
+even when the candidate's errors are much larger.
+
+Keep the envelope and maximum evaluated physical delay fixed when comparing
+models under comparable experimental conditions. Inspect the full
+correlation plot and RMSE alongside the score. Different outputs can need
+different envelopes; a combined score could take the largest violation
+across outputs without mixing their physical units.
+
+This is an optional application-specific acceptance criterion, not a
+universal requirement, a statistical confidence band, or a formal test.
+
+Envelope scores are ratios to a limit, whereas existing correlation scores
+summarize correlation magnitudes. Do not feed both directly into the same
+global aggregation as though they had the same meaning. Assess them
+separately, or divide each ordinary score by its own positive acceptance
+threshold before combining violation ratios.
+
+.. note::
+
+   Envelope-based scoring is not implemented yet. The formula above defines
+   a proposed criterion; it is not an available API option and does not
+   change the existing scores or PASS/FAIL behavior.
+
+What about the cross-correlation entries?
+-----------------------------------------
+
+The off-diagonal residual entries and all input-residual entries can keep
+the current statistics, including zero lag. There is no self-correlation
+peak that must be excluded for these pairs.
+
+Different residual outputs can share disturbances or sensor effects, so
+their cross-correlation need not vanish even for accurate modeled dynamics.
+Treat these entries as diagnostics unless low cross-correlation is a
+justified application requirement.
+
+When residuals are expected to be uncorrelated with the inputs, the target
+is approximately zero at every evaluated delay, including zero delay.
+A constant acceptance limit is then a reasonable starting point: there is
+no auto-correlation peak of one that must be excluded.
+
+The existing ``abs_mean`` and ``max`` statistics remain useful summaries.
+However, ``abs_mean`` can hide a localized cross-correlation peak and can
+be diluted by extending the lag window. ``max`` checks the strongest peak;
+dividing it by a constant positive limit is the constant-envelope version
+of the score above.
+
+Neither provides a universal threshold. Finite-data fluctuations depend
+on record length and signal correlation, and feedback or disturbances
+related to the inputs can complicate the interpretation. A flat
+acceptance limit is a choice, not a guarantee of a flat observed
+cross-correlation or a constant statistical uncertainty.
+
 *******************************
  The results are disappointing
 *******************************
@@ -156,20 +315,18 @@ When the validation results are bad does not necessarily mean that the model
 is bad. It may be that the validation procedure needs some tweak. Here are few
 things to check:
 
--  The measurements dataset has noisy measurements. In that case you want to
-   low-pass filter the dataset, but avoid to use tight cutoff frequencies
-   because that would smooth the signal too much, possibly resulting in high
-   ACF values. Also, it is worth nothing that the bandwidth of a signal
-   downstream a first-order low-pass filter is, in general, not equal to the
-   filter cutoff frequency.
+-  Noisy measurements can obscure the response you want to validate.
+   Filtering may help, but can also hide model errors or introduce
+   correlation and phase shifts. If you filter, define the frequency range
+   you intend to validate and treat measured and simulated outputs
+   consistently. Do not smooth the data merely to improve a score.
 
--  The signals may be over-sampled. Consider estimating the signals'
-   bandwidths and passing this information to *dymoval* functions. This lets
-   *dymoval* evaluate the correlation on a bandwidth-appropriate lag grid.
-   Alternatively, increase the lag window and inspect the correlation outside
-   the region around zero lag, where the short sampling interval can dominate
-   the result. When no bandwidth-based lag grid is used, each lag corresponds
-   to one sampling period.
+-  Slowly varying residuals can have large correlations at short delays.
+   Inspect correlation against physical delay and choose a meaningful
+   evaluation window. Do not automatically discard short delays: they may
+   reveal model errors. Increasing the window can dilute an ``abs_mean``
+   score with small correlations; keep the window fixed when comparing
+   models, or use ``max`` to avoid that dilution.
 
 -  The input signal has some trend or some large mean values or offset, etc..
    The normalized correlation diagnostics already subtract signal means;
@@ -200,37 +357,31 @@ consider two signals :math:`x(t)` and :math:`y(t)`, then we obtain the
 
 The next question is: to how many seconds one lag corresponds to?
 
-The answer is given by the `delay time` (or `lag time`) :math:`\tau \in
-\mathbb{R}^+`. Without bandwidth information, *dymoval* uses the signal
-sampling period :math:`T_s` as the spacing between adjacent lags, so lag
-:math:`k` corresponds to a delay of approximately :math:`kT_s`. When bandwidth
-information is supplied, *dymoval* uses a reduced lag grid with an effective
-spacing of approximately :math:`\tau=1/(2B_x)`, where :math:`B_x` is the
-bandwidth of :math:`X`.
+One lag corresponds to one sampling period :math:`T_s`, so lag :math:`k`
+represents a physical delay :math:`kT_s`. Signals being compared must share
+the same sampling period. No automatic bandwidth-based lag thinning is used.
 
-This bandwidth-based spacing should not be confused with the maximum lag that
-may be inspected. The Shannon-Nyquist condition limits the sampling interval
-to :math:`T_s \leq 1/(2B_x)`; it does not prevent inspecting larger delays.
-To study the system memory, the lag window can extend well beyond
-:math:`1/(2B_x)`, for example by increasing ``nlags`` and checking whether
-the correlation has decayed outside the dominant time constants.
+To inspect delays up to :math:`KT_s` in either direction, request
+``nlags=2*K+1`` for each channel pair. In a validation session, these sizes
+are supplied as arrays through ``Ruu_nlags``, ``Ree_nlags``, and
+``Rue_nlags``. For example, with :math:`T_s=0.5` seconds, a window of 41
+points covers delays from -10 to +10 seconds, provided the record is long
+enough. Returned ``lags`` remain integer sample offsets; multiply them by
+:math:`T_s` to express delays in time units.
 
-In case of cross-correlation between two signals :math:`x` and :math:`y`, the
-signals must have the same sampling period. Without bandwidth information,
-the lag spacing is :math:`T_s`; with bandwidth information, it is
-:math:`\tau \approx \min(1/(2B_x), 1/(2B_y))`.
+Increasing the window extends the inspected delay range; it does not
+change the spacing or exclude the central region. A slow measured output
+does not necessarily imply slow residuals: the modeled slow response may
+cancel when taking their difference.
 
-This is a practical way to inspect delays on a bandwidth-related time
-scale, not a guarantee that samples at those delays are uncorrelated.
-Nyquist does not prescribe a correlation lag grid. The actual spacing is
-an integer multiple of the sampling period, rounded down from the target
-spacing and limited by record length. Only the evaluated correlation lags
-are thinned; the input signals are not downsampled.
-
-The grid can make oversampled data easier to assess, but may skip short-delay
-features. Inspect the full-resolution correlation too when those features
-matter, and do not compare aggregate scores from different grids as though
-they measured exactly the same thing.
+If residual correlation stays high across the displayed window, extending
+it can reveal how long the pattern persists. However, an ``abs_mean`` score
+depends on the window: adding many near-zero values can lower the score
+without improving the model. The ``max`` statistic avoids this dilution,
+but does not distinguish an isolated peak from persistent correlation.
+Choose and report the window, statistic, and threshold together, keeping
+them fixed across model comparisons. Neither statistic is a universal
+model-quality test.
 
 *Dymoval* also summarizes correlation for **multivariate signals** as
 follows.

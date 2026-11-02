@@ -14,8 +14,30 @@ This page maps the old API onto the new one. The validation half of the
 package — :ref:`ValidationSession <ValidationSession>`,
 :py:func:`validate_models <dymoval.validation.validate_models>`,
 :py:class:`XCorrelation <dymoval.xcorrelation.XCorrelation>` — is
-essentially unchanged; almost everything below concerns signals, datasets
-and plotting.
+still follows the same workflow, with the correlation changes described
+below. The remaining sections concern signals, datasets and plotting.
+
+************************************
+ Correlations use every sample lag
+************************************
+
+Automatic bandwidth-based lag thinning has been removed. Remove
+``U_bandwidths`` and ``Y_bandwidths`` from validation calls, and
+``X_bandwidths``, ``Y_bandwidths`` and ``sampling_period`` from
+``XCorrelation`` calls. The ``whiteness_level`` helper no longer accepts
+``data_bandwidths`` or ``sampling_period`` either. The ``sampling_period``
+argument to ``validate_models`` is still required when passing arrays.
+
+Every correlation lag now represents one sampling period. Both
+``XCorrelation`` and ``ValidationSession`` default to 41 points
+(-20 through +20 sample offsets), limited by the available record.
+Use ``nlags`` or the session's ``Ruu_nlags``, ``Ree_nlags`` and
+``Rue_nlags`` arrays to choose the evaluated window, not the lag spacing.
+
+Scores and PASS/FAIL outcomes can change if you previously used bandwidth
+arguments, because the evaluated physical delays are different. Review
+your lag windows and application-specific thresholds rather than assuming
+the old scores remain comparable. See :ref:`validation_session`.
 
 *********************
  Signals are objects

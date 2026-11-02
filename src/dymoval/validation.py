@@ -174,12 +174,6 @@ class ValidationSession:
     validation_dataset:
         The :py:class:`~dymoval.dataset.Dataset` object to be used for
         validation. It must have at least one input and one output.
-    U_bandwidths:
-        1-D array representing the bandwidths of each signal in the input U.
-        `U_bandwidths[i]` corresponds to the bandwidth of signal `U[i]`.
-    Y_bandwidths:
-        1-D array representing the bandwidths of each signal in the output Y.
-        `Y_bandwidths[i]` corresponds to the bandwidth of signal `Y[i]`.
     validation_thresholds:
         Thresholds used for validation. The `dict` keys shall be a subset of
         :py:data:`~dymoval.validation.VALIDATION_KEYS`.
@@ -258,8 +252,6 @@ class ValidationSession:
         self,
         name: str,
         validation_dataset: Dataset,
-        U_bandwidths: np.ndarray | float | None = None,
-        Y_bandwidths: np.ndarray | float | None = None,
         # Model validation
         validation_thresholds: dict[str, float] | None = None,
         ignore_input: bool = False,
@@ -306,8 +298,6 @@ class ValidationSession:
         self._p = len(validation_dataset.inputs)
         self._q = len(validation_dataset.outputs)
 
-        self._sampling_period = validation_dataset.get_sampling_period()
-
         self.name: str = name  # The validation session name.
         """ValidationSession object name."""
 
@@ -327,8 +317,6 @@ class ValidationSession:
         self._rmse_statistic = rmse_statistic
 
         # ------------------ Input --------------------
-        self._U_bandwidths = U_bandwidths
-
         # Input nlags. Default 41 lags (20 negative and 20 positive)
         self._Ruu = _XCorrSettings.build(
             "Ruu",
@@ -349,16 +337,11 @@ class ValidationSession:
             X=u_values,
             Y=u_values,
             nlags=self._Ruu.nlags,
-            X_bandwidths=self._U_bandwidths,
-            Y_bandwidths=self._U_bandwidths,
-            sampling_period=self._sampling_period,
         )
 
         self._Ruu_correlation = self._Ruu.whiteness_of(self._Ruu_tensor)
 
         # ------------ Residuals -----------------------------
-        self._Y_bandwidths = Y_bandwidths
-
         # Residuals auto-correlation
         self._Ree_tensor: dict[str, XCorrelation] = {}
 
@@ -646,22 +629,15 @@ class ValidationSession:
             "Ree",
             eps,
             eps,
-            X_bandwidths=self._Y_bandwidths,
-            Y_bandwidths=self._Y_bandwidths,
             nlags=self._Ree.nlags,
-            sampling_period=self._sampling_period,
         )
 
         # Input-residuals cross-correlation.
-        # X is the input, so it is the *input* bandwidths that describe it.
         Rue = XCorrelation(
             "Rue",
             u_values,
             eps,
-            X_bandwidths=self._U_bandwidths,
-            Y_bandwidths=self._Y_bandwidths,
             nlags=self._Rue.nlags,
-            sampling_period=self._sampling_period,
         )
 
         self._Ree_tensor[sim_name] = Ree

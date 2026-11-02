@@ -84,8 +84,6 @@ vs = dmv.validate_models(
     measured_out=measured_signals["OUTPUT"],
     simulated_out=y_sim,
     sampling_period=Ts,
-    U_bandwidths=cutoff,
-    Y_bandwidths=[cutoff, cutoff],
 )
 
 y_sim2 = deepcopy(y_sim)

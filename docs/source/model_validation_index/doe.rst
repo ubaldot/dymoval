@@ -138,12 +138,11 @@ There are two common ways to address this:
   time scale appropriate for its bandwidth, while still satisfying the
   Shannon-Nyquist criterion.
 
-*Dymoval* uses the second approach when bandwidth and sampling-period
-information are supplied to :py:class:`~dymoval.xcorrelation.XCorrelation`.
-It selects a lag time of approximately :math:`1/(2B)`, where :math:`B` is the
-signal bandwidth, and evaluates the correlation on that reduced lag grid.
-This avoids treating densely packed, naturally correlated samples as
-independent evidence of poor excitation.
+*Dymoval* evaluates correlations at one-sample spacing; it does not
+automatically change the lag grid based on bandwidth. Choose a meaningful
+physical delay range and inspect the correlation before summarizing it.
+Keep that range fixed when comparing scores: adding many low-correlation
+lags can dilute an average score.
 
 Method 2: Lagged-input Gram-matrix eigenvalues
 ====================================================

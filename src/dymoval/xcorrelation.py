@@ -84,10 +84,9 @@ class XCorrelation:
     The signals can be MIMO and shall have dimension
     :math:`N\times p` and :math:`N\times q`, respectively.
 
-    If `X = Y` then it return the normalized auto-correlation of `X`.
-    If additional arguments are passed, then either
-    `X_Bandwidth`, `Y_Bandwidth` and `sampling_period` are passed or
-    none of them.
+    If `X = Y` then it returns the normalized auto-correlation of `X`.
+    Lags are integer sample offsets; one lag corresponds to one sampling
+    period. No bandwidth-based lag thinning is applied.
 
     The cross-correlation functions are stored in the attribute `R` which is
     an array where the `(i, j)`-th element
@@ -115,14 +114,6 @@ class XCorrelation:
         actual count is :math:`2\lfloor n/2\rfloor+1`: odd values are used
         as-is and even values are rounded up by one. Defaults to 41 points
         (20 negative lags, zero, and 20 positive lags), limited by the record.
-    X_bandwidths:
-        1-D array representing the bandwidths of each signal in  `X`.
-        `X_bandwidths[i]` corresponds to the bandwidth of signal `X[i]`.
-    Y_bandwidths:
-        1-D array representing the bandwidths of each signal in `Y`.
-        `Y_bandwidths[i]` corresponds to the bandwidth of signal `Y[i]`.
-    sampling_period:
-        Sampling period of the signals `X` and `Y`.
 
     Example
     -------
@@ -155,9 +146,6 @@ class XCorrelation:
         X: np.ndarray,
         Y: np.ndarray,
         nlags: np.ndarray | None = None,
-        X_bandwidths: np.ndarray | float | None = None,
-        Y_bandwidths: np.ndarray | float | None = None,
-        sampling_period: float | None = None,
     ) -> None:
         # =========================================
         # Attributes
@@ -165,16 +153,10 @@ class XCorrelation:
         self.name: str = name
         """XCorrelation object name."""
 
-        # R is a matrix where each element is rij(\tau).
-        # The range of \tau may change as it depends on the sampling_period
-        # and the bandwidth of a given signal.
         self._R = self._init_R(
             X=X,
             Y=Y,
             nlags=nlags,
-            X_bandwidths=X_bandwidths,
-            Y_bandwidths=Y_bandwidths,
-            sampling_period=sampling_period,
         )
         """XCorrelation tensor."""
 
@@ -188,42 +170,7 @@ class XCorrelation:
         X: np.ndarray,
         Y: np.ndarray,
         nlags: np.ndarray | None = None,
-        X_bandwidths: np.ndarray | float | None = None,
-        Y_bandwidths: np.ndarray | float | None = None,
-        sampling_period: float | None = None,
     ) -> np.ndarray:
-        # The initialization consists in computing the following
-        #  1. full x-correation
-        #  2. downsample
-        #  3. trim based on the lags needed (you don't need N observations
-        #     lags)
-
-        # Downsampling needs both bandwidths and the sampling period.
-        # `sampling_period` on its own is a legitimate call meaning "no
-        # downsampling", but supplying only part of the bandwidth
-        # information used to be ignored without a word.
-        has_X = X_bandwidths is not None
-        has_Y = Y_bandwidths is not None
-        has_Ts = sampling_period is not None
-
-        if (has_X or has_Y) and not (has_X and has_Y and has_Ts):
-            missing = sorted(
-                name
-                for name, given in (
-                    ("X_bandwidths", has_X),
-                    ("Y_bandwidths", has_Y),
-                    ("sampling_period", has_Ts),
-                )
-                if not given
-            )
-            raise ValueError(
-                "Downsampling needs 'X_bandwidths', 'Y_bandwidths' and "
-                f"'sampling_period' together, but {missing} "
-                "were not given. Pass all of them or none of them."
-            )
-
-        passed_all_arguments = has_X and has_Y and has_Ts
-
         if X.ndim == 1:
             X = X.reshape(len(X), 1)
         if Y.ndim == 1:
@@ -231,34 +178,13 @@ class XCorrelation:
         p = X.shape[1]
         q = Y.shape[1]
 
-        # Some input check
-        if isinstance(X_bandwidths, (int, float)):
-            X_bandwidths = np.array([X_bandwidths])
-        if isinstance(Y_bandwidths, (float, int)):
-            Y_bandwidths = np.array([Y_bandwidths])
-
-        if isinstance(X_bandwidths, np.ndarray):
-            if X_bandwidths.size != p:
-                raise IndexError(
-                    "The number of elements of 'X_bandwidths' must be "
-                    f"equal to {p}"
-                )
-
-        if isinstance(Y_bandwidths, np.ndarray):
-            if Y_bandwidths.size != q:
-                raise IndexError(
-                    "The number of elements of 'Y_bandwidths' must be "
-                    f"equal to {q}"
-                )
         # nlags
         if nlags is not None:
             nlags_from_user = _validate_nlags(nlags, p, q)
         else:
-            # Eleven lag points, from -5 through +5.
             nlags_from_user = np.full((p, q), 41, dtype=int)
 
-        # Only the trimmed correlation is kept: the full and the
-        # downsampled ones are intermediate results, local to each (ii, jj).
+        # Only the requested lag window is kept.
         R_trimmed = np.empty((p, q), dtype=_rxy)
 
         for ii in range(p):
@@ -267,7 +193,6 @@ class XCorrelation:
                 lags_full = signal.correlation_lags(
                     len(X[:, ii]), len(Y[:, jj])
                 )
-                nlags_full = lags_full.size
 
                 # Classic correlation definition from Probability.
                 # Rxy_values = E[(X-mu_x)^T(Y-mu_y))]/(sigma_x*sigma_y),
@@ -309,67 +234,19 @@ class XCorrelation:
                     y_standard,
                 ) / min(len(X), len(Y))
 
-                # ------ Downsampling -------------------
-                # Close measurements are naturally correlated, and
-                # therefore the auto-correlation function (ACF) would have
-                # high values around lag = 0. The idea is to downsample the
-                # cross-correlation tensor so that we check for similarities
-                # for longer delays
-                #
-                # 1 lag = step * sampling_period
-                #
-                # Rxy_values -> Rxy_values_downsampled -> Rxy_values_trimmed
-                # based on nlags
-                #
-                # We extraxt X_B3 and Y_B3 to easy debug
-                if passed_all_arguments:
-                    assert X_bandwidths is not None
-                    assert Y_bandwidths is not None
-                    assert sampling_period is not None
-                    # We take the maximum bandwidth to have the less step
-                    # The 2 is because of Nyquist criteria, i.e.1 <= step <=
-                    # Fs/(2*B3) but cannot be too long, e.g. you cannot have a
-                    # step of 15 if the total number of lags are 10. Min 3
-                    # lags.
-                    bandwidth_max = max(X_bandwidths[ii], Y_bandwidths[jj])
-                    Fs = 1 / sampling_period
-                    if Fs < 2 * bandwidth_max:
-                        raise ValueError(
-                            "Nyquist criteria violated. "
-                            f"Sampling frequency is {Fs} whereas "
-                            f"some signal bandwidth is {bandwidth_max}"
-                        )
-                    step = int(Fs // (2.0 * bandwidth_max))
-                else:
-                    # We downsample with step 1 (= no downsampling). TODO
-                    # Could be
-                    # refactored
-                    step = 1
-
-                # print(f"step = {step}")
-                # We won't take less than 3 lags
-                # Saturate the steps based on number of observations
-                nlags_min = 3
-                step = max(1, min(step, nlags_full // nlags_min))
-                indices_downsampled = np.where(lags_full % step == 0)[0]
-
-                values_downsampled = values_full[indices_downsampled]
-
-                lags_downsampled = lags_full[indices_downsampled] // step
-
                 # ----------- Trim ---------------
                 # Create the half vectors for lags selection
                 n = nlags_from_user[ii, jj] // 2
-                nlags_trimmed = int(min(n, lags_downsampled[-1]))
+                nlags_trimmed = int(min(n, lags_full[-1]))
 
                 indices_trimmed = np.where(
-                    (-nlags_trimmed <= lags_downsampled)
-                    & (lags_downsampled <= nlags_trimmed)
+                    (-nlags_trimmed <= lags_full)
+                    & (lags_full <= nlags_trimmed)
                 )[0]
                 # Trim based on the number of lags
                 R_trimmed[ii, jj] = _rxy(
-                    values_downsampled[indices_trimmed],
-                    lags_downsampled[indices_trimmed],
+                    values_full[indices_trimmed],
+                    lags_full[indices_trimmed],
                 )
 
         return R_trimmed
@@ -618,8 +495,6 @@ class XCorrelation:
 # TODO: Not happy with this
 def whiteness_level(
     data: np.ndarray,
-    data_bandwidths: np.ndarray | float | None = None,
-    sampling_period: float | None = None,
     nlags: np.ndarray | None = None,
     local_statistic: XCorr_Statistic_type = "abs_mean",
     # shall be a p*q matrix where each element is a
@@ -649,11 +524,6 @@ def whiteness_level(
     ----------
     data:
         Signal samples.
-    data_bandwidths:
-        Signal bandwidth. If the signal is multivariate, then this specify the
-        bandwidth of each of its component.
-    sampling_period:
-        Signal sampling period.
     nlags:
         Positive-integer lag-window sizes used for the whiteness estimate.
         For a signal with `p` components this must be a
@@ -685,9 +555,6 @@ def whiteness_level(
         X=data,
         Y=data,
         nlags=nlags,
-        X_bandwidths=data_bandwidths,
-        Y_bandwidths=data_bandwidths,
-        sampling_period=sampling_period,
     )
 
     whiteness_estimate, whiteness_matrix = Rxx.correlation_score(

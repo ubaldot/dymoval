@@ -28,6 +28,11 @@ XCorrelation class
 
 .. currentmodule:: dymoval.xcorrelation
 
+All correlation lags use one-sample spacing, with no automatic
+bandwidth-based adjustment. The default window is -20 through +20 sample
+offsets, limited by record length. Multiply offsets by the sampling period
+to obtain physical delays. ``nlags`` controls the window size, not spacing.
+
 An :ref:`XCorrelation <XCorrelation>` object stores the normalized
 cross-correlation of two (possibly multivariate) signals ``X`` and ``Y``. When
 ``X is Y`` it is an *auto*-correlation, and :py:attr:`kind
