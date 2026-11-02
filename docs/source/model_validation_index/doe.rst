@@ -4,96 +4,83 @@
  Design of Experiments (DoE)
 #############################
 
+The goal of Design of Experiments (DoE) is to find suitable experiments to
+expose as much as possible of the system under examination.
+
 Good experiments shall stress the target environment under
 different conditions to get a sufficiently *informative* measurement dataset.
 
+
    **Example**
 
-   If we are developing the model of a car, we want to log sensors
+   If we are developing the model of a car, we want to log sensor
    measurements while driving within a wide range of speeds, with different
-   accelerations profiles, in different road and weather conditions and so on
+   acceleration profiles, in different road and weather conditions and so on
    and so forth.
 
-   If we log sensors measurements only when we are driving on a flat road and
+   If we log sensor measurements only when we are driving on a flat road and
    in the range 0-10 km/h and by doing exactly the same maneuvers over and
-   over, then it would be hard to disagree on that the collected measurements
-   dataset is poorly informative.
+   over, the dataset would tell us little about behavior outside those
+   conditions.
 
-How can you tell whether your experiment provided enough information?
-There is no single score that answers this for every model. Three useful
-questions are:
+We may have two different situations: some logged measurements may be
+available and we want to assess if they are rich enough for model
+validation purposes or we have to run some experiments from scratch and we
+wonder how to select input signals to obtain a sufficiently rich measurement
+dataset.
 
-* Did the inputs excite the dynamics and input directions you care about?
+*******************************
+ Measurement logs are available
+*******************************
+
+How can you tell whether an existing measurements log contains enough information?
+In fact, there is no single answer for every model, but there
+are three useful questions to ask:
+
+* Did the inputs excite the dynamics and input directions we care about?
 * Would shortcomings in the model show up in this experiment?
 * Did the experiment cover the operating conditions where you will use it?
 
-If you already have measurement logs, two useful ways to assess their
-input excitation are:
+To assess the input-excitation part of these questions, we can rely on two
+related tools:
 
-* *Input auto- and cross-correlation:* inspect patterns over time and
-  redundancy between input channels. These plots help explain the input's
-  behavior, but a small aggregate correlation score does not guarantee
-  sufficient excitation.
-* *Lagged-input Gram-matrix eigenvalues:* check whether the input excites
-  every direction for a chosen input-window length :math:`L`.
-  A strictly positive minimum eigenvalue is equivalent to full rank of that
-  finite-data matrix; its magnitude depends on amplitude and channel scaling.
+1. *Input auto- and cross-correlation:* inspect relationships between delayed
+   input samples and redundancy between input channels. If the correlation is
+   low, it suggests that the input excitation is less redundant in the dataset,
+   which is desirable.
 
-These are related views of the input data, not two independent certificates
-of experiment quality. A colored input can pass the Gram-matrix rank check
-even when its auto-correlation is substantial.
-
-Which should you use?
-
-* Start with correlation plots when you want to understand the inputs:
-  are they slowly varying or repetitive, and are some channels redundant?
-  They are a useful first check and are available directly in dymoval.
-* Use Gram-matrix eigenvalues when you need an excitation check for a
-  particular input-window length :math:`L`, or want to compare portions of a log with consistent
-  settings. They examine combinations of channels and delays together,
-  rather than summarizing individual correlations. Dymoval does not
-  currently provide this calculation.
-* Use both when you want a numerical assessment and an explanation of
-  the patterns behind it, especially with several input channels. If the
-  weakest direction is poorly excited, correlation plots can help you
-  investigate why.
+2. *Lagged-input Gram-matrix eigenvalues:* check whether any combination of
+   input channels and their delayed samples remains unexcited over the
+   assessed record, using stacks of :math:`L` consecutive input samples.
+   A positive minimum eigenvalue means that none does; its size indicates
+   how strongly the weakest combination is excited.
 
 Neither is a replacement for the other: a correlation plot is easier to
-interpret, while the eigenvalues directly answer a rank/conditioning question
-for the chosen time-window length *L*.
+interpret, while the eigenvalues show whether combinations of input channels
+and delayed samples are missing or barely present.
 Substantial correlation does not automatically mean poor excitation, and a
 small average correlation score does not guarantee a well-conditioned Gram
 matrix.
 
-If you can plan a new experiment, you can instead start with deliberately
-designed excitation signals, such as PRBS, chirps, or multisines. These help
-you control which dynamics you exercise, but the recorded signals still
-need checking. The section "Planning a new experiment: choosing the inputs"
-below discusses this design step.
+Nevertheless, whichever method you use, we should check that the output response is clearly visible above measurement
+noise, the signals are not clipped, and actuators or sensors have not
+saturated unintentionally. Also check timing alignment, recording duration,
+relevant frequency content, and operating conditions. Output movement alone is
+not enough if it comes mainly from disturbances or sensor noise.
+Neither method replaces these checks. Saturation may be something you
+deliberately want to study, but it changes how you should interpret the
+results, particularly when assessing a linear model.
 
-.. note::
+Let's see more in detail each of the two methods.
 
-   Whichever method you use, inspect the measured inputs and outputs too.
-   Check that the output response is clearly visible above measurement noise,
-   the signals are not clipped, and actuators or sensors have not saturated
-   unintentionally. Also check timing alignment, recording duration, relevant
-   frequency content, and operating conditions. Output movement alone is not
-   enough if it comes mainly from disturbances or sensor noise.
 
-   Neither method replaces these checks. Saturation may be something you
-   deliberately want to study, but it changes how you should interpret the
-   results, particularly when assessing a linear model.
-
-**************************************************
- Method 1: input auto- and cross-correlation
-**************************************************
+Method 1: input auto- and cross-correlation
+===========================================
 
 This method asks: *what time patterns and channel relationships are present
 in the inputs?* Auto-correlation compares an input with delayed versions of
 itself; cross-correlation compares different input channels at selected delays.
-
-Start with the plots. Do the inputs vary on the time scales you want to study?
-Input auto-correlation helps you spot slow variation, repeated patterns, or
+It helps you spot slow variation, repeated patterns, or
 narrow-band excitation. With multiple inputs, also check cross-correlation
 between input channels: two inputs can each look like white noise but be
 identical, so they do not excite independent directions.
@@ -116,36 +103,25 @@ with the following:
    # Off-diagonal plots: cross-correlation between input channels.
    Ruu.plot()
    # Summarize correlation away from the zero-lag diagonal peak.
-   Ruu.estimate_whiteness()
+   Ruu.correlation_score()
 
-Despite its name, ``estimate_whiteness()`` returns a correlation summary:
+``correlation_score()`` returns a correlation summary:
 lower values mean less correlation over the evaluated lags. The aggregation
 can be selected through :py:meth:`~dymoval.statistics.compute_statistic`.
 This is neither a formal statistical whiteness test nor a test of persistent
 excitation.
 
-Next, look at the outputs alongside the applied inputs. A large output range
-alone is not enough: movement may come from disturbances or sensor noise
-rather than the input. Look for a plausible response to the input changes,
-and record long enough to see the relevant transients.
+.. Next, look at the outputs alongside the applied inputs. A large output range
+.. alone is not enough: movement may come from disturbances or sensor noise
+.. rather than the input. Look for a plausible response to the input changes,
+.. and record long enough to see the relevant transients.
 
 These are practical screening checks, not a certificate that the data is
 informative. Colored inputs can be useful, while small correlation scores
 do not guarantee that the input excites the dynamics you need.
 
-.. note::
-
-   Safety and operating constraints may limit the inputs you can apply.
-   Do not aim for randomness at the expense of a safe, representative
-   experiment. If input correlation is not a suitable pass/fail criterion,
-   pass ``ignore_input=True`` to
-   :py:meth:`~dymoval.validation.validate_models` or to
-   :py:class:`~dymoval.validation.ValidationSession` class constructor.
-   This disables the input-correlation pass/fail check; it does not establish
-   that the experiment has sufficient excitation.
-
-Over-sampled signals
-====================
+Over-sampled signals (TODO)
+---------------------------
 
 If a signal is over-sampled, consecutive measurements are often correlated
 simply because the sampling interval is much shorter than the time scale of
@@ -169,16 +145,14 @@ signal bandwidth, and evaluates the correlation on that reduced lag grid.
 This avoids treating densely packed, naturally correlated samples as
 independent evidence of poor excitation.
 
-****************************************************
- Method 2: Lagged-input Gram-matrix eigenvalues
-****************************************************
+Method 2: Lagged-input Gram-matrix eigenvalues
+====================================================
 
 This method asks: *does the recorded input excite every combination of
-channels and delays in a chosen lagged-input vector, and how weak is the
-weakest direction?* A positive minimum eigenvalue establishes full rank
-in exact arithmetic; in practice, interpret small eigenvalues relative to
-the signal scaling and numerical precision. Eigenvalues alone do not tell
-you which channels or delays cause a weak direction.
+channels and their delayed samples?* A positive minimum eigenvalue means
+that every such direction is excited over the assessed record. Its magnitude
+indicates how strongly the weakest direction is excited, for the chosen
+input-window length :math:`L` and channel scaling.
 
 For an input vector :math:`U(t)\in\mathbb{R}^p`, form a vector containing
 :math:`L` consecutive input samples:
@@ -209,7 +183,7 @@ centering convention when comparing the two methods, and keep it fixed
 across segments when scanning a log.
 
 A bound :math:`G_L \succeq \alpha I`, with :math:`\alpha>0`, means there is
-variation in every direction of this lagged input vector over the record.
+energy in every direction of this lagged input vector over the record.
 The required input-window length :math:`L` depends on the time scales and input
 patterns relevant to the behavior you want to validate;
 the condition is not a universal test of model quality. For finite records,
@@ -219,7 +193,7 @@ to remain bounded below over successive segments, rather than occurring
 only once near the start of the recording.
 
 Finding useful portions of a log
-==================================
+----------------------------------
 
 You will often start by looking at the plots and trimming away periods where
 nothing happens. An excitation score can complement that visual inspection.
@@ -320,24 +294,23 @@ conditions, rather than maximizing this number alone.
 There is no universal eigenvalue threshold that works for every experiment.
 Dymoval does not currently compute these Gram-matrix eigenvalues.
 
-****************************************************
- Planning a new experiment: choosing the inputs
-****************************************************
+**************************
+ Planning a new experiment
+**************************
 
-When you can choose the inputs, you do not have to rely on whatever variation
-happens to be present in an existing log. You can design signals to exercise
+When you have to set up an experiment, the main question is often related to
+how we should stimulate the system under examination, or, in other words, what
+input signal to use.
+Fortunately, there are common signals that are used to exercise
 the dynamics you want to validate:
 
-* **Noise-like inputs: PRBS and random signals** provide broad-band excitation
-  when their timing and duration are chosen appropriately. A PRBS is a
-  deterministic, repeatable sequence switching between two levels. A
-  maximum-length sequence has small periodic auto-correlation at nonzero lags
-  within one period, at its switching grid. Random signals can instead use
-  Gaussian, uniform, or binary amplitude distributions. Independent,
-  zero-mean random samples are white in expectation, not exactly uncorrelated
-  in every finite record. PRBS repetition produces correlation peaks at its
-  period; holding samples or filtering either type introduces temporal
-  correlation.
+* **Noise-like inputs: PRBS and random signals** A
+  *Pseudo-Random-Binary-Sequence* (PRBS) is a deterministic, repeatable
+  sequence switching between two levels that resembles band-limited white
+  noise. It provides broad excitation over a useful frequency band.
+  Random signals can instead use Gaussian, uniform, or binary amplitude
+  distributions. Independent, zero-mean random samples are white in
+  expectation, not exactly uncorrelated in every finite record.
 * **Chirps** sweep through a frequency range, letting you explore the response
   at different frequencies over time. They need not resemble white noise or
   produce a small auto-correlation score.
@@ -345,80 +318,27 @@ the dynamics you want to validate:
   excitation where it matters, but the frequency selection determines which
   dynamics you can check.
 
-Generating random inputs
-========================
 
-You do not need Python on the device running the experiment. On a
-microcontroller, you can generate pseudo-random samples in C/C++, or replay
-a sequence generated beforehand on a PC.
+These signals are useful starting points for designing informative
+experiments, but their settings matter. Choose their frequency content,
+amplitudes, and relationships between input channels carefully, then check
+the recorded inputs using the methods above. Also check that the outputs
+respond clearly above measurement noise.
 
-PRBS is often a convenient choice for embedded experiments. A
-linear-feedback shift register (LFSR) generates it with little memory and
-computation, using suitable feedback taps and a valid initial state. Map its
-binary output to two safe input levels and choose a switching interval and
-sequence length that exercise the dynamics of interest. Saving the initial
-state and generator settings makes the sequence repeatable.
+.. Methods 1 and 2 can assess existing logs *and* check the measurements from
+.. these planned experiments. Signal design and data assessment complement each
+.. other; neither replaces inspection of the recorded inputs and outputs.
 
-A general-purpose pseudo-random generator can provide other amplitude
-distributions. Whether the resulting input resembles white noise depends
-on its statistical properties and update timing, not the programming
-language. Holding samples between updates or filtering them introduces
-temporal correlation.
+.. note::
 
-PRBS is a useful practical default, not the only choice: chirps and
-multisines can be preferable when you need more control over the excited
-frequencies or actuator motion.
-
-For PC-based generation, NumPy can produce repeatable pseudo-random samples.
-For example, generate two channels of bounded, uniform noise around an
-operating point, which you could then export for replay on the device:
-
-.. code-block:: python
-
-   import numpy as np
-
-   rng = np.random.default_rng(42)
-   sampling_period = 0.01
-   time = np.arange(10000) * sampling_period
-   operating_point = np.array([5.0, 3.0])
-   amplitude = np.array([0.5, 0.2])
-   inputs = operating_point + amplitude * rng.uniform(
-       -1.0, 1.0, size=(len(time), 2)
-   )
-
-Each column uses separate draws from the generator. The fixed seed makes
-the example reproducible; it does not make the two channels identical.
-The numerical levels above are illustrative, not safe settings for a
-particular plant. Check amplitude and rate limits before applying any signal.
-
-Use ``rng.standard_normal((len(time), 2))`` for unit-standard-deviation
-Gaussian samples, or ``rng.choice([-1.0, 1.0], size=(len(time), 2))`` for
-random binary samples. Gaussian samples are unbounded; a random binary
-sequence is not necessarily a designed maximum-length PRBS.
-
-If the system needs slower excitation, choose an appropriate update interval
-or use a SciPy low-pass filter to shape the bandwidth. The resulting signal
-will be colored, which is not inherently a problem. Inspect the final
-signal's spectrum, amplitude, and rate of change, not just the generator's
-original samples.
-
-Checking the applied inputs
-==============================
-
-For multiple inputs, design the channels together. Using the same PRBS or
-random signal on every channel does not provide independent excitation.
-Choose suitable sequences or frequency allocations and check their
-relationships over the actual record; low cross-correlation is not automatic.
-
-Choose amplitudes, switching intervals or sweep rates, duration, and operating
-points for your system and application. A well-designed signal makes useful
-excitation more likely, but does not guarantee a suitable validation dataset:
-actuator limits, measurement noise, disturbances, and the system response
-still matter.
-
-Methods 1 and 2 can assess existing logs *and* check the measurements from
-these planned experiments. Signal design and data assessment complement each
-other; neither replaces inspection of the recorded inputs and outputs.
+   Safety and operating constraints may limit the inputs you can apply.
+   Do not aim for randomness at the expense of a safe, representative
+   experiment. If input correlation is not a suitable pass/fail criterion,
+   pass ``ignore_input=True`` to
+   :py:meth:`~dymoval.validation.validate_models` or to
+   :py:class:`~dymoval.validation.ValidationSession` class constructor.
+   This disables the input-correlation pass/fail check; it does not establish
+   that the experiment has sufficient excitation.
 
 *****************
  Coverage region

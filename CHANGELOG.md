@@ -34,6 +34,8 @@ point-by-point mapping of the old API onto the new one.
 
 ### Changed
 
+- Renamed `XCorrelation.estimate_whiteness()` to `correlation_score()` to
+  describe its correlation-summary behavior. Calculations are unchanged.
 - Validation statistics and threshold dictionary keys now use
   `Ruu_correlation`, `Ree_correlation`, and `Rue_correlation` instead of
   their former `*_whiteness` names. Scores and pass/fail rules are unchanged.

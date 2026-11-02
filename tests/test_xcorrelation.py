@@ -223,12 +223,12 @@ class Test_XCorrelation:
                 sampling_period,
             )
 
-    def test_estimate_whiteness(self, correlation_tensors: tuple) -> None:
+    def test_correlation_score(self, correlation_tensors: tuple) -> None:
         X = correlation_tensors[6]
         Y = correlation_tensors[7]
 
         RXY = dmv.XCorrelation("foo", X, Y)
-        w, W = RXY.estimate_whiteness()
+        w, W = RXY.correlation_score()
 
         global_weights = np.ones((2, 2))
         local_weights = np.empty(RXY.R.shape, dtype=np.ndarray)
@@ -236,26 +236,24 @@ class Test_XCorrelation:
             for jj in range(2):
                 local_weights[ii, jj] = np.ones(11)
 
-        w_weighted, W_weighted = RXY.estimate_whiteness(
+        w_weighted, W_weighted = RXY.correlation_score(
             local_weights=local_weights, global_weights=global_weights
         )
 
         np.testing.assert_allclose(w, w_weighted)
         np.testing.assert_allclose(W, W_weighted)
 
-    def test_estimate_whiteness_raise(
-        self, correlation_tensors: tuple
-    ) -> None:
+    def test_correlation_score_raise(self, correlation_tensors: tuple) -> None:
         X = correlation_tensors[6]
         Y = correlation_tensors[7]
 
         RXY = dmv.XCorrelation("foo", X, Y)
 
         with pytest.raises(ValueError):
-            RXY.estimate_whiteness(local_statistic="potato")
+            RXY.correlation_score(local_statistic="potato")
 
         with pytest.raises(IndexError):
-            RXY.estimate_whiteness(local_weights=np.array([1, 2]))
+            RXY.correlation_score(local_weights=np.array([1, 2]))
 
         local_weights = np.empty(RXY.R.shape, dtype=np.ndarray)
         local_weights[0, 0] = np.ones(11)
@@ -264,10 +262,10 @@ class Test_XCorrelation:
         local_weights[1, 1] = np.ones(6)
 
         with pytest.raises(IndexError):
-            RXY.estimate_whiteness(local_weights=local_weights)
+            RXY.correlation_score(local_weights=local_weights)
 
         with pytest.raises(IndexError):
-            RXY.estimate_whiteness(global_weights=np.array([1, 2]))
+            RXY.correlation_score(global_weights=np.array([1, 2]))
 
     def test_repr(self, correlation_tensors: tuple) -> None:
         X = correlation_tensors[6]

@@ -405,7 +405,7 @@ class XCorrelation:
         """
         return self._kind
 
-    def estimate_whiteness(
+    def correlation_score(
         self,
         local_statistic: XCorr_Statistic_type = "abs_mean",
         local_weights: (
@@ -414,8 +414,12 @@ class XCorrelation:
         global_statistic: XCorr_Statistic_type = "max",
         global_weights: np.ndarray | None = None,  # Shall be a p*q matrix
     ) -> tuple[float, np.ndarray]:
-        r"""Return the whiteness estimate based on the selected statistics.
+        r"""Summarize correlation using the selected statistics.
 
+        With the default statistics, lower scores mean less correlation over
+        the evaluated lags. The zero-lag diagonal peak is excluded for
+        auto-correlation. This is not a statistical whiteness test or a test
+        of persistent excitation.
 
         Parameters
         ----------
@@ -430,9 +434,8 @@ class XCorrelation:
             :py:attr:`~dymoval.xcorrelation.XCorrelation.R`.
 
         global_statistic:
-            Statistic used to estimate the whiteness of the flattened
-            :math:`p \times q` array after the whiteness of each element of
-            :py:attr:`~dymoval.xcorrelation.XCorrelation.R` is estimated.
+            Statistic used to aggregate the flattened :math:`p \times q`
+            array of per-channel correlation scores.
 
         global_weights:
             Weights associated with each element of the resulting
@@ -440,9 +443,9 @@ class XCorrelation:
 
         Returns
         -------
-        whiteness_estimate:
-            The overall whiteness estimate.
-        whiteness_matrix:
+        score:
+            The overall correlation score.
+        score_matrix:
             A :math:`p \times q` array where the `(i, j)`-th
             element is the statistic computed for the `(i, j)`-th
             cross-correlation function of
@@ -456,7 +459,7 @@ class XCorrelation:
         >>> local_weights[0, 1] = np.ones(3)
         >>> local_weights[1, 0] = np.ones(13)
         >>> local_weights[1, 1] = np.ones(6)
-        >>> w, W = RXY.estimate_whiteness(local_weights=local_weights)
+        >>> score, scores = RXY.correlation_score(local_weights=local_weights)
         """
 
         # MAIN whiteness level =================================
@@ -686,7 +689,7 @@ def whiteness_level(
         sampling_period=sampling_period,
     )
 
-    whiteness_estimate, whiteness_matrix = Rxx.estimate_whiteness(
+    whiteness_estimate, whiteness_matrix = Rxx.correlation_score(
         local_statistic=local_statistic,
         local_weights=local_weights,
         global_statistic=global_statistic,

@@ -114,7 +114,7 @@ class _XCorrSettings:
 
     def whiteness_of(self, R: XCorrelation) -> float:
         """Estimate the whiteness of ``R`` according to these settings."""
-        estimate, _ = R.estimate_whiteness(
+        estimate, _ = R.correlation_score(
             local_statistic=self.local_statistic,
             local_weights=self.local_weights,
             global_statistic=self.global_statistic,
@@ -258,7 +258,7 @@ class ValidationSession:
         ignore_input: bool = False,
         # r2
         r2_statistic: R2_Statistic_type = "min",
-        # The following are input to XCorrelation.estimate_whiteness()
+        # The following are input to XCorrelation.correlation_score()
         # method.
         # input auto-correlation
         Ruu_nlags: np.ndarray | None = None,

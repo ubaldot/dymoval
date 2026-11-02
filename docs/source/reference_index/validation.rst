@@ -48,7 +48,7 @@ cross-correlation of two (possibly multivariate) signals ``X`` and ``Y``. When
 .. rubric:: Methods
 .. autosummary::
 
-   XCorrelation.estimate_whiteness
+   XCorrelation.correlation_score
    XCorrelation.plot
 
 .. rubric:: Functions
