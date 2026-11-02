@@ -4,6 +4,31 @@
  What is Model Validation?
 ###########################
 
+Imagine that you are developing a new product. At each stage, you
+need to test it and use the results to decide what to improve next. Testing in
+the target environment—the real-world setting where the solution will
+eventually be deployed—can be expensive, time-consuming, or even risky.
+
+A simulation model provides a safer and cheaper environment for testing those
+ideas first. However, a simulation is only as useful as the model behind it.
+If a promising solution performs poorly in simulation, you may be tempted to
+discard it and never test it in the real system. That can mean rejecting a
+good solution because the model is inaccurate or incomplete. A failed
+simulation does not prove that the solution would fail in the target
+environment; it only shows that the solution does not work under the model's
+assumptions.
+
+Model validation helps establish how much confidence you can place in those
+assumptions. By comparing the model with measurements from the target
+environment, you can identify where the model is trustworthy and where its
+predictions need to be treated with caution. This helps you make
+better-informed decisions about which solutions are worth testing in reality.
+
+It is tempting to stop at plotting simulated and measured outputs together.
+But a close match is only part of the story: did the inputs exercise the
+system enough, and do the errors show patterns? Looking at these questions
+alongside the fit score gives you a fuller picture.
+
 Model validation means checking how well a model describes the real system
 for the tasks you want to use it for. You give the model the same inputs
 as the real system, then compare their outputs using measurements from

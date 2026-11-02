@@ -6,46 +6,16 @@ Dymoval is a Python package for exploring measurement data and checking how
 well your models match the real world.
 
 *************
- Why dymoval?
-*************
-
-Imagine that you are developing a new product. At each stage, you
-need to test it and use the results to decide what to improve next. Testing in
-the target environment—the real-world setting where the solution will
-eventually be deployed—can be expensive, time-consuming, or even risky.
-
-A simulation model provides a safer and cheaper environment for testing those
-ideas first. However, a simulation is only as useful as the model behind it.
-If a promising solution performs poorly in simulation, you may be tempted to
-discard it and never test it in the real system. That can mean rejecting a
-good solution because the model is inaccurate or incomplete. A failed
-simulation does not prove that the solution would fail in the target
-environment; it only shows that the solution does not work under the model's
-assumptions.
-
-Model validation helps establish how much confidence you can place in those
-assumptions. By comparing the model with measurements from the target
-environment, you can identify where the model is trustworthy and where its
-predictions need to be treated with caution. This helps you make
-better-informed decisions about which solutions are worth testing in reality.
-
-It is tempting to stop at plotting simulated and measured outputs together.
-But a close match is only part of the story: did the inputs exercise the
-system enough, and do the errors show patterns? Looking at these questions
-alongside the fit score gives you a fuller picture.
-
-*************
  What is it?
 *************
 
 Dymoval helps you check your models without having to build your own
-analysis tools. Use it to clean up measurement logs, explore your signals,
-and compare your model's results with what actually happened.
-
-The idea is simple: feed your model the inputs recorded during an experiment,
-then compare its outputs with the measured ones. Your model can come from
-Simulink, Modelica, Python, or another tool. Dymoval only needs the signals,
-not the model itself.
+analysis tools.
+The idea is simple: feed Dymoval with measurements and model ouptput data
+and get a detailed report about your model quality in terms of a set of
+comprehensive KPIs.
+Your model can come from Simulink, Modelica, Python, or another tool. Dymoval
+only needs the signals, not the model itself.
 
 There is another challenge before you can even compare the results:
 real-world logs can be messy. One sensor records faster than another,
@@ -102,8 +72,10 @@ Checking your models
 - Work with one or several inputs and outputs (SISO and MIMO)
 - Run the same checks automatically when your model changes
 
-Ready to try it? Follow :doc:`getting_started` to clean some data, check a
-simple model, and explore a frequency response.
+Ready to try it?
+If you don't know what Model Validation is take a look at
+:doc:`model_validation`, otherwise jump straight to :doc:`getting_started` to
+clean some data, check a simple model, and explore a frequency response.
 
 *******
  Index
