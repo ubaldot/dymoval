@@ -49,6 +49,32 @@ You can inspect the cleaned signals with:
 
    fig = ds_clean.plot()
 
+*************************
+ Assess input excitation
+*************************
+
+Before comparing a model with the measurements, we can check the inputs
+independently of any model:
+
+.. code-block:: python
+
+   L = 20  # Illustrative choice: 20 samples at the recorded sampling period.
+   eigenvalues = ds_clean.input_gram_eigenvalues(window_length=L)
+   print(f"Minimum input Gram eigenvalue: {eigenvalues[0]:.6g}")
+   print(f"Maximum input Gram eigenvalue: {eigenvalues[-1]:.6g}")
+
+The minimum eigenvalue describes the weakest excited combination of input
+channels and delayed samples. Choose ``L`` to cover a time span relevant to
+the dynamics you want to validate. Values depend on input amplitudes and
+units: there is no universal acceptance threshold. The calculation uses raw
+inputs, without centering or scaling; preprocess them first if appropriate.
+Use ``ds_clean.input_gram_matrix(L)`` if you also need the averaged matrix.
+
+This assesses input excitation, not overall dataset suitability. Inspect
+the outputs too: does the applied input produce a clear response above
+measurement noise? See :ref:`doe` for details. These diagnostics belong to
+the dataset and are separate from the model-validation report below.
+
 ******************
  Validate a model
 ******************
@@ -81,7 +107,17 @@ arrays have one row per sample and one column per channel; ``[:, None]``
 gives our simulated output that same two-dimensional shape.
 
 The returned :py:class:`~dymoval.validation.ValidationSession` shows the
-setup, scores, and outcome. The results section for this example looks like:
+setup, scores, and outcome, including residual RMSE. RMSE measures the typical
+residual magnitude; lower is better. Per-output values are aggregated using
+``rmse_statistic="max"`` by default; ``"mean"`` is also available.
+Access the aggregate as ``vs.validation_statistics["Sim_0"]["rmse"]``.
+Use ``dmv.rmse(measured_output, simulated_output)`` for per-output values.
+For multiple outputs, units and scaling should be comparable before
+aggregating. No RMSE threshold is enabled by default; supplying
+``validation_thresholds={"rmse": tolerance}`` checks that the aggregate is
+strictly below your tolerance. As with other custom threshold dictionaries,
+include any other checks you want to retain.
+The results for this example look like:
 
 .. code-block:: text
 
@@ -97,11 +133,13 @@ setup, scores, and outcome. The results section for this example looks like:
                                                            Sim_0
    Input auto-correlation (abs_mean-max)                   0.0157
    R-squared fit (%)                                     99.2913
+   Residual RMSE (max)                                   0.0287
    Residual auto-correlation (abs_mean-max)                0.2676
    Input-residual cross-correlation (abs_mean-max)         0.0831
 
    Correlation scores: lower means less correlation.
    R-squared fit: higher is better.
+   Residual RMSE: lower is better; output units/scaling must be comparable.
    Input auto-correlation describes excitation, not model quality.
 
             Sim_0

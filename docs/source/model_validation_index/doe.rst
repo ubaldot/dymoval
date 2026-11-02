@@ -205,6 +205,15 @@ First, distinguish two lengths:
 * :math:`W` is the number of measurement samples in the segment you want
   to assess.
 
+.. figure:: ../figures/LaggedInputWindows.svg
+   :alt: A full log of N samples contains an assessment segment of W samples,
+         with overlapping stacks of L samples fully inside that segment.
+   :align: center
+   :width: 100%
+
+   The full log, one assessment segment, and its overlapping input stacks.
+   The diagram runs forward in time; each stack is stored newest sample first.
+
 The stacks overlap: with :math:`N=100` and :math:`L=20`, use samples
 1--20, 2--21, 3--22, and so on up to 81--100. That gives
 :math:`N-L+1=81` outer products, not five non-overlapping contributions.
@@ -292,7 +301,27 @@ input/output plots, noise levels, relevant transients, and operating
 conditions, rather than maximizing this number alone.
 
 There is no universal eigenvalue threshold that works for every experiment.
-Dymoval does not currently compute these Gram-matrix eigenvalues.
+Use :py:meth:`~dymoval.dataset.Dataset.input_gram_matrix` to compute the
+averaged whole-record matrix, or
+:py:meth:`~dymoval.dataset.Dataset.input_gram_eigenvalues` to obtain its
+eigenvalues directly:
+
+.. code:: python
+
+   L = 20  # Choose a stack length appropriate for the dynamics of interest.
+   gram = ds.input_gram_matrix(L)
+   eigenvalues = ds.input_gram_eigenvalues(L)  # Ascending order.
+   weakest_excitation = eigenvalues[0]
+   print(f"Weakest input excitation (L={L}): {weakest_excitation:.6g}")
+
+The method uses the inputs in dataset order, without centering or scaling.
+It requires finite input values. The outputs do not enter this computation.
+For a selected segment, trim the dataset first and call the same method.
+
+Input-excitation assessment belongs to the dataset and is independent of
+model predictions. It is requested separately from
+:py:class:`~dymoval.validation.ValidationSession` and does not change its
+reports, validation thresholds, or PASS/FAIL outcomes.
 
 **************************
  Planning a new experiment

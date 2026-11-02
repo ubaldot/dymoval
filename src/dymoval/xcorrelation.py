@@ -113,7 +113,8 @@ class XCorrelation:
         correlation between the `i`-th signal of `X` and the `j`-th signal
         of `Y`. Symmetry requires an odd number of returned points, so the
         actual count is :math:`2\lfloor n/2\rfloor+1`: odd values are used
-        as-is and even values are rounded up by one.
+        as-is and even values are rounded up by one. Defaults to 41 points
+        (20 negative lags, zero, and 20 positive lags), limited by the record.
     X_bandwidths:
         1-D array representing the bandwidths of each signal in  `X`.
         `X_bandwidths[i]` corresponds to the bandwidth of signal `X[i]`.
@@ -254,7 +255,7 @@ class XCorrelation:
             nlags_from_user = _validate_nlags(nlags, p, q)
         else:
             # Eleven lag points, from -5 through +5.
-            nlags_from_user = np.full((p, q), 11, dtype=int)
+            nlags_from_user = np.full((p, q), 41, dtype=int)
 
         # Only the trimmed correlation is kept: the full and the
         # downsampled ones are intermediate results, local to each (ii, jj).

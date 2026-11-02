@@ -11,7 +11,7 @@ from typing import Literal, TypeAlias, get_args
 
 import numpy as np
 
-__all__ = ["compute_statistic", "rsquared"]
+__all__ = ["compute_statistic", "rsquared", "rmse"]
 
 XCorr_Statistic_type: TypeAlias = Literal[
     "mean", "quadratic", "std", "max", "abs_mean"
@@ -156,6 +156,32 @@ def compute_statistic(
             f"'statistic' must be one of [{XCORR_STATISTIC_TYPE}]"
         )
     return float(result)
+
+
+def rmse(x: np.ndarray, y: np.ndarray) -> np.ndarray:
+    r"""Return root mean squared error per channel.
+
+    Both arguments must be finite, nonempty real arrays with matching shape,
+    either ``(N,)`` or ``(N, p)``. The result is a NumPy scalar array for
+    one-dimensional inputs, or an array of ``p`` values for two-dimensional
+    inputs. Values retain the channel units; zero is a perfect match.
+    No channel aggregation or mean removal is applied.
+
+    .. math::
+
+       \mathrm{RMSE}_j = \sqrt{\frac{1}{N}
+       \sum_{t=1}^{N}(x_{tj}-y_{tj})^2}.
+    """
+    if x.shape != y.shape:
+        raise IndexError("Arguments must have the same shape.")
+    if x.ndim not in (1, 2) or x.size == 0:
+        raise ValueError("Arguments must be nonempty 1-D or 2-D arrays.")
+    if np.iscomplexobj(x) or np.iscomplexobj(y):
+        raise ValueError("Arguments must be real.")
+    if not np.all(np.isfinite(x)) or not np.all(np.isfinite(y)):
+        raise ValueError("Arguments must contain only finite values.")
+    error = np.asarray(x, dtype=float) - np.asarray(y, dtype=float)
+    return np.asarray(np.sqrt(np.mean(error**2, axis=0)))
 
 
 def rsquared(x: np.ndarray, y: np.ndarray) -> np.ndarray:

@@ -27,7 +27,7 @@ from .signal import (
     SpectrumMode,
     SpectrumScale,
 )
-from .statistics import compute_statistic, rsquared
+from .statistics import compute_statistic, rmse, rsquared
 from .utils import open_tutorial
 from .validation import (
     VALIDATION_KEYS,
@@ -67,6 +67,7 @@ __all__ = [
     "validate_models",
     "compute_statistic",
     "rsquared",
+    "rmse",
     "whiteness_level",
     # utils
     "open_tutorial",

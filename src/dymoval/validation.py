@@ -29,7 +29,7 @@ from ._figure import (
 from .dataset import Dataset
 from .scope import DatasetScope
 from .signal import Signal
-from .statistics import R2_Statistic_type, XCorr_Statistic_type, rsquared
+from .statistics import R2_Statistic_type, XCorr_Statistic_type, rmse, rsquared
 from .utils import _obj2list
 from .xcorrelation import XCorrelation, _validate_nlags
 
@@ -39,6 +39,7 @@ __all__ = ["ValidationSession", "validate_models", "VALIDATION_KEYS"]
 VALIDATION_KEYS: tuple[str, ...] = (
     "Ruu_correlation",
     "r2",
+    "rmse",
     "Ree_correlation",
     "Rue_correlation",
 )
@@ -188,6 +189,12 @@ class ValidationSession:
     r2_statistic:
         Statistic to be used for computing the global :math:`R^2` in case of
         multiple output signals.
+    rmse_statistic:
+        Aggregate per-output residual RMSE using ``"max"`` (default) or
+        ``"mean"``. Outputs should have comparable units and scaling.
+        The result is stored under ``"rmse"`` in `validation_statistics`.
+        An optional ``"rmse"`` validation threshold is an upper bound;
+        no RMSE threshold is enabled by default.
     Ruu_nlags:
         Positive-integer lag-window sizes for the input auto-correlation
         array `Ruu`. Each returned window is symmetric around zero, so its
@@ -278,6 +285,7 @@ class ValidationSession:
         Rue_global_statistic_type: XCorr_Statistic_type = "max",
         Rue_local_weights: np.ndarray | None = None,
         Rue_global_weights: np.ndarray | None = None,
+        rmse_statistic: Literal["mean", "max"] = "max",
     ) -> None:
         # Once you created a ValidationSession you should not change the
         # validation dataset. Create another ValidationSession with another
@@ -314,6 +322,9 @@ class ValidationSession:
 
         # Format: 'name_sim': r2
         self._r2_statistic: R2_Statistic_type = r2_statistic
+        if rmse_statistic not in ("mean", "max"):
+            raise ValueError("'rmse_statistic' must be 'mean' or 'max'")
+        self._rmse_statistic = rmse_statistic
 
         # ------------------ Input --------------------
         self._U_bandwidths = U_bandwidths
@@ -409,6 +420,7 @@ class ValidationSession:
                 f"Input auto-correlation ({self._Ruu.statistic_label})"
             ),
             "r2": "R-squared fit (%)",
+            "rmse": f"Residual RMSE ({self._rmse_statistic})",
             "Ree_correlation": (
                 f"Residual auto-correlation ({self._Ree.statistic_label})"
             ),
@@ -481,6 +493,8 @@ class ValidationSession:
             f"{self._statistics_table(keys)}\n\n"
             "Correlation scores: lower means less correlation.\n"
             "R-squared fit: higher is better.\n"
+            "Residual RMSE: lower is better; output units/scaling must "
+            "be comparable.\n"
             "Input auto-correlation describes excitation, not model quality.\n\n"
             f"{outcomes_head}\n"
             f"{outcomes_body}\n"
@@ -552,9 +566,7 @@ class ValidationSession:
             self._append_validation_statistics(sim_name=sim_name)
 
     def _check_validation_thresholds(self, val: dict[str, float]) -> None:
-        allowed_keys = self._get_validation_thresholds_default(
-            ignore_input=False
-        ).keys()
+        allowed_keys = VALIDATION_KEYS
 
         if not val:
             raise ValueError(
@@ -622,6 +634,12 @@ class ValidationSession:
         r2 = self._compute_r2_statistic(
             rsquared(y_values, y_sim_values), self._r2_statistic
         )
+        residual_rmse = rmse(y_values, y_sim_values)
+        rmse_value = float(
+            np.max(residual_rmse)
+            if self._rmse_statistic == "max"
+            else np.mean(residual_rmse)
+        )
 
         # Residuals auto-correlation
         Ree = XCorrelation(
@@ -652,6 +670,7 @@ class ValidationSession:
         self._validation_statistics[sim_name] = {
             "Ruu_correlation": self._Ruu_correlation,
             "r2": r2,
+            "rmse": rmse_value,
             "Ree_correlation": self._Ree.whiteness_of(Ree),
             "Rue_correlation": self._Rue.whiteness_of(Rue),
         }

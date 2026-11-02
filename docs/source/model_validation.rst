@@ -4,40 +4,35 @@
  What is Model Validation?
 ###########################
 
-Imagine that you are developing a new product. At each stage, you
-need to test it and use the results to decide what to improve next. Testing in
-the target environment—the real-world setting where the solution will
-eventually be deployed—can be expensive, time-consuming, or even risky.
+Testing ideas on a real system can be expensive, slow, or risky. A simulation
+lets you try them out first, but what if an inaccurate model makes a good idea
+look bad?
 
-A simulation model provides a safer and cheaper environment for testing those
-ideas first. However, a simulation is only as useful as the model behind it.
-If a promising solution performs poorly in simulation, you may be tempted to
-discard it and never test it in the real system. That can mean rejecting a
-good solution because the model is inaccurate or incomplete. A failed
-simulation does not prove that the solution would fail in the target
-environment; it only shows that the solution does not work under the model's
-assumptions.
+**Model validation checks how well a model describes the real system for
+the tasks you want to use it for.** Feed both the same inputs, then compare
+their outputs using experimental measurements.
 
-Model validation helps establish how much confidence you can place in those
-assumptions. By comparing the model with measurements from the target
-environment, you can identify where the model is trustworthy and where its
-predictions need to be treated with caution. This helps you make
-better-informed decisions about which solutions are worth testing in reality.
+A common approach is to plot the measured and simulated outputs together:
+if the curves overlap nicely, the model looks good. That is a useful first
+check, but **matching curves is not enough**. Even a high fit score can hide
+important shortcomings. For example, an experiment with little input
+variation may never challenge the model's dynamic behavior.
 
-It is tempting to stop at plotting simulated and measured outputs together.
-But a close match is only part of the story: did the inputs exercise the
-system enough, and do the errors show patterns? Looking at these questions
-alongside the fit score gives you a fuller picture.
+We also need to assess the **input signals**: did they exercise the dynamics
+and operating conditions we care about? Then we inspect the **residuals**,
+the differences between measured and simulated outputs. Do they show
+repeated patterns, or are they correlated with the inputs? Such patterns can
+point to behavior the model has missed, although noise and measurement
+problems can contribute too.
 
-Model validation means checking how well a model describes the real system
-for the tasks you want to use it for. You give the model the same inputs
-as the real system, then compare their outputs using measurements from
-experiments.
+These checks complement each other: output comparisons show how closely
+the predictions match, input assessment helps judge whether the experiment
+was informative, and residual analysis helps reveal what the fit score
+leaves out. That is why dymoval combines them rather than relying on a
+single number or a convincing-looking plot.
 
-The goal is not to prove that the model is perfect, but to understand where
-you can trust its predictions and where it needs improvement. That means
-looking beyond matching curves: the experiments you choose and the patterns
-left in the errors matter too.
+The aim is not to prove that the model is perfect, but to understand where
+you can trust its predictions and where more investigation is needed.
 
 The model validation process happens in four steps:
 

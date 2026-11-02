@@ -34,22 +34,22 @@ class Test_XCorrelation:
         y0 = Y[:, 0].T
 
         # SISO
-        R = dmv.XCorrelation("foo", x0, y0).R
+        R = dmv.XCorrelation("foo", x0, y0, np.full((1, 1), 11)).R
         np.testing.assert_allclose(R[0, 0].values, Rx0y0_expected, atol=1e-3)
         np.testing.assert_allclose(R[0, 0].lags, lags_expected)
 
         # SIMO
-        R = dmv.XCorrelation("foo", x0, Y).R
+        R = dmv.XCorrelation("foo", x0, Y, np.full((1, 2), 11)).R
         np.testing.assert_allclose(R[0, 0].values, Rx0y0_expected, atol=1e-3)
         np.testing.assert_allclose(R[0, 1].values, Rx0y1_expected, atol=1e-3)
 
         # MISO
-        R = dmv.XCorrelation("foo", X, y0).R
+        R = dmv.XCorrelation("foo", X, y0, np.full((2, 1), 11)).R
         np.testing.assert_allclose(R[0, 0].values, Rx0y0_expected, atol=1e-3)
         np.testing.assert_allclose(R[1, 0].values, Rx1y0_expected, atol=1e-3)
 
         # MIMO
-        Rxy = dmv.XCorrelation("foo", X, Y)
+        Rxy = dmv.XCorrelation("foo", X, Y, np.full((2, 2), 11))
         R = Rxy.R
         np.testing.assert_allclose(R[0, 0].values, Rx0y0_expected, atol=1e-3)
         np.testing.assert_allclose(R[0, 1].values, Rx0y1_expected, atol=1e-3)
@@ -84,7 +84,8 @@ class Test_XCorrelation:
         lags_long = np.arange(-5, 6)
 
         Rxy = dmv.XCorrelation(
-            "foo", X, Y, None, X_bandwidths, Y_bandwidths, sampling_period
+            "foo", X, Y, np.full((2, 2), 11),
+            X_bandwidths, Y_bandwidths, sampling_period
         )
         R = Rxy.R
 
@@ -147,7 +148,9 @@ class Test_XCorrelation:
             *_,
         ) = correlation_tensors
 
-        R = dmv.XCorrelation("foo", X, Y, None).R
+        R = dmv.XCorrelation(
+            "foo", X, Y, np.full((2, 2), 11, dtype=int)
+        ).R
 
         lags_long = np.arange(-5, 6)
 
@@ -159,6 +162,15 @@ class Test_XCorrelation:
         for ii in range(2):
             for jj in range(2):
                 np.testing.assert_allclose(R[ii, jj].lags, lags_long)
+
+    def test_default_lag_window(self) -> None:
+        values = np.random.default_rng(42).normal(size=(100, 2))
+        R = dmv.XCorrelation("default", values, values).R
+        for ii in range(2):
+            for jj in range(2):
+                np.testing.assert_array_equal(
+                    R[ii, jj].lags, np.arange(-20, 21)
+                )
 
     def test_initializer_with_nlags_arg(
         self, correlation_tensors: tuple
@@ -234,7 +246,7 @@ class Test_XCorrelation:
         local_weights = np.empty(RXY.R.shape, dtype=np.ndarray)
         for ii in range(2):
             for jj in range(2):
-                local_weights[ii, jj] = np.ones(11)
+                local_weights[ii, jj] = np.ones(len(RXY.R[ii, jj].lags))
 
         w_weighted, W_weighted = RXY.correlation_score(
             local_weights=local_weights, global_weights=global_weights

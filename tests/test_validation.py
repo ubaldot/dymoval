@@ -25,6 +25,63 @@ def _stack(signals) -> np.ndarray:
 # ============================================================
 # ValidationSession, nominal
 # ============================================================
+@pytest.mark.parametrize("statistic", ["max", "mean"])
+def test_residual_rmse_report_and_lifecycle(statistic: str) -> None:
+    time = np.arange(100, dtype=float)
+    rng = np.random.default_rng(42)
+    u = rng.normal(size=100)
+    measured = np.column_stack([u, 2 * u])
+    errors = rng.normal(size=(100, 2)) * [0.1, 2.0]
+    errors[:50] *= 3
+    ds = dmv.Dataset.from_signals(
+        inputs=[Signal("u", u, time, "V")],
+        outputs=[
+            Signal("speed", measured[:, 0], time, "rad/s"),
+            Signal("current", measured[:, 1], time, "A"),
+        ],
+    )
+    empty = dmv.ValidationSession("RMSE", ds, rmse_statistic=statistic)
+    vs = empty.append_simulation(
+        "model", ["speed", "current"], measured + errors
+    )
+    expected = np.sqrt(np.mean(errors**2, axis=0))
+    aggregate = np.max if statistic == "max" else np.mean
+    assert vs.validation_statistics["model"]["rmse"] == pytest.approx(
+        aggregate(expected)
+    )
+    report = repr(vs)
+    assert f"Residual RMSE ({statistic})" in report
+    assert f"{aggregate(expected):.4f}" in report
+    assert set(vs.validation_statistics["model"]) == set(dmv.VALIDATION_KEYS)
+    assert "rmse" not in vs.validation_thresholds
+
+    trimmed = vs.trim(50, 99)
+    assert trimmed.validation_statistics["model"]["rmse"] == pytest.approx(
+        aggregate(np.sqrt(np.mean(errors[50:]**2, axis=0)))
+    )
+    assert vs.drop_simulations("model").validation_statistics == {}
+    assert vs.clear().validation_statistics == {}
+    assert "model" in vs.validation_statistics
+
+
+def test_residual_rmse_threshold_and_invalid_statistic() -> None:
+    rng = np.random.default_rng(99)
+    u = rng.normal(size=(100, 1))
+    y = 2 * u
+    simulated = y + rng.normal(size=y.shape)
+    expected = float(dmv.rmse(y, simulated)[0])
+    for threshold, outcome in [(expected + 0.1, "PASS"), (expected, "FAIL")]:
+        vs = validate_models(
+            u, y, simulated, sampling_period=1.0,
+            validation_thresholds={"rmse": threshold},
+        )
+        assert vs.outcome["Sim_0"] == outcome
+    with pytest.raises(ValueError, match="rmse_statistic"):
+        validate_models(
+            u, y, simulated, sampling_period=1.0, rmse_statistic="min"
+        )
+
+
 class Test_ValidationSession_nominal:
     def test_init(self, good_dataset: tuple) -> None:
         ds, u_names, y_names, _, _, _ = good_dataset

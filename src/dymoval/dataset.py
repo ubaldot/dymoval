@@ -828,6 +828,63 @@ class Dataset:
         return self.resample(new_time), other.resample(new_time)
 
     # ================================================
+    # Input excitation
+    # ================================================
+    def input_gram_matrix(self, window_length: int) -> np.ndarray:
+        r"""Return the averaged lagged-input Gram matrix for the whole log.
+
+        ``window_length`` is the number :math:`L` of consecutive samples
+        per stack, with ``1 <= L <= N``. Each stack contains all input
+        channels at the newest sample first, followed by earlier samples,
+        in :meth:`input_names` order. The returned matrix has shape
+        ``(p * L, p * L)`` and is averaged over ``N - L + 1`` stacks.
+
+        Raw input values are used: no centering or channel scaling is
+        applied. Subtract an operating point or scale inputs beforehand
+        if appropriate. Inputs must be finite.
+
+        Use ``numpy.linalg.eigvalsh(matrix)`` for ascending eigenvalues.
+        The smallest describes the weakest excited combination, not
+        overall dataset suitability or model quality.
+        """
+        self.validate()
+        if not self.inputs:
+            raise ValueError("At least one input signal is required")
+        if isinstance(window_length, (bool, np.bool_)) or not isinstance(
+            window_length, (int, np.integer)
+        ):
+            raise ValueError("window_length must be an integer")
+        n = len(self.time())
+        if not 1 <= window_length <= n:
+            raise ValueError("window_length must satisfy 1 <= L <= N")
+
+        u = np.column_stack([sig.values for sig in self.inputs.values()])
+        if not np.all(np.isfinite(u)):
+            raise ValueError("Input signals must contain only finite values")
+
+        windows = np.lib.stride_tricks.sliding_window_view(
+            u, window_length, axis=0
+        )
+        stacks = (
+            windows[:, :, ::-1]
+            .transpose(0, 2, 1)
+            .reshape(n - window_length + 1, -1)
+        )
+        return np.asarray((stacks.T @ stacks) / len(stacks))
+
+    def input_gram_eigenvalues(self, window_length: int) -> np.ndarray:
+        """Return ascending eigenvalues of the averaged input Gram matrix.
+
+        See :meth:`input_gram_matrix` for stack ordering, input requirements,
+        and centering/scaling conventions. The first value describes the
+        weakest excited combination for the chosen stack length. Values
+        depend on input amplitudes and units; there is no universal
+        dataset-suitability threshold. Small negative values can arise
+        from floating-point roundoff for rank-deficient matrices.
+        """
+        return np.linalg.eigvalsh(self.input_gram_matrix(window_length))
+
+    # ================================================
     # Frequency domain
     # ================================================
     def fft(self, *names: str) -> dict[str, tuple[np.ndarray, np.ndarray]]:

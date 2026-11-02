@@ -163,6 +163,8 @@ As for :ref:`Signals <signal>`, each of these returns a new :ref:`Dataset
 .. rubric:: Analysis methods
 .. autosummary::
 
+   Dataset.input_gram_matrix
+   Dataset.input_gram_eigenvalues
    Dataset.fft
    Dataset.spectrum
    Dataset.spa

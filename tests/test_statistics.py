@@ -10,6 +10,35 @@ import dymoval as dmv
 from dymoval.statistics import compute_statistic
 
 
+class Test_rmse:
+    def test_per_channel_and_bias(self) -> None:
+        measured = np.array([[0, 10], [2, 20], [4, 30]])
+        simulated = measured + np.array([[3, 0], [0, 4], [0, 0]])
+        np.testing.assert_allclose(
+            dmv.rmse(measured, simulated), [np.sqrt(3), np.sqrt(16 / 3)]
+        )
+        np.testing.assert_allclose(dmv.rmse(measured, measured + 2), [2, 2])
+        np.testing.assert_array_equal(dmv.rmse(measured, measured), [0, 0])
+
+    def test_one_dimensional_and_integer_subtraction(self) -> None:
+        measured = np.array([0, 0], dtype=np.uint8)
+        simulated = np.array([3, 4], dtype=np.uint8)
+        assert dmv.rmse(measured, simulated) == pytest.approx(np.sqrt(12.5))
+
+    def test_shape_mismatch(self) -> None:
+        with pytest.raises(IndexError):
+            dmv.rmse(np.ones((4, 1)), np.ones(4))
+
+    @pytest.mark.parametrize("values", [
+        np.array([]), np.empty((0, 2)), np.empty((2, 0)),
+        np.ones((2, 2, 2)), np.array([np.nan]), np.array([np.inf]),
+        np.array([1j]),
+    ])
+    def test_invalid_values(self, values) -> None:
+        with pytest.raises(ValueError):
+            dmv.rmse(values, values)
+
+
 # ============================================================
 # rsquared
 # ============================================================

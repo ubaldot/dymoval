@@ -39,51 +39,10 @@ done automatically:
 
    # vs is a ValidationSession object
    vs = vs.append_simulation(sim_name='Sim_1', y_names=['out0'], y_data=y_sim2)
-   vs
+   print(vs)
 
-   Validation session name: quick & dirty
-
-   Validation setup:
-   ----------------
-   Inputs auto-correlation
-   Statistic: abs_mean-max
-   Ruu_local_weights: None
-   Ruu_global_weights: None
-   num lags: 41
-
-   Residuals auto-correlation:
-   Statistic: abs_mean-max
-   Ree_local_weights: None
-   Ree_global_weights: None
-   num lags: 41
-
-   Input-residuals cross-correlation:
-   Statistic: abs_mean-max
-   Rue_local_weights: None
-   Rue_global_weights: None
-   num lags: 41
-
-   Validation results:
-   -------------------
-   Thresholds:
-   Ruu_correlation: 0.6000
-   r2: 35.0000
-   Ree_correlation: 0.5000
-   Rue_correlation: 0.5000
-
-   Actuals:
-                                                           Sim_0         Sim_1
-   Input auto-correlation (abs_mean-max)                   0.0367        0.0367
-   R-squared fit (%)                                     99.8454       66.4326
-   Residual auto-correlation (abs_mean-max)                0.1515        0.3663
-   Input-residual cross-correlation (abs_mean-max)         0.0795        0.1168
-
-   Correlation scores: lower means less correlation.
-   R-squared fit: higher is better.
-   Input auto-correlation describes excitation, not model quality.
-
-            Sim_0  Sim_1
-   Outcome: PASS   FAIL
+The report shows the validation settings, thresholds, scores for each
+simulation, and PASS/FAIL outcomes.
 
 The same numbers are available programmatically through
 :py:attr:`~dymoval.validation.ValidationSession.validation_statistics`,
@@ -91,27 +50,13 @@ The same numbers are available programmatically through
 :py:attr:`~dymoval.validation.ValidationSession.outcome`, all of which are
 plain dictionaries.
 
-The default validation procedure evaluates the following quantities:
+The report includes the following quantities:
 
 -  *Input auto-correlation (optional)*,
 -  :math:`R^2` fit of the measured and simulated outputs,
+-  *Residual root mean squared error (RMSE)*,
 -  *Residual auto-correlation*,
 -  *Input-residual cross-correlation*,
-
-Lower correlation scores mean less correlation; higher fit scores mean
-closer agreement with measurements. Input auto-correlation describes the
-excitation, not model quality: colored inputs are not inherently invalid.
-The correlation scores summarize the selected lags and statistics, rather
-than performing a formal statistical whiteness test. Their dictionary keys
-are ``Ruu_correlation``, ``Ree_correlation``, and ``Rue_correlation``.
-Use these names in both statistics and threshold dictionaries; they replace
-the former ``*_whiteness`` keys. The ``r2`` key is unchanged.
-
-The scores are compared with thresholds. If each individual quantity passes
-its check, then the overall test passes. It is possible to access all
-the validation information for defining custom evaluation criteria in a fairly
-easy manner since it is possible to extract any kind on information from
-:py:class:`~dymoval.validation.ValidationSession` objects.
 
 You can finally visually inspect both the simulations results with the
 :py:meth:`~dymoval.validation.ValidationSession.plot_simulations` method and
@@ -122,42 +67,82 @@ the residuals with the
  How to interpret the results?
 *******************************
 
-The :math:`R^2` index tells us how well the simulation results fit the
-measurement data, whereas the residuals provide information about the dynamic
-behavior of our model. More precisely:
+The scores describe different aspects of the experiment and the model:
 
--  If the input signal has a low whiteness value (i.e., as close to 0.0 as
-   possible), it means that during the lab tests, the system was adequately
-   stimulated, covering all aspects of the real system. This gives higher
-   trust to our model if the other validation metrics are good.
+-  **R-squared fit** measures agreement with the measured outputs relative
+   to their variation. Higher is better, but a high value does not rule out
+   missing dynamics.
 
--  If the residuals' whiteness is large, the residual sequence still contains
+-  **Residual RMSE** measures the magnitude of the errors
+   :math:`\varepsilon = y_{\mathrm{measured}} - y_{\mathrm{simulated}}`.
+   It is computed as :math:`\sqrt{\mathrm{mean}(\varepsilon^2)}` per output,
+   without removing the residual mean, so bias contributes too. Lower is
+   better; zero means a perfect match. Unlike R-squared, RMSE retains the
+   output units.
+
+-  **Input auto- and cross-correlation** describe repetition and redundancy
+   in the excitation, not model quality. Low scores are generally desirable,
+   but do not establish that all relevant behavior was exercised. Colored
+   inputs can also be useful. See :ref:`doe` for input-excitation assessment.
+
+-  **Residual auto-correlation:** a large score means the residuals contain
    structure that the model does not explain. This may indicate missing or
    incorrectly modeled dynamics, but it can also result from disturbances,
-   nonlinearities, or other modeling assumptions. The magnitude of the
-   residuals is a separate measure: large residual values indicate a poor
-   pointwise fit, whereas large residual whiteness indicates remaining
-   correlation over time. A large :math:`R^2` value only means that the model
-   fits the measured outputs well overall; it does not rule out unmodeled
-   dynamics.
+   nonlinearities, or measurement problems. Correlation describes patterns
+   over time; RMSE describes error magnitude. Neither replaces the other.
 
--  If the input-residuals' whiteness level is large, the residuals remain
-   correlated with the inputs. This indicates that the model has not captured
-   some part of the input-output relationship. The cause may be missing
+-  **Input-residual cross-correlation:** a large score means the residuals
+   remain correlated with the inputs. This can indicate that the model has
+   not captured part of the input-output relationship. The cause may be missing
    dynamics, incorrect parameters, nonlinear behavior, or other model
    limitations; the correlation does not identify one particular state-space
    matrix as the cause.
 
-For simulation models, which motivated the development of *dymoval*, we are
-more interested in the dynamic behavior of models than the point-wise fit of
-the data. Hence, even if the :math:`R^2` index is low, the model can still be
-very useful in a simulation setting, provided that the residuals are white
-enough.
+Correlation scores summarize the selected lags and statistics: lower means
+less correlation. They are not formal statistical tests. Low residual
+correlation alone does not make a model suitable: acceptable fit and error
+magnitude depend on what you want to use the model for.
 
-The default validation process offered by Dymoval consists of comparing these
-values with some adjustable thresholds. You can tune such thresholds depending
-on how stringent you want to be with your model, but you can also fetch raw
-data and build up the criteria you want.
+.. note::
+
+   Small residual correlations are generally desirable, but are not a
+   universal requirement for a correct simulation model. Colored sensor
+   noise or unmeasured disturbances can produce correlated residuals even
+   when the modeled dynamics are accurate. These simulation residuals are
+   not necessarily the one-step prediction errors of a model that also
+   describes the noise.
+
+   Clean, meaningful measurements are essential: check timing alignment,
+   sensor quality, excitation, and operating conditions before attributing
+   residual patterns to the model. Interpret correlation alongside output
+   plots, RMSE, and knowledge of the experiment, rather than trying to make
+   the score small at any cost.
+
+Both R-squared and residual RMSE are stored as scalar values for each
+simulation in ``vs.validation_statistics``, under ``"r2"`` and ``"rmse"``.
+For multiple outputs, ``r2_statistic="min"`` selects the lowest fit by
+default, while ``rmse_statistic="max"`` selects the largest per-output RMSE.
+Both also support ``"mean"``. Outputs should have comparable units and
+scaling before aggregating RMSE.
+
+The correlation keys are ``"Ruu_correlation"``, ``"Ree_correlation"``, and
+``"Rue_correlation"``. The report compares scores with the configured
+thresholds: R-squared must be strictly above its threshold, and the other
+scores strictly below theirs. All configured checks must pass.
+Use ``ignore_input=True`` to disable the input-correlation check.
+
+There is no RMSE threshold enabled by default, since an acceptable error
+depends on the output units and application. To add one while retaining the
+current checks:
+
+.. code:: python
+
+   thresholds = dict(vs.validation_thresholds)
+   thresholds["rmse"] = 0.1  # Example only: choose a meaningful tolerance.
+   vs.validation_thresholds = thresholds
+
+Choose thresholds for your application, or use the underlying data to build
+your own evaluation criteria.
 
 In any case, it is important that you deliver your model along with the
 validation results and the coverage region, so users know within which limits
@@ -187,24 +172,11 @@ things to check:
    to one sampling period.
 
 -  The input signal has some trend or some large mean values or offset, etc..
-   Consider removing possible trends, mean values, etc. from the input signals
-   used in the :ref:`Dataset <Dataset>` object contained in the
-   :ref:`ValidationSession <ValidationSession>` object. *You don't need to do
-   it in the output signals because eventual trends or mean values are
-   canceled out during the computation of the residuals*. However, to generate
-   the simulated data the input signal shall be as close as possible to the
-   input signal used in the test. Hence, you may consider **two distinct input
-   signals**: one for feeding the model and a manipulated version of it for
-   validation purpose that is included in the :ref:`ValidationSession
-   <ValidationSession>` object.
-
--  *Stiff models*: *dymoval* can naturally cope with stiff models, but it is
-   very important to exploit bandwidths information. However, you can ignore
-   entries in the resulting validation matrix described in point 2. of the
-   next Section when performing an overall assessment if they represents
-   signal with significantly different bandwidths. This means that you should
-   extract information from the :ref:`ValidationSession <ValidationSession>`
-   object and build custom evaluation metrics.
+   The normalized correlation diagnostics already subtract signal means;
+   they do not automatically remove trends. Any preprocessing should be
+   consistent with the model's input/output conventions. Residual offsets
+   do not necessarily cancel: a bias contributes to RMSE even when it is
+   removed by the correlation calculation.
 
 .. _theory:
 
@@ -216,12 +188,9 @@ The residuals, denoted as :math:`\varepsilon`, are simply the error between
 the measured outputs and the simulated outputs, defined as :math:`\varepsilon
 = y_{\mathrm{measured}} - y_{\mathrm{simulated}}`.
 
-It is desirable for the residuals to be as `white` as possible.
-
-In general, to examine the whiteness of a signal :math:`x(t), t=1,\dots,N`, we
-study its similarity with some of its delayed copies. If such a similarity is
-small for a sufficiently high number of *lags*, then we can say that the
-signal :math:`x(t)` is somewhat *white*. The function :math:`r_{x,x}(k)` is
+Residual correlation helps us look for structure left in the errors.
+For a signal :math:`x(t), t=1,\dots,N`, auto-correlation measures similarity
+with delayed copies of itself. The function :math:`r_{x,x}(k)` is
 called *auto-correlation function (ACF)* of the signal :math:`x(t)` and it
 represents how similar :math:`x(t)` is with delayed copies of itself at
 different lags :math:`k\in \mathbb Z`. If instead of considering one signal we
@@ -249,13 +218,25 @@ the correlation has decayed outside the dominant time constants.
 In case of cross-correlation between two signals :math:`x` and :math:`y`, the
 signals must have the same sampling period. Without bandwidth information,
 the lag spacing is :math:`T_s`; with bandwidth information, it is
-:math:`\tau = \min(1/(2B_x), 1/(2B_y))`.
+:math:`\tau \approx \min(1/(2B_x), 1/(2B_y))`.
 
-*Dymoval* also performs whiteness analysis of **multivariate signals** as
+This is a practical way to inspect delays on a bandwidth-related time
+scale, not a guarantee that samples at those delays are uncorrelated.
+Nyquist does not prescribe a correlation lag grid. The actual spacing is
+an integer multiple of the sampling period, rounded down from the target
+spacing and limited by record length. Only the evaluated correlation lags
+are thinned; the input signals are not downsampled.
+
+The grid can make oversampled data easier to assess, but may skip short-delay
+features. Inspect the full-resolution correlation too when those features
+matter, and do not compare aggregate scores from different grids as though
+they measured exactly the same thing.
+
+*Dymoval* also summarizes correlation for **multivariate signals** as
 follows.
 
 Let :math:`X` a signal of dimension :math:`p` with :math:`N` observations. The
-whiteness estimation of :math:`X` is performed in three steps:
+correlation scoring of :math:`X` is performed in three steps:
 
 #. That is, the `auto-/cross-correlation` functions :math:`r_{i,j}(k)` of each
    pair of components :math:`x_i, x_j \in X` for :math:`i,j = 1 \dots p` is
@@ -263,19 +244,19 @@ whiteness estimation of :math:`X` is performed in three steps:
    :py:class:`~dymoval.xcorrelation.XCorrelation` object.
 
 #. For each element :math:`r_{i,j}(k), i,j = 1 \dots p` of the
-   :py:class:`~dymoval.xcorrelation.XCorrelation` object the whiteness is
-   estimated by computing a statistic of its realizations for
-   :math:`k=-n_{lags}, \dots, n_{lags}`, being :math:`n_{lags} >0` the number
-   of lags considered (20 by default). The default statistic is the *mean of
+   :py:class:`~dymoval.xcorrelation.XCorrelation` object, correlation is
+   summarized over the selected symmetric lag window (by default, 20
+   negative lags, zero, and 20 positive lags). The default statistic is the *mean of
    the absolute value* of the realizations of the
    :py:class:`~dymoval.xcorrelation.XCorrelation` function. The results are
    arranged in a :math:`p\times p` array where each element is `float`.
 
 #. Another statistic is finally computed on the resulting flattened array. By
    default, *dymoval* take the :math:`\max` element of such an array, which
-   correspond to the *worst-case* whiteness estimate.
+   corresponds to the largest local correlation score.
 
 *Dymoval* considers **normalized** correlation functions, whose values are
 between :math:`-1.0` and :math:`1.0`. For an auto-correlation, the value at
-zero lag is one and is excluded from the whiteness estimate; whiteness is
-assessed from the non-zero lags.
+zero lag is one for a nonconstant channel. These diagonal zero-lag peaks
+are excluded from the score; cross-correlations between different channels
+still include zero lag.

@@ -18,6 +18,7 @@ Statistics functions
 .. autosummary::
 
    rsquared
+   rmse
    compute_statistic
 
 .. _XCorrelation:

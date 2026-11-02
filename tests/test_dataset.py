@@ -21,6 +21,73 @@ def _sig(name: str, time: np.ndarray, value: float = 1.0) -> Signal:
 # ============================================================
 # Construction / validation
 # ============================================================
+class Test_input_gram_matrix:
+    @pytest.mark.parametrize("length", [1, 3, 6])
+    def test_matches_explicit_stacks(self, length: int) -> None:
+        u = np.array([[1., 7.], [2., -2.], [4., 1.],
+                      [-1., 3.], [5., 0.], [2., 8.]])
+        time = np.arange(len(u), dtype=float)
+        ds = Dataset.from_signals(inputs=[
+            Signal(f"u{i}", u[:, i], time, "V") for i in range(2)
+        ])
+        stacks = np.array([
+            u[t - length + 1:t + 1][::-1].ravel()
+            for t in range(length - 1, len(u))
+        ])
+        expected = sum(np.outer(row, row) for row in stacks) / len(stacks)
+
+        matrix = ds.input_gram_matrix(length)
+
+        np.testing.assert_allclose(matrix, expected)
+        np.testing.assert_allclose(
+            ds.input_gram_eigenvalues(length), np.linalg.eigvalsh(expected)
+        )
+        np.testing.assert_allclose(matrix, matrix.T)
+        np.testing.assert_array_equal(ds.inputs["u0"].values, u[:, 0])
+
+    def test_redundant_channels_and_amplitude(self) -> None:
+        time = np.arange(60, dtype=float)
+        u = np.random.default_rng(42).normal(size=len(time))
+        ds = Dataset.from_signals(inputs=[
+            Signal("u0", u, time, "V"),
+            Signal("u1", u.copy(), time, "V"),
+        ])
+        eigenvalues = ds.input_gram_eigenvalues(3)
+        np.testing.assert_allclose(eigenvalues[:3], 0, atol=1e-14)
+        assert eigenvalues[3] > 0.1
+        scaled = Dataset.from_signals(inputs=[
+            Signal("u0", 2 * u, time, "V"),
+            Signal("u1", 2 * u, time, "V"),
+        ])
+        np.testing.assert_allclose(
+            scaled.input_gram_matrix(3), 4 * ds.input_gram_matrix(3)
+        )
+
+    @pytest.mark.parametrize("length", [0, -1, 7, 1.5, True, np.bool_(True)])
+    def test_invalid_length(self, length) -> None:
+        time = np.arange(6, dtype=float)
+        ds = Dataset.from_signals(inputs=[_sig("u", time)])
+        with pytest.raises(ValueError, match="window_length"):
+            ds.input_gram_matrix(length)
+        with pytest.raises(ValueError, match="window_length"):
+            ds.input_gram_eigenvalues(length)
+
+    @pytest.mark.parametrize("bad_value", [np.nan, np.inf, -np.inf])
+    def test_nonfinite_inputs(self, bad_value: float) -> None:
+        time = np.arange(6, dtype=float)
+        u = np.ones(6)
+        u[2] = bad_value
+        ds = Dataset.from_signals(inputs=[Signal("u", u, time, "V")])
+        with pytest.raises(ValueError, match="finite"):
+            ds.input_gram_matrix(2)
+
+    def test_no_inputs(self) -> None:
+        time = np.arange(6, dtype=float)
+        ds = Dataset.from_signals(outputs=[_sig("y", time)])
+        with pytest.raises(ValueError, match="input"):
+            ds.input_gram_matrix(2)
+
+
 class Test_construction:
     def test_from_signals(self, dataset: Dataset) -> None:
         assert dataset.input_names() == ["u1"]
