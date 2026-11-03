@@ -132,19 +132,20 @@ The results for this example look like:
    Validation results:
    -------------------
    Thresholds:
-   Ruu_correlation: 0.6000
    r2: 35.0000
-   Ree_envelope: 1.0000
    Rue_correlation: 0.5000
+   Ruu_envelope: 1.0000
+   Ree_envelope: 1.0000
 
    Actuals:
-                                                           Sim_0
-   Input auto-correlation (abs_mean-max)                   0.0157
-   R-squared fit (%)                                     99.2913
-   Residual RMSE (max)                                   0.0287
-   Residual auto-correlation (Gaussian envelope ratio)     1.7550
-   Residual cross-correlation (abs_mean-max)                 N/A
-   Input-residual cross-correlation (abs_mean-max)         0.0831
+                                                            Sim_0
+   Input cross-correlation (abs_mean-max)                        N/A
+   Input auto-correlation (Gaussian envelope ratio)           0.4247
+   R-squared fit (%)                                         99.2913
+   Residual RMSE (max)                                        0.0287
+   Residual cross-correlation (abs_mean-max)                     N/A
+   Input-residual cross-correlation (abs_mean-max)            0.0831
+   Residual auto-correlation (Gaussian envelope ratio)        1.7550
 
    Correlation scores: lower means less correlation.
    R-squared fit: higher is better.
@@ -154,13 +155,12 @@ The results for this example look like:
             Sim_0
    Outcome: FAIL
 
-Our LPF has a high fit, but exceeds the starting Gaussian residual limit.
-This illustrates why fit alone is not the whole assessment. Here is how to
-read the scores:
+Our LPF has a high fit and the input envelope check passes, but the residual
+envelope check fails. This illustrates why fit alone is not the whole
+assessment. Here is how to read the scores:
 
--  **Input auto-correlation (optional)**: Lower values indicate less redundant
-   excitation, not necessarily a better model or experiment. Colored inputs
-   can also be useful.
+-  **Input auto-correlation**: The Gaussian ratio must be at or below 1 to
+   meet the configured limit. This describes excitation, not model quality.
 -  :math:`\mathbf{R^2}`: A good model should have this value as large as
    possible.
 -  **Residual RMSE**: Error magnitude in output units; lower is better.
@@ -171,8 +171,10 @@ read the scores:
    correlation between the inputs and the errors at the evaluated lags.
 
 These are correlation summary scores, not formal statistical whiteness
-tests. Their dictionary keys are ``Ruu_correlation``, ``Ree_correlation``,
-and ``Rue_correlation``.
+tests. Ordinary diagonal and off-diagonal scores are available under
+``Ruu_correlation``, ``Ruu_cross_correlation``, ``Ree_correlation``, and
+``Ree_cross_correlation``; the default Gaussian ratios are
+``Ruu_envelope`` and ``Ree_envelope``.
 
 A pass is not a guarantee that the model works everywhere. Choose experiments
 and thresholds that suit your application, and inspect the errors as well
@@ -182,13 +184,14 @@ as the fit. See :ref:`theory` for the calculations and
 We used SciPy here, but dymoval does not need to know how you produced
 ``simulated_output``. Results from another simulation tool work just as well.
 
-Customize delay-dependent residual limits
-=========================================
+Customize delay-dependent input and residual limits
+===================================================
 
-Diagonal residual auto-correlation uses a Gaussian envelope by default:
-``Ree_envelope="auto"`` selects ``(0.95, 0.1, 5*sampling_period)``.
-The limits are starting settings, not universal criteria. Customize them
-when you have justified tolerances for short- and long-delay correlation:
+Diagonal input and residual auto-correlation use separate Gaussian
+envelopes by default: ``Ruu_envelope="auto"`` and ``Ree_envelope="auto"``
+each select ``(0.95, 0.1, 5*sampling_period)``. These are starting settings,
+not universal criteria. Customize them when you have justified tolerances
+for short- and long-delay correlation:
 
 .. code-block:: python
 
@@ -197,6 +200,7 @@ when you have justified tolerances for short- and long-delay correlation:
        measured_out=measured_output,
        simulated_out=simulated_output,
        sampling_period=sampling_period,
+       Ruu_envelope=(0.95, 0.1, 0.05),
        Ree_envelope=(0.95, 0.1, 0.05),
    )
    print(vs_envelope)
@@ -204,27 +208,29 @@ when you have justified tolerances for short- and long-delay correlation:
 
 These illustrative parameters are ``(short_delay_limit, long_delay_floor,
 time_scale)``. Here the time scale is in seconds; it must be chosen from
-acceptable error behavior, not adjusted until a model passes.
+acceptable behavior, not adjusted until a model passes. Input and residual
+settings are independent.
 
-``Ree_envelope`` is the worst ratio of absolute diagonal residual
-auto-correlation to its limit, excluding zero lag. A ratio at or below 1
-passes the default envelope check. The residual plot shades the allowed
-region on the diagonal only.
+Each ``*_envelope`` is the worst ratio of absolute diagonal auto-correlation
+to its limit, excluding zero lag. A ratio at or below 1 passes the default
+envelope check. The plots shade the allowed region on the corresponding
+diagonal only.
 
-The report separates residual auto-correlation (diagonal) from residual
-cross-correlation (off-diagonal). With an envelope, the diagonal report row
-uses the Gaussian ratio and its default check replaces ``Ree_correlation``.
-The ordinary diagonal statistic remains available under ``Ree_correlation``.
-``Ree_cross_correlation`` always covers off-diagonal pairs; for this
-single-output example it is omitted from statistics and thresholds and
-displayed as N/A. Input-residual scores are unchanged.
+The report separates input and residual auto-correlation (diagonal) from
+their cross-correlation (off-diagonal). With an envelope, the diagonal
+report row uses the Gaussian ratio and its default check replaces the
+ordinary diagonal check. Ordinary diagonal values remain available under
+``Ruu_correlation`` and ``Ree_correlation``. Cross-correlation keys are
+omitted from statistics and thresholds for this single-input, single-output
+example and displayed as N/A.
 Here the explicit parameters equal the automatic defaults. The ratio is
 about 1.755, so the envelope check fails. That is not a universal verdict
 on the LPF: the envelope expresses a different, application-specific
 requirement.
-Pass ``Ree_envelope=None`` to use the ordinary diagonal statistic instead.
-Custom threshold dictionaries must include ``"Ree_envelope": 1.0`` if you
-want this check. See :ref:`validation_session` for per-output envelopes,
+Pass ``Ruu_envelope=None`` or ``Ree_envelope=None`` to use ordinary diagonal
+scoring for that signal group. Custom threshold dictionaries must include
+``"Ruu_envelope": 1.0`` and/or ``"Ree_envelope": 1.0`` to check enabled
+envelopes. See :ref:`validation_session` for per-channel envelopes,
 reference-model baselines, and tuning guidance.
 
 *************************************************

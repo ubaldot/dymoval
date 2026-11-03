@@ -34,7 +34,7 @@ from .validation import (
     ValidationSession,
     validate_models,
 )
-from .xcorrelation import XCorrelation, whiteness_level
+from .xcorrelation import XCorrelation, correlation_score, whiteness_level
 
 __all__ = [
     # core
@@ -68,6 +68,7 @@ __all__ = [
     "compute_statistic",
     "rsquared",
     "rmse",
+    "correlation_score",
     "whiteness_level",
     # utils
     "open_tutorial",

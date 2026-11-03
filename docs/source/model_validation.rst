@@ -35,11 +35,12 @@ The aim is not to prove that the model is perfect, but to understand where
 you can trust its predictions and where more investigation is needed.
 
 Dymoval makes these checks accessible without requiring you to implement
-the statistics yourself. It is a tool for **guided model assessment**, not
-an automatic certificate of correctness. Its default tolerances are starting
-settings: interpreting the results requires knowledge of the experiment
-and the model's intended use. A PASS means the configured checks passed
-on the evaluated data; a FAIL calls for investigation.
+the statistics yourself. It is a tool for guided model assessment, but it also
+define some KPIs that you can compare against some thresholds.
+The default thresholds are starting settings: interpreting the results
+requires knowledge of the experiment and the model's intended use.
+A PASS means the configured checks passed on the evaluated data;
+a FAIL calls for investigation.
 For automated acceptance, see :ref:`model_ci_cd` for guidance on calibrating
 criteria, checking coverage, and handling incomplete runs.
 
@@ -51,8 +52,8 @@ The model validation process happens in four steps:
    known as the :ref:`doe`.
 
 #. **Execute** the experiments planned in step 1. on the target environment
-   and **collect** the response. The combination of the input signals and the
-   system response is referred to as the *measurement dataset* (or simply
+   and collect the response. The combination of the input signals and the
+   system response is referred to as the *measurements dataset* (or simply
    dataset). Since sensors may be noisy, may be sampled at different rates or
    may log intermittently, you will most likely need to :ref:`clean up your
    measurements dataset <create_dataset>`.

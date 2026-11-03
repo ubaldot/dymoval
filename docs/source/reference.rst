@@ -38,7 +38,8 @@ Each layer has one job:
 :ref:`ValidationSession <ValidationSession>`
    One :ref:`Dataset <Dataset>` plus the simulation results to be validated
    against it, and the metrics that score them: fit, residual RMSE, and
-   correlation summaries, with configurable Gaussian diagonal residual limits.
+   correlation summaries, with configurable Gaussian diagonal input and
+   residual limits.
 
 You reach an inner object from an outer one through plain attribute access,
 for example ``vs.dataset`` or ``ds.inputs["Voltage"]``, and nothing stops you

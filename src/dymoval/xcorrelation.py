@@ -23,7 +23,12 @@ from .statistics import (
     compute_statistic,
 )
 
-__all__ = ["XCorrelation", "whiteness_level", "correlation_title"]
+__all__ = [
+    "XCorrelation",
+    "correlation_score",
+    "whiteness_level",
+    "correlation_title",
+]
 
 _SYMBOLS: dict[str, str] = {
     "u": "u",
@@ -56,6 +61,14 @@ def _validate_nlags(
         raise ValueError(f"Every element of '{name}' must be positive.")
 
     return np.asarray(resolved, dtype=int)
+
+
+def _gaussian_envelope(
+    lags: np.ndarray, parameters: tuple[float, float, float]
+) -> np.ndarray:
+    """Evaluate a Gaussian envelope at sample lags."""
+    b0, floor, sample_scale = parameters
+    return floor + (b0 - floor) * np.exp(-np.square(lags / sample_scale))
 
 
 def correlation_title(x_symbol: str, y_symbol: str, ii: int, jj: int) -> str:
@@ -294,6 +307,11 @@ class XCorrelation:
         *,
         exclude_diagonal: bool = False,
         diagonal_only: bool = False,
+        gaussian_envelope: (
+            tuple[float, float, float]
+            | dict[int, tuple[float, float, float]]
+            | None
+        ) = None,
     ) -> tuple[float, np.ndarray]:
         r"""Summarize correlation using the selected statistics.
 
@@ -324,6 +342,17 @@ class XCorrelation:
         diagonal_only:
             Aggregate only diagonal entries of a square matrix. Cannot be
             combined with ``exclude_diagonal``.
+        gaussian_envelope:
+            Optional diagonal auto-correlation acceptance parameters
+            ``(b0, b_inf, sample_scale)``. ``sample_scale`` is in lag samples,
+            not physical time. A dictionary may provide separate parameter
+            tuples keyed by diagonal index. When enabled, diagonal entries in
+            the returned score matrix are the maximum nonzero-lag envelope
+            ratios; off-diagonal entries retain their ordinary scores.
+            Envelope scoring requires an actual auto-correlation and at least
+            one nonzero lag for every diagonal entry. Use ``diagonal_only``
+            to aggregate the envelope ratios, or ``exclude_diagonal`` to
+            aggregate the ordinary off-diagonal scores separately.
 
         global_weights:
             Weights associated with each element of the resulting
@@ -358,6 +387,41 @@ class XCorrelation:
             raise ValueError("Diagonal selection requires a square matrix")
         if exclude_diagonal and diagonal_only:
             raise ValueError("Diagonal selections are mutually exclusive")
+        envelope_parameters: dict[int, tuple[float, float, float]] = {}
+        if gaussian_envelope is not None:
+            if self.kind != "auto-correlation" or p != q:
+                raise ValueError(
+                    "Gaussian envelope scoring requires an actual "
+                    "auto-correlation"
+                )
+            envelope_parameters = (
+                dict(gaussian_envelope)
+                if isinstance(gaussian_envelope, dict)
+                else dict.fromkeys(range(p), gaussian_envelope)
+            )
+            if set(envelope_parameters) != set(range(p)):
+                raise ValueError(
+                    "Gaussian envelope parameters must specify every "
+                    "diagonal index"
+                )
+            for ii, parameters in envelope_parameters.items():
+                values = np.asarray(parameters, dtype=float)
+                if values.shape != (3,) or not np.all(np.isfinite(values)):
+                    raise ValueError(
+                        "Gaussian envelope needs three finite parameters"
+                    )
+                b0, floor, sample_scale = map(float, values)
+                if not 0 < floor <= b0 <= 1 or sample_scale <= 0:
+                    raise ValueError(
+                        "Gaussian envelope requires 0 < b_inf <= b0 <= 1 "
+                        "and sample_scale > 0"
+                    )
+                envelope_parameters[ii] = (b0, floor, sample_scale)
+            if any(not np.any(R[ii, ii].lags != 0) for ii in range(p)):
+                raise ValueError(
+                    "Gaussian envelope scoring requires at least one "
+                    "nonzero lag per diagonal; increase nlags"
+                )
 
         # ---- statistics type is correct ----
         if (
@@ -426,6 +490,17 @@ class XCorrelation:
                     statistic=local_statistic,
                     weights=W,
                     data=rij_tau,
+                )
+        if gaussian_envelope is not None:
+            for ii, parameters in envelope_parameters.items():
+                entry = R[ii, ii]
+                nonzero = entry.lags != 0
+                limits = _gaussian_envelope(entry.lags[nonzero], parameters)
+                ratios = np.abs(entry.values[nonzero]) / limits
+                whiteness_matrix[ii, ii] = (
+                    float(np.max(ratios))
+                    if np.all(np.isfinite(ratios))
+                    else float("inf")
                 )
 
         # Compute the overall statistic of the resulting matrix
@@ -517,8 +592,7 @@ class XCorrelation:
         return fig
 
 
-# TODO: Not happy with this
-def whiteness_level(
+def correlation_score(
     data: np.ndarray,
     nlags: np.ndarray | None = None,
     local_statistic: XCorr_Statistic_type = "abs_mean",
@@ -527,23 +601,32 @@ def whiteness_level(
     local_weights: np.ndarray | None = None,
     global_statistic: XCorr_Statistic_type = "max",
     global_weights: np.ndarray | None = None,
+    *,
+    exclude_diagonal: bool = False,
+    diagonal_only: bool = False,
+    gaussian_envelope: (
+        tuple[float, float, float]
+        | dict[int, tuple[float, float, float]]
+        | None
+    ) = None,
 ) -> tuple[float, np.ndarray]:
-    r"""Estimate the whiteness of the signal `data`.
+    r"""Summarize auto- and cross-correlation in raw multivariate ``data``.
 
-    If `data` is a multivariate signal of shape :math:`p \times p`, then the
-    whiteness is computed in two steps:
+    If `data` contains :math:`N` samples of :math:`p` signals, the
+    correlation scores are computed in two steps:
 
     #. The cross-correlation function for each :math:`(i, j)` pair of signal in
        `data` is computed, and their whiteness of is computed and arranged
        in a :math:`p \times p` array.
 
-    #. The resulting :math:`p \times p` array is flattened and the
-       overall signal whiteness is estimated.
+    #. The resulting :math:`p \times p` array is flattened and the overall
+       score is estimated.
 
     It returns the values computed in points 1. and 2.
 
-    The whiteness is computed through
-    :py:meth:`~dymoval.statistics.compute_statistic`.
+    This convenience function delegates scoring to
+    :meth:`XCorrelation.correlation_score`. It is a correlation summary, not
+    a statistical whiteness test.
 
     Parameters
     ----------
@@ -569,11 +652,16 @@ def whiteness_level(
         :math:`p \times q` array.
     global_weights:
         Weight of each element of the resulting :math:`p \times q` array
-        for estimating the overall signal whiteness.
+        for estimating the overall signal score.
+    exclude_diagonal, diagonal_only:
+        Aggregate only off-diagonal or diagonal entries. The selectors are
+        mutually exclusive and require a square correlation matrix.
+    gaussian_envelope:
+        Optional diagonal Gaussian limits ``(b0, b_inf, sample_scale)``.
+        The width uses sample-lag units and is passed to the shared
+        :meth:`XCorrelation.correlation_score` implementation. Use
+        ``diagonal_only=True`` to return the envelope score.
     """
-
-    # Convert signals into XCorrelation tensors and compute the
-    # whiteness_level
 
     Rxx = XCorrelation(
         "",
@@ -582,11 +670,33 @@ def whiteness_level(
         nlags=nlags,
     )
 
-    whiteness_estimate, whiteness_matrix = Rxx.correlation_score(
+    estimate, score_matrix = Rxx.correlation_score(
         local_statistic=local_statistic,
         local_weights=local_weights,
         global_statistic=global_statistic,
         global_weights=global_weights,
+        exclude_diagonal=exclude_diagonal,
+        diagonal_only=diagonal_only,
+        gaussian_envelope=gaussian_envelope,
     )
 
-    return whiteness_estimate, whiteness_matrix
+    return estimate, score_matrix
+
+
+def whiteness_level(
+    data: np.ndarray,
+    nlags: np.ndarray | None = None,
+    local_statistic: XCorr_Statistic_type = "abs_mean",
+    local_weights: np.ndarray | None = None,
+    global_statistic: XCorr_Statistic_type = "max",
+    global_weights: np.ndarray | None = None,
+) -> tuple[float, np.ndarray]:
+    """Backward-compatible alias for :func:`correlation_score`."""
+    return correlation_score(
+        data,
+        nlags,
+        local_statistic,
+        local_weights,
+        global_statistic,
+        global_weights,
+    )

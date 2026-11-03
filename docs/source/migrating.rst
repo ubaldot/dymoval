@@ -24,8 +24,9 @@ below. The remaining sections concern signals, datasets and plotting.
 Automatic bandwidth-based lag thinning has been removed. Remove
 ``U_bandwidths`` and ``Y_bandwidths`` from validation calls, and
 ``X_bandwidths``, ``Y_bandwidths`` and ``sampling_period`` from
-``XCorrelation`` calls. The ``whiteness_level`` helper no longer accepts
-``data_bandwidths`` or ``sampling_period`` either. The ``sampling_period``
+``XCorrelation`` calls. The standalone ``correlation_score`` helper (formerly
+``whiteness_level``) no longer accepts ``data_bandwidths`` or
+``sampling_period`` either. The ``sampling_period``
 argument to ``validate_models`` is still required when passing arrays.
 
 Every correlation lag now represents one sampling period. Both
@@ -33,6 +34,8 @@ Every correlation lag now represents one sampling period. Both
 (-20 through +20 sample offsets), limited by the available record.
 Use ``nlags`` or the session's ``Ruu_nlags``, ``Ree_nlags`` and
 ``Rue_nlags`` arrays to choose the evaluated window, not the lag spacing.
+The standalone ``whiteness_level`` helper is now named
+``dymoval.correlation_score``; the old name remains as a compatibility alias.
 
 Scores and PASS/FAIL outcomes can change if you previously used bandwidth
 arguments, because the evaluated physical delays are different. Review
@@ -42,31 +45,37 @@ the old scores remain comparable. See :ref:`validation_session`.
 Validation statistics and residual envelopes
 ============================================
 
-Correlation dictionary keys are now ``Ruu_correlation``,
-``Ree_correlation``, and ``Rue_correlation``, replacing the former
-``*_whiteness`` keys. ``XCorrelation.correlation_score()`` replaces
-``estimate_whiteness()``. These are correlation summaries, not formal
-statistical tests.
+Correlation dictionary keys include ``Ruu_correlation``,
+``Ruu_cross_correlation``, ``Ruu_envelope``, ``Ree_correlation``,
+``Ree_cross_correlation``, ``Ree_envelope``, and ``Rue_correlation``,
+replacing the former ``*_whiteness`` keys. ``XCorrelation.correlation_score()``
+replaces ``estimate_whiteness()``. The standalone
+``dymoval.correlation_score()`` wraps this method for raw multivariate
+signals. These are correlation summaries, not formal statistical tests.
 
 The ``r2`` key is unchanged. Residual ``rmse`` is also reported, aggregated
 with ``rmse_statistic="max"`` by default (``"mean"`` is supported).
 It has no default validation threshold.
 
-Gaussian diagonal residual limits are now enabled by default through
-``Ree_envelope="auto"``, using ``(0.95, 0.1, 5*Ts)`` as starting settings.
-Override the tuple or use ``None`` for ordinary diagonal scoring. Review
-the time scale for your experiment; it is not inferred from system dynamics.
-They add a separate maximum violation ratio with an inclusive default
-threshold of 1, and shaded limits in residual plots. When enabled,
-``Ree_correlation`` now always scores diagonal residual entries only.
-The new ``Ree_cross_correlation`` scores off-diagonal entries separately,
-with a default strict upper threshold of 0.5 for multiple outputs.
-For one output it is omitted from statistics/thresholds and displayed as N/A.
-An envelope replaces the default ordinary diagonal check and its report
-row, but leaves the ordinary diagonal value available programmatically.
-Review existing ``Ree_correlation`` thresholds because its aggregation no
-longer includes off-diagonal entries. Include
-``"Ree_envelope": 1.0`` explicitly when using custom thresholds.
+Gaussian diagonal limits are enabled by default for both inputs and
+residuals through ``Ruu_envelope="auto"`` and ``Ree_envelope="auto"``, each
+using ``(0.95, 0.1, 5*Ts)`` as starting settings. The width is five sampling
+periods; it is not inferred from bandwidth or system dynamics. Override
+either tuple or pass ``None`` independently for ordinary diagonal scoring.
+The envelope adds a maximum violation ratio with an inclusive default
+threshold of 1 and shades the diagonal plots.
+
+``Ruu_correlation`` and ``Ree_correlation`` now always score diagonal pairs
+only. New ``Ruu_cross_correlation`` and ``Ree_cross_correlation`` keys score
+off-diagonal pairs, with default strict upper thresholds of 0.6 and 0.5,
+respectively, when there are multiple channels. Single-channel cross scores
+are omitted from statistics/thresholds and displayed as N/A. An enabled
+envelope replaces the default ordinary diagonal check and report row, but
+leaves the ordinary diagonal score available programmatically. Review
+existing correlation thresholds because diagonal/off-diagonal aggregation
+has changed. Custom threshold dictionaries must include
+``"Ruu_envelope": 1.0`` and/or ``"Ree_envelope": 1.0`` explicitly to check
+the corresponding enabled envelope.
 
 *********************
  Signals are objects

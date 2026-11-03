@@ -124,19 +124,21 @@ Displaying the returned object gives you something like the following
 Validation results:
 -------------------
 Thresholds:
-Ruu_correlation: 0.6000
 r2: 35.0000
-Ree_envelope: 1.0000
 Rue_correlation: 0.5000
+Ruu_envelope: 1.0000
+Ree_envelope: 1.0000
+Ree_cross_correlation: 0.5000
 
 Actuals:
                                                         Sim_0
-Input auto-correlation (abs_mean-max)                   0.3532
+Input cross-correlation (abs_mean-max)                        N/A
+Input auto-correlation (Gaussian envelope ratio)           9.5536
 R-squared fit (%)                                     65.9009
 Residual RMSE (max)                                   25.1090
-Residual auto-correlation (Gaussian envelope ratio)     0.8000
-Residual cross-correlation (abs_mean-max)                   N/A
-Input-residual cross-correlation (abs_mean-max)         0.2053
+Residual cross-correlation (abs_mean-max)                  0.1098
+Input-residual cross-correlation (abs_mean-max)            0.1492
+Residual auto-correlation (Gaussian envelope ratio)        3.5983
 
 Correlation scores: lower means less correlation.
 R-squared fit: higher is better.
@@ -144,39 +146,39 @@ Residual RMSE: lower is better; output units/scaling must be comparable.
 Input auto-correlation describes excitation, not model quality.
 
          Sim_0
-Outcome: PASS
+Outcome: FAIL
 ```
 
-The results pass the selected thresholds for this experiment.
+This example fails its starting envelope checks, which is a reason to inspect
+the data and criteria rather than to automatically reject the model.
 
 Residual RMSE is available alongside R-squared in
 `vs.validation_statistics`; it has no default acceptance threshold.
 Use `rmse_statistic="max"` (default) or `"mean"` to aggregate outputs with
 comparable units/scaling.
 
-Gaussian diagonal residual limits are enabled by default:
-`Ree_envelope="auto"` uses `(0.95, 0.1, 5*Ts)` as starting settings.
-Review these tolerances for your experiment; the width is not inferred from
-the system dynamics. Use `Ree_envelope=None` for ordinary diagonal scoring.
-For application-specific diagonal residual auto-correlation limits, pass
-`Ree_envelope=(0.95, 0.1, 5.0)` to `validate_models` or `ValidationSession`.
-These illustrative Gaussian parameters are the short-delay limit,
-long-delay floor, and time scale in dataset time units—not universal defaults.
-You can instead provide a dictionary of tuples keyed by output name.
-`vs.plot_residuals()` shades the allowed region on the residual diagonal.
-The separate `Ree_envelope` statistic is the worst violation ratio and
-passes at or below 1 by default, replacing the ordinary diagonal check.
-`Ree_correlation` always describes diagonal residual auto-correlations;
-`Ree_cross_correlation` separately describes off-diagonal pairs. The report
-shows the Gaussian ratio on the auto-correlation row when enabled, otherwise
-the ordinary diagonal score. For one output, residual cross-correlation is
-N/A and omitted from statistics and thresholds.
+Gaussian diagonal limits are enabled by default for both inputs and
+residuals: `Ruu_envelope="auto"` and `Ree_envelope="auto"` each use
+`(0.95, 0.1, 5*Ts)` as starting settings. The width is five sampling periods,
+not inferred from bandwidth or system dynamics. Review these tolerances for
+your experiment; use `Ruu_envelope=None` or `Ree_envelope=None` for ordinary
+diagonal scoring. For application-specific limits, pass a tuple or a
+dictionary keyed by input/output name to `validate_models` or
+`ValidationSession`. The tuple is `(short_delay_limit, long_delay_floor,
+time_scale)` in dataset time units. `vs.plot_residuals()` shades the Gaussian
+limits on input and residual diagonal panels. Each `*_envelope` statistic
+is the worst violation ratio and passes at or below 1 by default, replacing
+the ordinary diagonal check. `Ruu_correlation` and `Ree_correlation` always
+describe diagonal pairs; `Ruu_cross_correlation` and
+`Ree_cross_correlation` separately describe off-diagonal pairs. Single-input
+or single-output cross-correlation is N/A and omitted from statistics and
+thresholds.
 
 Correlation lags always use one-sample spacing. Choose a meaningful lag
 window and keep it fixed across comparisons; extending it can dilute
 `abs_mean`. No automatic bandwidth-based lag adjustment is performed.
 Custom threshold dictionaries check only the listed keys; explicitly include
-`"Ree_envelope": 1.0` to retain that check.
+`"Ruu_envelope": 1.0` and/or `"Ree_envelope": 1.0` to retain those checks.
 
 But what if the test didn't pass? Don't worry, it might not be the model's
 fault.
@@ -212,7 +214,7 @@ the [docs](https://ubaldot.github.io/dymoval/).
 
 * Compare several simulations against the same measurements
 * Measure the fit with R-squared scores
-* Look for patterns in errors using residual correlation checks
+* Assess input and residual correlation, with Gaussian limits on diagonals
 * Set your own thresholds for pass/fail checks
 * Work with one or several inputs and outputs (SISO and MIMO)
 * Run the same checks automatically when your model changes

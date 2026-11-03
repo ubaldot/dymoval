@@ -181,12 +181,13 @@ weighting. See :py:meth:`~dymoval.xcorrelation.XCorrelation.correlation_score`
 and :py:func:`~dymoval.statistics.compute_statistic` for the available
 statistics and weight conventions.
 
-The reported keys are ``"Ruu_correlation"``, ``"Ree_correlation"``,
-``"Ree_cross_correlation"``, and ``"Rue_correlation"``.
-``Ree_correlation`` aggregates diagonal residual auto-correlations only;
-``Ree_cross_correlation`` aggregates off-diagonal residual cross-correlations.
-With one output, there are no off-diagonal pairs: the latter statistic and
-threshold are omitted, and the report displays N/A.
+The reported keys include ``"Ruu_correlation"``, ``"Ruu_cross_correlation"``,
+``"Ree_correlation"``, ``"Ree_cross_correlation"``, and
+``"Rue_correlation"``. ``Ruu_correlation`` and ``Ree_correlation`` aggregate
+diagonal auto-correlations only; the ``*_cross_correlation`` keys aggregate
+off-diagonal pairs. With one input or output, there are no corresponding
+off-diagonal pairs: that statistic and threshold are omitted, and the report
+displays N/A.
 
 .. important::
 
@@ -197,8 +198,8 @@ threshold are omitted, and the report displays N/A.
    threshold together, keeping them fixed across model comparisons.
    These summaries are not formal statistical tests.
 
-Default diagonal score: Gaussian acceptance envelope
-=====================================================
+Default diagonal scores: Gaussian acceptance envelopes
+======================================================
 
 Sometimes you have reason to tolerate stronger residual correlation at
 short delays, but want tighter limits at longer delays. An *acceptance
@@ -206,7 +207,7 @@ envelope* expresses that requirement without ignoring the central region.
 It is a chosen limit, not the derivative of the correlation or a curve
 fitted to each candidate model.
 
-For each output, the Gaussian limit is
+The same Gaussian form is used for each input or residual diagonal:
 
 .. math::
 
@@ -218,20 +219,24 @@ takes the worst ratio across delays and outputs:
 
 .. math::
 
-   S=\max_i\max_{k\ne0}
-       \frac{|\hat\rho_{\varepsilon_i\varepsilon_i}(k)|}
-       {b_i(|k|T_s)}.
+   S_u=\max_i\max_{k\ne0}
+       \frac{|\hat\rho_{u_i u_i}(k)|}{b_{u_i}(|k|T_s)},
+   \qquad
+   S_\varepsilon=\max_j\max_{k\ne0}
+       \frac{|\hat\rho_{\varepsilon_j\varepsilon_j}(k)|}
+       {b_{\varepsilon_j}(|k|T_s)}.
 
 **A score at or below 1 means every evaluated diagonal value meets its
 limit.** A score above 1 identifies an exceedance. Adding near-zero
 correlations cannot dilute a violation. This only assesses the chosen
 window, not every possible delay.
 
-Gaussian scoring is enabled by default with ``Ree_envelope="auto"``:
-``b0=0.95``, ``b_inf=0.1``, and ``time_scale=5*Ts``. These are starting
-settings, not calibrated acceptance limits. The width follows the sampling
-period, not an inferred system or residual time constant; review it when
-changing sampling rates.
+Gaussian scoring is enabled by default for both inputs and residuals with
+``Ruu_envelope="auto"`` and ``Ree_envelope="auto"``. Each uses
+``b0=0.95``, ``b_inf=0.1``, and ``time_scale=5*Ts`` as starting settings,
+not calibrated acceptance limits. The width follows the sampling period,
+not an inferred bandwidth or signal time constant; review it when changing
+sampling rates. Input and residual settings are independent.
 
 Override the parameters when creating a session:
 
@@ -242,26 +247,31 @@ Override the parameters when creating a session:
        measured_out=y_meas,
        simulated_out=y_sim,
        sampling_period=sampling_period,
+       Ruu_envelope=(0.95, 0.1, 5.0),
        Ree_envelope=(0.95, 0.1, 5.0),
    )
    figures = vs.plot_residuals()
 
 Correlation plots shade plus/minus each configured ordinary score threshold
-as a **score threshold reference, not a pointwise limit**. For example,
+as a **score threshold reference, not a pointwise limit**. Input and residual
+diagonal panels instead shade their Gaussian envelope when enabled. For example,
 ``abs_mean`` averages over lags, so peaks outside the band do not necessarily
 fail the check. Aggregation across signal pairs also affects the outcome;
 use the reported score to judge the configured check. No reference band is
 drawn for an omitted threshold.
 
-Residual diagonal panels retain the Gaussian acceptance envelope instead:
-its ratio checks every evaluated nonzero lag, unlike an average-based score.
-With ``Ree_envelope=None``, those panels show the ordinary threshold
-reference. These shaded regions are not statistical confidence bands.
+The Gaussian ratio checks every evaluated nonzero lag, unlike an
+average-based score. With ``Ruu_envelope=None`` or ``Ree_envelope=None``,
+the corresponding diagonal panels show the ordinary threshold reference
+instead. These shaded regions are not statistical confidence bands.
 
-The tuple is ``(b0, b_inf, time_scale)``, shared across outputs. Parameters
-must be finite and satisfy the constraints above. The time scale uses
-dataset time units, not lag indices. With array measurements it uses the
-same time unit as ``sampling_period``.
+Each tuple is ``(b0, b_inf, time_scale)``, shared across that signal group.
+Parameters must be finite and satisfy the constraints above. The time scale
+uses dataset time units, not lag indices. With array measurements it uses
+the same time unit as ``sampling_period``. A ``ValidationSession`` converts
+this width to sample-lag units before using ``XCorrelation``; directly calling
+``XCorrelation.correlation_score(gaussian_envelope=...)`` instead expects
+``sample_scale`` in lag samples.
 
 For separate limits, supply every measured output name:
 
@@ -272,25 +282,28 @@ For separate limits, supply every measured output name:
        "flow": (0.8, 0.05, 2.0),
    }
    # Pass Ree_envelope=limits with correspondingly named measured Signals.
-   # Array measurements instead get names y0, y1, and so on.
+   # Input limits use Ruu_envelope and measured input names.
+   # Array measurements instead get names y0, y1, and so on (u0, u1 for inputs).
 
 With an envelope enabled:
 
-* ``Ree_envelope`` stores the maximum diagonal ratio. Its default
-  acceptance threshold is 1, inclusive.
-* The diagonal report row uses the Gaussian ratio instead of the ordinary
-  ``Ree_correlation`` score. Its default check is replaced by the envelope
-  check. The ordinary diagonal score remains available in the statistics.
-* ``Ree_cross_correlation`` retains ordinary off-diagonal scoring.
+* ``Ruu_envelope`` and ``Ree_envelope`` store the maximum diagonal ratio.
+  Their default acceptance threshold is 1, inclusive.
+* The input and residual diagonal report rows use the Gaussian ratio instead
+  of the ordinary ``Ruu_correlation`` / ``Ree_correlation`` score. Their
+  default checks are replaced by the corresponding envelope check. The
+  ordinary diagonal scores remain available in the statistics.
+* ``Ruu_cross_correlation`` and ``Ree_cross_correlation`` retain ordinary
+  off-diagonal scoring.
 * ``plot_residuals()`` shades the region between the positive and negative
-  Gaussian limits on diagonal residual plots only. Zero lag is displayed
-  but not scored.
+  Gaussian limits on input and residual diagonal plots only. Zero lag is
+  displayed but not scored.
 
-The envelope ratio does not use ``Ree_local_weights``,
-``Ree_global_weights``, or the ordinary aggregation settings. It always
-takes the maximum. Each diagonal window must contain a nonzero lag;
-undefined diagonal correlations produce an infinite ratio.
-Input and input-residual scoring are unchanged.
+Envelope ratios do not use the corresponding ``*_local_weights``,
+``*_global_weights``, or ordinary aggregation settings. Each always takes
+the maximum. Every diagonal window must contain a nonzero lag; undefined
+diagonal correlations produce an infinite ratio. Input-residual scoring is
+unchanged.
 
 Pass ``Ree_envelope=None`` to use ordinary diagonal correlation scoring.
 Envelope ratios and ordinary correlation magnitudes are kept separate:
@@ -371,17 +384,23 @@ model quality. Use :ref:`doe` to assess input richness and dataset suitability.
    and noise. Clean, meaningful measurements and knowledge of the experiment
    are essential to interpreting the scores.
 
-The default ordinary thresholds are:
+Default thresholds:
 
 .. list-table::
    :header-rows: 1
 
    * - Key
      - Passing condition
+   * - ``Ruu_envelope``
+     - At or below 1 (default diagonal input check)
+   * - ``Ruu_cross_correlation``
+     - Less than 0.6 (off-diagonal; multiple inputs only)
    * - ``Ruu_correlation``
-     - Less than 0.6
+     - Less than 0.6 (diagonal; only with ``Ruu_envelope=None``)
    * - ``r2``
      - Greater than 35 (%)
+   * - ``Ree_envelope``
+     - At or below 1 (default diagonal residual check)
    * - ``Ree_correlation``
      - Less than 0.5 (diagonal; only with ``Ree_envelope=None``)
    * - ``Ree_cross_correlation``
@@ -389,14 +408,16 @@ The default ordinary thresholds are:
    * - ``Rue_correlation``
      - Less than 0.5
 
-RMSE is reported without a default threshold. The default diagonal check is
-``Ree_envelope <= 1``. All configured checks must pass. These defaults are
-starting settings, not universal suitability criteria.
+RMSE is reported without a default threshold. The default diagonal checks
+are ``Ruu_envelope <= 1`` and ``Ree_envelope <= 1``. All configured checks
+must pass. These defaults are starting settings, not universal suitability
+criteria.
 
-``ignore_input=True`` omits the input check from the default thresholds.
-With custom thresholds, omit ``Ruu_correlation`` yourself if you do not
-want that check. Custom dictionaries enable only their listed checks;
-include ``"Ree_envelope": 1.0`` explicitly to check an enabled envelope.
+``ignore_input=True`` omits input auto-correlation checks from the default
+thresholds.
+Custom threshold dictionaries enable only their listed checks; include
+``"Ruu_envelope": 1.0`` and/or ``"Ree_envelope": 1.0`` explicitly to check
+enabled envelopes.
 
 Inspect or reuse the results as plain dictionaries:
 

@@ -17,11 +17,12 @@ comprehensive KPIs.
 Your model can come from Simulink, Modelica, Python, or another tool. Dymoval
 only needs the signals, not the model itself.
 
-There is another challenge before you can even compare the results:
-real-world logs can be messy. One sensor records faster than another,
-some samples are missing, and noise makes it hard to see what is going on.
-Dymoval helps you get these signals ready to work with, without having to
-write the same cleanup code for every experiment.
+Moreover, Dymoval help you with another challenge before you can even compare
+the results: real-world logs can be messy.
+One sensor records faster than another, some samples are missing, and noise
+makes it hard to see what is going on.  Dymoval helps you get these signals
+ready to work with, without having to write the same cleanup code for every
+experiment.
 
 Once the data is ready, you can plot measurements and simulations together,
 check how closely they match, and look for patterns in the errors. A good
@@ -68,7 +69,7 @@ Checking your models
 - Compare several simulations against the same measurements
 - Measure fit with R-squared and residual RMSE scores
 - Look for patterns in errors using residual correlation checks
-- Customize Gaussian limits for diagonal residual auto-correlation
+- Customize Gaussian limits for diagonal input and residual auto-correlation
 - Set your own thresholds for pass/fail checks
 - Work with one or several inputs and outputs (SISO and MIMO)
 - Run the same checks automatically when your model changes

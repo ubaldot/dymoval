@@ -31,13 +31,15 @@ from .scope import DatasetScope
 from .signal import Signal
 from .statistics import R2_Statistic_type, XCorr_Statistic_type, rmse, rsquared
 from .utils import _obj2list
-from .xcorrelation import XCorrelation, _validate_nlags
+from .xcorrelation import XCorrelation, _gaussian_envelope, _validate_nlags
 
 __all__ = ["ValidationSession", "validate_models", "VALIDATION_KEYS"]
 
 
 VALIDATION_KEYS: tuple[str, ...] = (
     "Ruu_correlation",
+    "Ruu_cross_correlation",
+    "Ruu_envelope",
     "r2",
     "rmse",
     "Ree_correlation",
@@ -48,6 +50,55 @@ VALIDATION_KEYS: tuple[str, ...] = (
 """Keys of the validation statistics and of the validation thresholds."""
 
 _SIM_COLOR_FALLBACK = "gray"
+
+
+def _resolve_envelope(
+    parameters: (
+        tuple[float, float, float]
+        | dict[str, tuple[float, float, float]]
+        | Literal["auto"]
+        | None
+    ),
+    names: Sequence[str],
+    sampling_period: float,
+    name: str,
+) -> dict[str, tuple[float, float, float]] | None:
+    """Validate physical-time envelope parameters and convert width to samples."""
+    if parameters is None:
+        return None
+    if isinstance(parameters, str):
+        if parameters != "auto":
+            raise ValueError(f"{name} string must be 'auto'")
+        parameters = (0.95, 0.1, 5 * sampling_period)
+
+    named_parameters = (
+        parameters
+        if isinstance(parameters, dict)
+        else dict.fromkeys(names, parameters)
+    )
+    if set(named_parameters) != set(names):
+        raise ValueError(f"{name} must specify every channel name")
+
+    resolved: dict[str, tuple[float, float, float]] = {}
+    for channel, values in named_parameters.items():
+        array = np.asarray(values, dtype=float)
+        if array.shape != (3,) or not np.all(np.isfinite(array)):
+            raise ValueError(f"{name} needs three finite parameters")
+        b0, floor, time_scale = map(float, array)
+        if not 0 < floor <= b0 <= 1 or time_scale <= 0:
+            raise ValueError(
+                f"{name} requires 0 < b_inf <= b0 <= 1 and time_scale > 0"
+            )
+        resolved[channel] = (b0, floor, time_scale / sampling_period)
+    return resolved
+
+
+def _indexed_envelope(
+    parameters: dict[str, tuple[float, float, float]],
+    names: Sequence[str],
+) -> dict[int, tuple[float, float, float]]:
+    """Map named channel limits to diagonal indices for XCorrelation."""
+    return {ii: parameters[name] for ii, name in enumerate(names)}
 
 
 def _stack(signals: Sequence[Signal]) -> np.ndarray:
@@ -199,6 +250,18 @@ class ValidationSession:
         The result is stored under ``"rmse"`` in `validation_statistics`.
         An optional ``"rmse"`` validation threshold is an upper bound;
         no RMSE threshold is enabled by default.
+    Ruu_envelope:
+        Gaussian acceptance limits for diagonal input auto-correlations:
+        ``(b0, b_inf, time_scale)`` shared by all inputs, or a dictionary
+        mapping every input name to a tuple. Parameters are in dataset time
+        units and have the same constraints and formula as ``Ree_envelope``.
+        The additional ``Ruu_envelope`` statistic is the worst ratio across
+        inputs and nonzero lags, with a default inclusive threshold of 1.
+        ``Ruu_correlation`` summarizes diagonal entries only and
+        ``Ruu_cross_correlation`` summarizes off-diagonal entries. The
+        envelope replaces the ordinary diagonal check. Defaults to
+        ``"auto"``: ``(0.95, 0.1, 5 * sampling_period)``. These are starting
+        settings; pass ``None`` for ordinary diagonal correlation scoring.
     Ree_envelope:
         Gaussian acceptance limits for diagonal residual
         auto-correlations: ``(b0, b_inf, time_scale)`` shared by all outputs,
@@ -311,6 +374,12 @@ class ValidationSession:
             | Literal["auto"]
             | None
         ) = "auto",
+        Ruu_envelope: (
+            tuple[float, float, float]
+            | dict[str, tuple[float, float, float]]
+            | Literal["auto"]
+            | None
+        ) = "auto",
     ) -> None:
         # Once you created a ValidationSession you should not change the
         # validation dataset. Create another ValidationSession with another
@@ -330,39 +399,19 @@ class ValidationSession:
         # Number of inputs and outputs
         self._p = len(validation_dataset.inputs)
         self._q = len(validation_dataset.outputs)
-        if isinstance(Ree_envelope, str):
-            if Ree_envelope != "auto":
-                raise ValueError("Ree_envelope string must be 'auto'")
-            Ree_envelope = (
-                0.95,
-                0.1,
-                5 * validation_dataset.get_sampling_period(),
-            )
-        self._Ree_envelope: dict[str, tuple[float, float, float]] | None = None
-        if Ree_envelope is not None:
-            parameters = (
-                Ree_envelope
-                if isinstance(Ree_envelope, dict)
-                else dict.fromkeys(
-                    validation_dataset.output_names(), Ree_envelope
-                )
-            )
-            if set(parameters) != set(validation_dataset.output_names()):
-                raise ValueError("Ree_envelope must specify every output name")
-            self._Ree_envelope = {}
-            for output, values in parameters.items():
-                array = np.asarray(values, dtype=float)
-                if array.shape != (3,) or not np.all(np.isfinite(array)):
-                    raise ValueError(
-                        "Ree_envelope needs three finite parameters"
-                    )
-                b0, floor, scale = map(float, array)
-                if not 0 < floor <= b0 <= 1 or scale <= 0:
-                    raise ValueError(
-                        "Ree_envelope requires 0 < b_inf <= b0 <= 1 "
-                        "and time_scale > 0"
-                    )
-                self._Ree_envelope[output] = (b0, floor, scale)
+        sampling_period = validation_dataset.get_sampling_period()
+        self._Ruu_envelope = _resolve_envelope(
+            Ruu_envelope,
+            validation_dataset.input_names(),
+            sampling_period,
+            "Ruu_envelope",
+        )
+        self._Ree_envelope = _resolve_envelope(
+            Ree_envelope,
+            validation_dataset.output_names(),
+            sampling_period,
+            "Ree_envelope",
+        )
 
         self.name: str = name  # The validation session name.
         """ValidationSession object name."""
@@ -405,7 +454,19 @@ class ValidationSession:
             nlags=self._Ruu.nlags,
         )
 
-        self._Ruu_correlation = self._Ruu.whiteness_of(self._Ruu_tensor)
+        self._Ruu_envelope_score = (
+            self._Ruu_tensor.correlation_score(
+                gaussian_envelope=_indexed_envelope(
+                    self._Ruu_envelope, validation_dataset.input_names()
+                ),
+                diagonal_only=True,
+            )[0]
+            if self._Ruu_envelope is not None
+            else None
+        )
+        self._Ruu_correlation = self._Ruu.whiteness_of(
+            self._Ruu_tensor, diagonal_only=True
+        )
 
         # ------------ Residuals -----------------------------
         # Residuals auto-correlation
@@ -468,6 +529,10 @@ class ValidationSession:
             "Ruu_correlation": (
                 f"Input auto-correlation ({self._Ruu.statistic_label})"
             ),
+            "Ruu_cross_correlation": (
+                f"Input cross-correlation ({self._Ruu.statistic_label})"
+            ),
+            "Ruu_envelope": "Input auto-correlation (Gaussian envelope ratio)",
             "r2": "R-squared fit (%)",
             "rmse": f"Residual RMSE ({self._rmse_statistic})",
             "Ree_correlation": (
@@ -498,6 +563,12 @@ class ValidationSession:
         ]
 
         for k in keys:
+            if k == "Ruu_cross_correlation" and self._p == 1:
+                lines.append(
+                    f"{labels[k]:<{label_width}}"
+                    + "".join(f"  {'N/A':>{col_width}}" for _ in sims)
+                )
+                continue
             if k == "Ree_cross_correlation" and self._q == 1:
                 lines.append(
                     f"{labels[k]:<{label_width}}"
@@ -525,6 +596,10 @@ class ValidationSession:
                 outcomes_body += f"{v}"
 
         keys = list(VALIDATION_KEYS)
+        if self._Ruu_envelope is None:
+            keys.remove("Ruu_envelope")
+        else:
+            keys.remove("Ruu_correlation")
         if self._Ree_envelope is None:
             keys.remove("Ree_envelope")
         else:
@@ -532,7 +607,7 @@ class ValidationSession:
 
         if self._ignore_input:
             inputs_acorr_str = f"Input ignored: {self._ignore_input}\n"
-            keys.remove("Ruu_correlation")
+            keys = [key for key in keys if not key.startswith("Ruu_")]
         else:
             inputs_acorr_str = self._Ruu.summary("Inputs auto-correlation")
 
@@ -544,10 +619,17 @@ class ValidationSession:
             f"Validation session name: {self.name}\n\n"
             f"Validation setup:\n----------------\n"
             + inputs_acorr_str
+            + (
+                f"Gaussian limits (b0, b_inf, sample_scale): "
+                f"{self._Ruu_envelope}\n"
+                "Envelope ratio <= threshold passes; zero lag excluded.\n"
+                if self._Ruu_envelope is not None
+                else ""
+            )
             + "\n"
             + self._Ree.summary("Residuals auto-correlation:")
             + (
-                f"Gaussian limits (b0, b_inf, time_scale): "
+                f"Gaussian limits (b0, b_inf, sample_scale): "
                 f"{self._Ree_envelope}\n"
                 "Envelope ratio <= threshold passes; zero lag excluded.\n"
                 if self._Ree_envelope is not None
@@ -649,8 +731,14 @@ class ValidationSession:
                 raise KeyError(f"Keys must be {allowed_keys}.")
             if v < 0.0:
                 raise ValueError("Thresholds must be positive.")
+            if k == "Ruu_envelope" and self._Ruu_envelope is None:
+                raise ValueError("Ruu_envelope threshold requires an envelope")
             if k == "Ree_envelope" and self._Ree_envelope is None:
                 raise ValueError("Ree_envelope threshold requires an envelope")
+            if k == "Ruu_cross_correlation" and self._p == 1:
+                raise ValueError(
+                    "Input cross-correlation needs multiple inputs"
+                )
             if k == "Ree_cross_correlation" and self._q == 1:
                 raise ValueError(
                     "Residual cross-correlation needs multiple outputs"
@@ -665,17 +753,26 @@ class ValidationSession:
         self, ignore_input: bool
     ) -> dict[str, float]:
         validation_thresholds_default = {
-            "Ruu_correlation": 0.6,
             "r2": 35.0,
-            "Ree_correlation": 0.5,
             "Rue_correlation": 0.5,
         }
 
-        if ignore_input is True:
-            del validation_thresholds_default["Ruu_correlation"]
-        if self._Ree_envelope is not None:
+        if self._Ruu_envelope is not None:
+            validation_thresholds_default["Ruu_envelope"] = 1.0
+        else:
+            validation_thresholds_default["Ruu_correlation"] = 0.6
+        if self._p > 1:
+            validation_thresholds_default["Ruu_cross_correlation"] = 0.6
+        if self._Ree_envelope is None:
+            validation_thresholds_default["Ree_correlation"] = 0.5
+        else:
             validation_thresholds_default["Ree_envelope"] = 1.0
-            del validation_thresholds_default["Ree_correlation"]
+        if ignore_input is True:
+            validation_thresholds_default = {
+                key: value
+                for key, value in validation_thresholds_default.items()
+                if not key.startswith("Ruu_")
+            }
         if self._q > 1:
             validation_thresholds_default["Ree_cross_correlation"] = 0.5
 
@@ -741,13 +838,16 @@ class ValidationSession:
         self._Ree_tensor[sim_name] = Ree
         self._Rue_tensor[sim_name] = Rue
 
-        if self._Ree_envelope is not None and any(
-            not np.any(Ree.R[ii, ii].lags != 0) for ii in range(self._q)
-        ):
-            raise ValueError(
-                "Envelope scoring requires at least one nonzero lag "
-                "per output; increase Ree_nlags"
-            )
+        residual_envelope_score = (
+            Ree.correlation_score(
+                gaussian_envelope=_indexed_envelope(
+                    self._Ree_envelope, self.dataset.output_names()
+                ),
+                diagonal_only=True,
+            )[0]
+            if self._Ree_envelope is not None
+            else None
+        )
 
         self._validation_statistics[sim_name] = {
             "Ruu_correlation": self._Ruu_correlation,
@@ -756,23 +856,24 @@ class ValidationSession:
             "Ree_correlation": self._Ree.whiteness_of(Ree, diagonal_only=True),
             "Rue_correlation": self._Rue.whiteness_of(Rue),
         }
+        if self._p > 1:
+            self._validation_statistics[sim_name]["Ruu_cross_correlation"] = (
+                self._Ruu.whiteness_of(self._Ruu_tensor, exclude_diagonal=True)
+            )
+        if self._Ruu_envelope is not None:
+            assert self._Ruu_envelope_score is not None
+            self._validation_statistics[sim_name]["Ruu_envelope"] = (
+                self._Ruu_envelope_score
+            )
         if self._q > 1:
             self._validation_statistics[sim_name]["Ree_cross_correlation"] = (
                 self._Ree.whiteness_of(Ree, exclude_diagonal=True)
             )
         if self._Ree_envelope is not None:
-            scores = []
-            for ii, output in enumerate(self.dataset.output_names()):
-                entry = Ree.R[ii, ii]
-                nonzero = entry.lags != 0
-                limit = self._residual_envelope(output, entry.lags[nonzero])
-                ratios = np.abs(entry.values[nonzero]) / limit
-                scores.append(
-                    float(np.max(ratios))
-                    if np.all(np.isfinite(ratios))
-                    else float("inf")
-                )
-            self._validation_statistics[sim_name]["Ree_envelope"] = max(scores)
+            assert residual_envelope_score is not None
+            self._validation_statistics[sim_name]["Ree_envelope"] = (
+                residual_envelope_score
+            )
 
         # Compute PASS/FAIL outcome
         statistics = self._validation_statistics[sim_name]
@@ -781,20 +882,21 @@ class ValidationSession:
         for k, threshold in self._validation_thresholds.items():
             if k == "r2":
                 local_outcome.append(statistics[k] > threshold)
-            elif k == "Ree_envelope":
+            elif k in ("Ruu_envelope", "Ree_envelope"):
                 local_outcome.append(statistics[k] <= threshold)
             else:
                 local_outcome.append(statistics[k] < threshold)
 
         self._outcome[sim_name] = "PASS" if all(local_outcome) else "FAIL"
 
-    def _residual_envelope(self, output: str, lags: np.ndarray) -> np.ndarray:
-        assert self._Ree_envelope is not None
-        b0, floor, scale = self._Ree_envelope[output]
-        delay = lags * self.dataset.get_sampling_period()
-        return np.asarray(
-            floor + (b0 - floor) * np.exp(-np.square(delay / scale))
-        )
+    @staticmethod
+    def _channel_envelope(
+        parameters: dict[str, tuple[float, float, float]],
+        channel: str,
+        lags: np.ndarray,
+    ) -> np.ndarray:
+        """Evaluate one channel's limits at sample lags."""
+        return _gaussian_envelope(lags, parameters[channel])
 
     def _sim_list_validate(self) -> None:
         if not self.simulations_names:
@@ -1239,7 +1341,9 @@ class ValidationSession:
             if tensors is self._Ree_tensor and self._Ree_envelope is not None:
                 for ii, output in enumerate(self.dataset.output_names()):
                     lags = tensors[sims[0]].R[ii, ii].lags
-                    limit = self._residual_envelope(output, lags)
+                    limit = self._channel_envelope(
+                        self._Ree_envelope, output, lags
+                    )
                     axes[ii, ii].fill_between(
                         lags,
                         -limit,
@@ -1272,8 +1376,27 @@ class ValidationSession:
             # A single curve per subplot, already named by the subplot
             # title: a legend would only repeat it.
             self._Ruu_tensor._plot_grid(axes, x_symbol="u", y_symbol="u")
-            for ax in axes.flat:
-                _shade_threshold(ax, "Ruu_correlation")
+            for ii, input_name in enumerate(self.dataset.input_names()):
+                if self._Ruu_envelope is not None:
+                    lags = self._Ruu_tensor.R[ii, ii].lags
+                    limit = self._channel_envelope(
+                        self._Ruu_envelope, input_name, lags
+                    )
+                    axes[ii, ii].fill_between(
+                        lags,
+                        -limit,
+                        limit,
+                        color="gray",
+                        alpha=0.2,
+                        label="Gaussian acceptance limits",
+                        zorder=0,
+                    )
+                    axes[ii, ii].legend()
+                else:
+                    _shade_threshold(axes[ii, ii], "Ruu_correlation")
+                for jj in range(p):
+                    if ii != jj:
+                        _shade_threshold(axes[ii, jj], "Ruu_cross_correlation")
 
         # ===============================================================
         # Residuals auto-correlation

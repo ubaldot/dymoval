@@ -49,7 +49,8 @@ related tools:
 1. *Input auto- and cross-correlation:* inspect relationships between delayed
    input samples and redundancy between input channels. If the correlation is
    low, it suggests that the input excitation is less redundant in the dataset,
-   which is desirable.
+   which is desirable since it means that you are exciting the system in
+   different ways.
 
 2. *Lagged-input Gram-matrix eigenvalues:* check whether any combination of
    input channels and their delayed samples remains unexcited over the
@@ -64,14 +65,12 @@ Substantial correlation does not automatically mean poor excitation, and a
 small average correlation score does not guarantee a well-conditioned Gram
 matrix.
 
-Nevertheless, whichever method you use, we should check that the output response is clearly visible above measurement
-noise, the signals are not clipped, and actuators or sensors have not
-saturated unintentionally. Also check timing alignment, recording duration,
-relevant frequency content, and operating conditions. Output movement alone is
-not enough if it comes mainly from disturbances or sensor noise.
-Neither method replaces these checks. Saturation may be something you
-deliberately want to study, but it changes how you should interpret the
-results, particularly when assessing a linear model.
+Nevertheless, whichever method you use, we should check that the output
+response is clearly visible above measurement noise,
+the signals are not clipped, and actuators or sensors have not
+saturated unintentionally.
+We also need to check timing alignment, recording duration,
+relevant frequency content, operating conditions and so on.
 
 Let's see more in detail each of the two methods.
 
@@ -110,35 +109,66 @@ with the following:
 :py:meth:`~dymoval.xcorrelation.XCorrelation.correlation_score` returns
 a correlation summary: lower values mean less correlation over the evaluated lags.
 
-Here we are checking how repetitive the inputs are, not how large they are
-or how a system responds to them. High auto-correlation means that an input
-resembles a delayed version of itself; low auto-correlation means little
-linear similarity at those delays. High cross-correlation means that
-different channels share similar patterns, possibly with a delay.
+Through auto- and cross-correlation we check how repetitive the inputs are
+and whether different channels follow similar patterns. We are looking for
+repeated patterns here; we assess amplitude and spectrum separately.
+We do not need a system response to make these observations.
 
-These observations tell us about redundancy in the inputs. They are not a
-formal statistical whiteness test or a complete test of persistent excitation.
-Amplitude, frequency content, and the eventual system response are separate
-checks needed to decide whether the excitation is enough for an application.
+High auto-correlation means that an input resembles a delayed version of itself;
+low auto-correlation means little similarity at those delays, which is
+desirable.
+High cross-correlation means that different channels share similar patterns,
+possibly with a delay.
+
+These observations tell us whether we are mostly repeating ourselves or
+providing different input patterns.
+
+You can also compare the diagonal auto-correlations against a Gaussian
+envelope that allows more correlation at short delays and less at long ones:
+
+.. code:: python
+
+   diagonal_score, scores = Ruu.correlation_score(
+       gaussian_envelope=(0.95, 0.1, 5.0),
+       diagonal_only=True,
+   )
+   cross_score, _ = Ruu.correlation_score(exclude_diagonal=True)
+
+The tuple gives the short-delay limit, long-delay floor, and width in
+**sample lags**. These are illustrative starting settings, not limits
+inferred from the input's bandwidth. The diagonal score is the largest
+ratio of absolute correlation to the envelope over nonzero lags and all
+channels. A ratio at or below 1 means that every evaluated diagonal value
+is within the envelope; it measures compliance with those limits, not
+simply how little correlation there is. Off-diagonal entries retain their
+ordinary correlation scores. For a single input there are no off-diagonal
+pairs, and the helper returns zero for ``cross_score``.
+
+In a :py:class:`~dymoval.validation.ValidationSession`, input diagonals
+use Gaussian scoring by default. ``Ruu_envelope`` accepts widths in dataset
+time units instead of sample lags, and input cross-correlations are
+reported separately. See :ref:`validation_session` for configuration.
 
 Sampling and correlation
 ------------------------
 
 When a slowly varying input is sampled at intervals much shorter than its
 characteristic time scale, neighboring samples are often strongly correlated.
-This is genuine correlation: dense sampling does not create it, but can make
-a short interval of high correlation span many sample lags.
+This is genuine correlation but can make a short interval of high correlation
+span many sample lags around zero lag.
+
+Shall we ditch the experiment then? Not necessarily.
 
 Interpret sample lags as physical delays: lag :math:`k` corresponds to a
 time delay :math:`kT_s`, where :math:`T_s` is the sampling period.
-Let :math:`\tau` the shortest time over the input change appreciabily,
+Let :math:`\tau` be the shortest time over which the input changes appreciably,
 and let :math:`kT_s \simeq \tau`.
 If auto-correlation is high within lags :math:`-k` to :math:`k` but drops
 outside that range, the input's similarity to delayed versions of itself
 is concentrated at time delays shorter than about :math:`\tau`.
 High auto-correlation near zero lag does not, by itself, make the input
 unsuitable for a good experiment. We may simply be comparing samples that are
-close together in time.
+too close in time.
 
 However, if the auto-correlation is large at delays longer than :math:`\tau`,
 this tells us that its patterns persist or repeat over longer time delays.
@@ -176,6 +206,11 @@ For an input vector :math:`U(t)\in\mathbb{R}^p`, form a vector containing
    U(t-L+1)
    \end{bmatrix}.
 
+Each :math:`U(t)` is a column vector with :math:`p` entries, so
+:math:`\psi_L(t)` is a column vector with :math:`pL` entries
+(shape :math:`pL \times 1`). Its outer product, and therefore the Gram
+matrix, has shape :math:`pL \times pL`.
+
 For a record with samples indexed from :math:`0` to :math:`N-1`, its
 finite-data Gram matrix is
 
@@ -200,6 +235,30 @@ full rank of this matrix is commonly called persistent excitation of order
 :math:`L`. For an ongoing signal, a stronger condition requires excitation
 to remain bounded below over successive segments, rather than occurring
 only once near the start of the recording.
+
+There is no universal eigenvalue threshold that works for every experiment.
+Use :py:meth:`~dymoval.dataset.Dataset.input_gram_matrix` to compute the
+averaged whole-record matrix, or
+:py:meth:`~dymoval.dataset.Dataset.input_gram_eigenvalues` to obtain its
+eigenvalues directly:
+
+.. code:: python
+
+   L = 20  # Choose a stack length appropriate for the dynamics of interest.
+   gram = ds.input_gram_matrix(L)
+   eigenvalues = ds.input_gram_eigenvalues(L)  # Ascending order.
+   weakest_excitation = eigenvalues[0]
+   print(f"Weakest input excitation (L={L}): {weakest_excitation:.6g}")
+
+These methods divide :math:`G_L` by the number of stacks,
+:math:`N-L+1`, to average their contributions. They use the inputs in dataset
+order, without centering or scaling, and require finite input values.
+The outputs do not enter this computation.
+
+Gram-matrix assessment belongs to the dataset and is independent of model
+predictions. It is requested separately from
+:py:class:`~dymoval.validation.ValidationSession` and does not change its
+reports, validation thresholds, or PASS/FAIL outcomes.
 
 Finding useful portions of a log
 ----------------------------------
@@ -309,28 +368,7 @@ Higher amplitudes can also raise the score. Choose what to keep alongside
 input/output plots, noise levels, relevant transients, and operating
 conditions, rather than maximizing this number alone.
 
-There is no universal eigenvalue threshold that works for every experiment.
-Use :py:meth:`~dymoval.dataset.Dataset.input_gram_matrix` to compute the
-averaged whole-record matrix, or
-:py:meth:`~dymoval.dataset.Dataset.input_gram_eigenvalues` to obtain its
-eigenvalues directly:
-
-.. code:: python
-
-   L = 20  # Choose a stack length appropriate for the dynamics of interest.
-   gram = ds.input_gram_matrix(L)
-   eigenvalues = ds.input_gram_eigenvalues(L)  # Ascending order.
-   weakest_excitation = eigenvalues[0]
-   print(f"Weakest input excitation (L={L}): {weakest_excitation:.6g}")
-
-The method uses the inputs in dataset order, without centering or scaling.
-It requires finite input values. The outputs do not enter this computation.
 For a selected segment, trim the dataset first and call the same method.
-
-Input-excitation assessment belongs to the dataset and is independent of
-model predictions. It is requested separately from
-:py:class:`~dymoval.validation.ValidationSession` and does not change its
-reports, validation thresholds, or PASS/FAIL outcomes.
 
 **************************
  Planning a new experiment
@@ -374,7 +412,10 @@ respond clearly above measurement noise.
    pass ``ignore_input=True`` to
    :py:meth:`~dymoval.validation.validate_models` or to
    :py:class:`~dymoval.validation.ValidationSession` class constructor.
-   This disables the input-correlation pass/fail check.
+   This removes the input auto- and cross-correlation checks from the default
+   thresholds. With custom threshold dictionaries, omit ``Ruu_envelope``,
+   ``Ruu_correlation``, and ``Ruu_cross_correlation`` yourself to leave out
+   the input checks.
 
 *****************
  Coverage region

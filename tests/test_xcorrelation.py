@@ -78,9 +78,7 @@ class Test_XCorrelation:
             *_,
         ) = correlation_tensors
 
-        R = dmv.XCorrelation(
-            "foo", X, Y, np.full((2, 2), 11, dtype=int)
-        ).R
+        R = dmv.XCorrelation("foo", X, Y, np.full((2, 2), 11, dtype=int)).R
 
         lags_long = np.arange(-5, 6)
 
@@ -184,6 +182,57 @@ class Test_XCorrelation:
         with pytest.raises(IndexError):
             RXY.correlation_score(global_weights=np.array([1, 2]))
 
+    def test_gaussian_envelope_scoring_is_diagonal_only(self) -> None:
+        rng = np.random.default_rng(42)
+        samples = rng.normal(size=(200, 2))
+        samples[1:] += 0.4 * samples[:-1]
+        correlation = dmv.XCorrelation("auto", samples, samples)
+        parameters = {0: (0.95, 0.1, 2.0), 1: (0.8, 0.2, 4.0)}
+
+        score, matrix = correlation.correlation_score(
+            gaussian_envelope=parameters, diagonal_only=True
+        )
+        expected = []
+        for ii, (b0, floor, width) in parameters.items():
+            entry = correlation.R[ii, ii]
+            nonzero = entry.lags != 0
+            limits = floor + (b0 - floor) * np.exp(
+                -((entry.lags[nonzero] / width) ** 2)
+            )
+            expected.append(np.max(np.abs(entry.values[nonzero]) / limits))
+        assert score == pytest.approx(max(expected))
+        np.testing.assert_allclose(np.diag(matrix), expected)
+
+        _, ordinary = correlation.correlation_score()
+        cross_score, cross_matrix = correlation.correlation_score(
+            gaussian_envelope=parameters, exclude_diagonal=True
+        )
+        assert cross_score == pytest.approx(
+            max(ordinary[0, 1], ordinary[1, 0])
+        )
+        np.testing.assert_allclose(
+            [cross_matrix[0, 1], cross_matrix[1, 0]],
+            [ordinary[0, 1], ordinary[1, 0]],
+        )
+
+        wrapper_score, wrapper_matrix = dmv.correlation_score(
+            samples, gaussian_envelope=parameters, diagonal_only=True
+        )
+        assert wrapper_score == pytest.approx(score)
+        np.testing.assert_allclose(wrapper_matrix, matrix)
+
+    def test_gaussian_envelope_requires_auto_and_nonzero_lags(self) -> None:
+        rng = np.random.default_rng(43)
+        x = rng.normal(size=(20, 2))
+        y = rng.normal(size=(20, 2))
+        cross = dmv.XCorrelation("cross", x, y)
+        with pytest.raises(ValueError, match="actual auto-correlation"):
+            cross.correlation_score(gaussian_envelope=(0.95, 0.1, 2))
+
+        auto = dmv.XCorrelation("auto", x, x, nlags=np.ones((2, 2), dtype=int))
+        with pytest.raises(ValueError, match="nonzero lag"):
+            auto.correlation_score(gaussian_envelope=(0.95, 0.1, 2))
+
     def test_repr(self, correlation_tensors: tuple) -> None:
         X = correlation_tensors[6]
         Y = correlation_tensors[7]
@@ -197,16 +246,19 @@ class Test_XCorrelation:
 # ============================================================
 # whiteness_level
 # ============================================================
-class Test_whiteness_level:
-    def test_whiteness_level(self) -> None:
+class Test_correlation_score:
+    def test_correlation_score(self) -> None:
         x1 = np.array([0.1419, -0.4218, 0.9157, -0.7922, 0.9595])
 
         whiteness_expected = 0.3579244755541881
         whiteness_matrix_expected = np.array([[0.3579244755541881]])
 
-        whiteness_actual, whiteness_matrix_actual = dmv.whiteness_level(x1)
+        whiteness_actual, whiteness_matrix_actual = dmv.correlation_score(x1)
+        legacy_actual, legacy_matrix = dmv.whiteness_level(x1)
 
         assert np.isclose(whiteness_expected, whiteness_actual, atol=1e-9)
+        assert legacy_actual == whiteness_actual
+        np.testing.assert_allclose(legacy_matrix, whiteness_matrix_actual)
         np.testing.assert_allclose(
             whiteness_matrix_expected, whiteness_matrix_actual
         )
