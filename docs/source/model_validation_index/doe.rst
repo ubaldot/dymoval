@@ -115,8 +115,7 @@ repeated patterns here; we assess amplitude and spectrum separately.
 We do not need a system response to make these observations.
 
 High auto-correlation means that an input resembles a delayed version of itself;
-low auto-correlation means little similarity at those delays, which is
-desirable.
+low auto-correlation means little similarity at those delays.
 High cross-correlation means that different channels share similar patterns,
 possibly with a delay.
 
@@ -152,28 +151,28 @@ reported separately. See :ref:`validation_session` for configuration.
 Sampling and correlation
 ------------------------
 
-When a slowly varying input is sampled at intervals much shorter than its
-characteristic time scale, neighboring samples are often strongly correlated.
-This is genuine correlation but can make a short interval of high correlation
-span many sample lags around zero lag.
+**A broad peak around zero lag does not mean your experiment is bad.**
 
-Shall we ditch the experiment then? Not necessarily.
+If an input changes slowly compared with the sampling interval, nearby
+samples will naturally look alike. Its auto-correlation can therefore remain
+high over many sample lags. This applies to any slowly varying input, not
+just a particular signal type. The correlation is real; dense sampling
+simply represents that interval with more sample lags.
 
-Interpret sample lags as physical delays: lag :math:`k` corresponds to a
-time delay :math:`kT_s`, where :math:`T_s` is the sampling period.
-Let :math:`\tau` be the shortest time over which the input changes appreciably,
-and let :math:`kT_s \simeq \tau`.
-If auto-correlation is high within lags :math:`-k` to :math:`k` but drops
-outside that range, the input's similarity to delayed versions of itself
-is concentrated at time delays shorter than about :math:`\tau`.
-High auto-correlation near zero lag does not, by itself, make the input
-unsuitable for a good experiment. We may simply be comparing samples that are
-too close in time.
+First convert lags to time: lag :math:`k` represents a delay :math:`kT_s`,
+where :math:`T_s` is the sampling period. Then compare that duration with
+how the input was designed to change.
 
-However, if the auto-correlation is large at delays longer than :math:`\tau`,
-this tells us that its patterns persist or repeat over longer time delays.
-This is worth investigating: the input may offer less variety than
-intended, for example by repeating the same pattern throughout the experiment.
+   **Example**
+
+   A PRBS holding each bit for 15--20 minutes and sampled every second can
+   show strong correlation over hundreds of lags, decaying over roughly
+   900--1200 lags. This is expected from the bit duration, not a reason to
+   discard the experiment.
+
+What deserves investigation is correlation that persists or repeats beyond
+what you expected from the input design. It may reveal unintended repetition
+or redundancy. Whether that matters also depends on the experiment's purpose.
 
    **Example**
 
@@ -182,6 +181,27 @@ intended, for example by repeating the same pattern throughout the experiment.
    after that, samples separated by more than about 0.1 s have little linear
    similarity over the remaining evaluated delays. If peaks reappear at
    1000 lags, they indicate a repeating relationship at a separation of 1 s.
+
+**Set the Gaussian envelope to reflect these expectations.**
+
+The envelope lets you accept the intended short-delay correlation while
+checking for excessive correlation at longer delays. Adjust its width,
+short-delay limit, and floor to your input; inspect the whole curve because
+a Gaussian may not match its shape closely.
+
+Dymoval's defaults are starting settings, not universal excitation
+requirements. Exceeding an untuned envelope means the input differs from
+those settings, not that the experiment is bad. For example, the default
+width of five sampling periods does not represent the intended persistence
+of the PRBS above. Choose the envelope from the intended signal design or
+representative reference records, rather than widening it merely to obtain
+PASS. At the low-level ``XCorrelation`` API the width uses sample lags;
+the ``Ruu_envelope`` constructor parameter of ``ValidationSession`` uses
+dataset time units.
+
+Input correlation reveals repetition and redundancy. Combine it with
+amplitude, spectrum, channel independence, and measurement-response checks
+to assess the experiment.
 
 
 Method 2: Lagged-input Gram-matrix eigenvalues
