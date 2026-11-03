@@ -82,6 +82,57 @@ def test_gaussian_residual_envelope_scores_thresholds_and_plots() -> None:
     assert vs.drop_simulations("Sim_0").validation_statistics == {}
 
 
+@pytest.mark.parametrize("gaussian", [True, False])
+def test_correlation_threshold_reference_bands(gaussian) -> None:
+    rng = np.random.default_rng(73)
+    u = rng.normal(size=(100, 2))
+    y = rng.normal(size=(100, 2))
+    vs = validate_models(
+        u, y, y + rng.normal(size=y.shape), sampling_period=1,
+        Ree_envelope="auto" if gaussian else None,
+    )
+    thresholds = {
+        "Ruu_correlation": 0.21,
+        "Rue_correlation": 0.32,
+        "Ree_cross_correlation": 0.43,
+        "Ree_envelope" if gaussian else "Ree_correlation": 1 if gaussian else 0.54,
+    }
+    vs.validation_thresholds = thresholds
+    label = "Score threshold reference (not a pointwise limit)"
+
+    def check_bands(figures, expected):
+        for figure, limits in zip(figures, expected):
+            for ax, limit in zip(figure.axes, limits):
+                bands = [patch for patch in ax.patches if patch.get_label() == label]
+                assert len(bands) == (0 if limit is None else 1)
+                if limit is not None:
+                    vertices = bands[0].get_patch_transform().transform(
+                        bands[0].get_path().vertices
+                    )
+                    assert vertices[:, 1].min() == pytest.approx(-limit)
+                    assert vertices[:, 1].max() == pytest.approx(limit)
+                    assert label in [text.get_text() for text in ax.get_legend().texts]
+
+    diagonal = None if gaussian else 0.54
+    figures = vs.plot_residuals()
+    try:
+        check_bands(figures, [
+            [0.21] * 4, [diagonal, 0.43, 0.43, diagonal], [0.32] * 4
+        ])
+    finally:
+        for figure in figures:
+            plt.close(figure)
+
+    # Changed and omitted checks must be reflected in newly created plots.
+    vs.validation_thresholds = {"Rue_correlation": 0.17}
+    figures = vs.plot_residuals()
+    try:
+        check_bands(figures, [[None] * 4, [None] * 4, [0.17] * 4])
+    finally:
+        for figure in figures:
+            plt.close(figure)
+
+
 def test_shared_envelope_single_output_and_opt_in() -> None:
     rng = np.random.default_rng(73)
     u = rng.normal(size=(100, 1))

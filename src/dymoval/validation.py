@@ -1147,6 +1147,10 @@ class ValidationSession:
         is `True`), the residuals auto-correlation figure and the
         input-residuals cross-correlation figure.
 
+        Configured ordinary correlation thresholds are shaded as score
+        references, not pointwise acceptance bounds. Residual diagonals
+        retain their Gaussian acceptance envelopes when configured.
+
         Parameters
         ----------
         list_sims :
@@ -1174,6 +1178,19 @@ class ValidationSession:
             .get("color", ["black"])
         )
         figs: list[matplotlib.figure.Figure] = []
+
+        def _shade_threshold(ax: matplotlib.axes.Axes, key: str) -> None:
+            threshold = self._validation_thresholds.get(key)
+            if threshold is not None:
+                ax.axhspan(
+                    -threshold,
+                    threshold,
+                    color="gray",
+                    alpha=0.2,
+                    label="Score threshold reference (not a pointwise limit)",
+                    zorder=0,
+                )
+                ax.legend()
 
         def _new_figure(
             nrows: int, ncols: int, title: str, sharex: bool = False
@@ -1233,6 +1250,19 @@ class ValidationSession:
                         zorder=0,
                     )
                     axes[ii, ii].legend()
+            for ii in range(nrows):
+                for jj in range(ncols):
+                    if tensors is self._Ree_tensor:
+                        if ii == jj and self._Ree_envelope is not None:
+                            continue
+                        key = (
+                            "Ree_correlation"
+                            if ii == jj
+                            else "Ree_cross_correlation"
+                        )
+                    else:
+                        key = "Rue_correlation"
+                    _shade_threshold(axes[ii, jj], key)
 
         # ===============================================================
         # Input auto-correlation
@@ -1242,6 +1272,8 @@ class ValidationSession:
             # A single curve per subplot, already named by the subplot
             # title: a legend would only repeat it.
             self._Ruu_tensor._plot_grid(axes, x_symbol="u", y_symbol="u")
+            for ax in axes.flat:
+                _shade_threshold(ax, "Ruu_correlation")
 
         # ===============================================================
         # Residuals auto-correlation

@@ -98,8 +98,13 @@ the Gaussian ratio on the diagonal row when enabled, otherwise its ordinary
 score when ``Ree_envelope=None``. Single-output residual cross-correlation is displayed as N/A and
 omitted from statistics and thresholds.
 
-``plot_residuals()`` shades the positive/negative limits on residual diagonal
-plots only. Time scales use dataset time units; plotted lag offsets still
+``plot_residuals()`` shades Gaussian limits on residual diagonal plots.
+Other correlation panels shade plus/minus their configured ordinary score
+threshold, labelled as a reference rather than a pointwise limit. Peaks
+outside a reference band do not necessarily fail an ``abs_mean`` check.
+Omitted thresholds have no reference band. With ``Ree_envelope=None``,
+residual diagonals use the ordinary threshold reference too.
+Time scales use dataset time units; plotted lag offsets still
 use samples. Custom threshold dictionaries enable only their listed checks.
 R-squared uses a strict lower bound, ordinary correlation scores and RMSE
 strict upper bounds, and the envelope ratio an inclusive upper bound.

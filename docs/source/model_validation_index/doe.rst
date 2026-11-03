@@ -23,11 +23,13 @@ different conditions to get a sufficiently *informative* measurement dataset.
    over, the dataset would tell us little about behavior outside those
    conditions.
 
-We may have two different situations: some logged measurements may be
+We may have two different situations: some logged measurements are
 available and we want to assess if they are rich enough for model
 validation purposes or we have to run some experiments from scratch and we
 wonder how to select input signals to obtain a sufficiently rich measurement
 dataset.
+
+Let's analyze both.
 
 *******************************
  Measurement logs are available
@@ -80,8 +82,8 @@ Method 1: input auto- and cross-correlation
 This method asks: *what time patterns and channel relationships are present
 in the inputs?* Auto-correlation compares an input with delayed versions of
 itself; cross-correlation compares different input channels at selected delays.
-It helps you spot slow variation, repeated patterns, or
-narrow-band excitation. With multiple inputs, also check cross-correlation
+It helps you spot slow variation and repeated patterns, without needing
+to know which system will receive the inputs. With multiple inputs, also check cross-correlation
 between input channels: two inputs can each look like white noise but be
 identical, so they do not excite independent directions.
 
@@ -105,42 +107,52 @@ with the following:
    # Summarize correlation away from the zero-lag diagonal peak.
    Ruu.correlation_score()
 
-``correlation_score()`` returns a correlation summary:
-lower values mean less correlation over the evaluated lags. The aggregation
-can be selected through :py:meth:`~dymoval.statistics.compute_statistic`.
-This is neither a formal statistical whiteness test nor a test of persistent
-excitation.
+:py:meth:`~dymoval.xcorrelation.XCorrelation.correlation_score` returns
+a correlation summary: lower values mean less correlation over the evaluated lags.
 
-.. Next, look at the outputs alongside the applied inputs. A large output range
-.. alone is not enough: movement may come from disturbances or sensor noise
-.. rather than the input. Look for a plausible response to the input changes,
-.. and record long enough to see the relevant transients.
+Here we are checking how repetitive the inputs are, not how large they are
+or how a system responds to them. High auto-correlation means that an input
+resembles a delayed version of itself; low auto-correlation means little
+linear similarity at those delays. High cross-correlation means that
+different channels share similar patterns, possibly with a delay.
 
-These are practical screening checks, not a certificate that the data is
-informative. Colored inputs can be useful, while small correlation scores
-do not guarantee that the input excites the dynamics you need.
+These observations tell us about redundancy in the inputs. They are not a
+formal statistical whiteness test or a complete test of persistent excitation.
+Amplitude, frequency content, and the eventual system response are separate
+checks needed to decide whether the excitation is enough for an application.
 
 Sampling and correlation
----------------------------
+------------------------
 
-If a signal is over-sampled, consecutive measurements are often correlated
-simply because the sampling interval is much shorter than the time scale of
-the signal. This can make the auto-correlation appear large near zero lag,
-even when the experiment contains useful excitation. The result may then
-describe the sampling rate more than the signal's relevant dynamics.
+When a slowly varying input is sampled at intervals much shorter than its
+characteristic time scale, neighboring samples are often strongly correlated.
+This is genuine correlation: dense sampling does not create it, but can make
+a short interval of high correlation span many sample lags.
 
-Inspect the correlation against physical delay, not just lag index, over
-a window relevant to the behavior you want to validate. Correlated input
-samples do not automatically mean the experiment is unsuitable, and
-excluding delays within a system time constant can hide useful information.
-If you deliberately resample a log, preserve the relevant dynamics and
-apply appropriate anti-alias filtering before reducing the sampling rate.
+Interpret sample lags as physical delays: lag :math:`k` corresponds to a
+time delay :math:`kT_s`, where :math:`T_s` is the sampling period.
+Let :math:`\tau` the shortest time over the input change appreciabily,
+and let :math:`kT_s \simeq \tau`.
+If auto-correlation is high within lags :math:`-k` to :math:`k` but drops
+outside that range, the input's similarity to delayed versions of itself
+is concentrated at time delays shorter than about :math:`\tau`.
+High auto-correlation near zero lag does not, by itself, make the input
+unsuitable for a good experiment. We may simply be comparing samples that are
+close together in time.
 
-*Dymoval* evaluates correlations at one-sample spacing; it does not
-automatically change the lag grid based on bandwidth. Choose a meaningful
-physical delay range and inspect the correlation before summarizing it.
-Keep that range fixed when comparing scores: adding many low-correlation
-lags can dilute an average score.
+However, if the auto-correlation is large at delays longer than :math:`\tau`,
+this tells us that its patterns persist or repeat over longer time delays.
+This is worth investigating: the input may offer less variety than
+intended, for example by repeating the same pattern throughout the experiment.
+
+   **Example**
+
+   At a sampling period of 1 ms, a central peak extending to
+   100 lags represents 0.1 s on either side of zero. If the correlation drops
+   after that, samples separated by more than about 0.1 s have little linear
+   similarity over the remaining evaluated delays. If peaks reappear at
+   1000 lags, they indicate a repeating relationship at a separation of 1 s.
+
 
 Method 2: Lagged-input Gram-matrix eigenvalues
 ====================================================
@@ -330,13 +342,12 @@ input signal to use.
 Fortunately, there are common signals that are used to exercise
 the dynamics you want to validate:
 
-* **Noise-like inputs: PRBS and random signals** A
-  *Pseudo-Random-Binary-Sequence* (PRBS) is a deterministic, repeatable
-  sequence switching between two levels that resembles band-limited white
-  noise. It provides broad excitation over a useful frequency band.
-  Random signals can instead use Gaussian, uniform, or binary amplitude
-  distributions. Independent, zero-mean random samples are white in
-  expectation, not exactly uncorrelated in every finite record.
+* **Pseudo-Random-Binary-Sequence (PRBS)** A PRBS is a deterministic,
+  repeatable sequence switching between two levels that resembles band-limited
+  white noise. It provides broad excitation over a useful frequency band.
+* **Random signals:** Random signals can instead use Gaussian, uniform, or
+  binary amplitude distributions. Independent, zero-mean random samples are
+  white in expectation, not exactly uncorrelated in every finite record.
 * **Chirps** sweep through a frequency range, letting you explore the response
   at different frequencies over time. They need not resemble white noise or
   produce a small auto-correlation score.
@@ -363,8 +374,7 @@ respond clearly above measurement noise.
    pass ``ignore_input=True`` to
    :py:meth:`~dymoval.validation.validate_models` or to
    :py:class:`~dymoval.validation.ValidationSession` class constructor.
-   This disables the input-correlation pass/fail check; it does not establish
-   that the experiment has sufficient excitation.
+   This disables the input-correlation pass/fail check.
 
 *****************
  Coverage region

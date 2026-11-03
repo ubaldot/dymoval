@@ -8,18 +8,18 @@ Testing ideas on a real system can be expensive, slow, or risky. A simulation
 lets you try them out first, but what if an inaccurate model makes a good idea
 look bad?
 
-**Model validation checks how well a model describes the real system for
-the tasks you want to use it for.** Feed both the same inputs, then compare
+Model validation checks how well a model describes the real system for
+the tasks you want to use it for. Feed both the same inputs, then compare
 their outputs using experimental measurements.
 
 A common approach is to plot the measured and simulated outputs together:
 if the curves overlap nicely, the model looks good. That is a useful first
-check, but **matching curves is not enough**. Even a high fit score can hide
+check, but matching curves is not enough. Even a high fit score can hide
 important shortcomings. For example, an experiment with little input
 variation may never challenge the model's dynamic behavior.
 
-We also need to assess the **input signals**: did they exercise the dynamics
-and operating conditions we care about? Then we inspect the **residuals**,
+We also need to assess the *input signals*: did they exercise the dynamics
+and operating conditions we care about? Then we inspect the *residuals*,
 the differences between measured and simulated outputs. Do they show
 repeated patterns, or are they correlated with the inputs? Such patterns can
 point to behavior the model has missed, although noise and measurement

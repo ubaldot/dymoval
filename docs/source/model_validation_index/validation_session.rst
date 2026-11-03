@@ -246,6 +246,18 @@ Override the parameters when creating a session:
    )
    figures = vs.plot_residuals()
 
+Correlation plots shade plus/minus each configured ordinary score threshold
+as a **score threshold reference, not a pointwise limit**. For example,
+``abs_mean`` averages over lags, so peaks outside the band do not necessarily
+fail the check. Aggregation across signal pairs also affects the outcome;
+use the reported score to judge the configured check. No reference band is
+drawn for an omitted threshold.
+
+Residual diagonal panels retain the Gaussian acceptance envelope instead:
+its ratio checks every evaluated nonzero lag, unlike an average-based score.
+With ``Ree_envelope=None``, those panels show the ordinary threshold
+reference. These shaded regions are not statistical confidence bands.
+
 The tuple is ``(b0, b_inf, time_scale)``, shared across outputs. Parameters
 must be finite and satisfy the constraints above. The time scale uses
 dataset time units, not lag indices. With array measurements it uses the
