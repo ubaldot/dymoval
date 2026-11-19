@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="440" viewBox="0 0 920 440" role="img" aria-labelledby="title description">
+  <title id="title">Delay-dependent residual correlation limits</title>
+  <desc id="description">An illustrative Gaussian-shaped acceptance envelope decreases from 0.95 towards 0.1 with a time scale of five seconds. Residual correlation of 0.75 at one second is below its limit of about 0.92. Correlation of 0.88 at ten seconds exceeds its limit of about 0.12. Only positive delays are shown because scalar auto-correlation is symmetric. Zero lag is excluded from scoring.</desc>
+  <rect width="920" height="440" fill="white"/>
+  <g font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#172b4d">
+    <text x="460" y="28" text-anchor="middle" font-size="20" font-weight="bold">Correlation limits that tighten with increasing delay</text>
+    <text x="460" y="52" text-anchor="middle">Illustrative limits, not recommended defaults</text>
+    <g stroke="#e2e8f0">
+      <path d="M95,80 H815 M95,145 H815 M95,210 H815 M95,275 H815 M95,340 H815"/>
+      <path d="M95,80 V340 M275,80 V340 M455,80 V340 M635,80 V340 M815,80 V340"/>
+    </g>
+    <path d="M95,93 L131,102 L167,126 L203,160 L239,198 L275,233 L311,262 L347,283 L383,297 L419,305 L455,310 L491,312 L527,313 L563,314 L815,314 L815,340 L95,340 Z" fill="#e1f3eb"/>
+    <path d="M95,93 L131,102 L167,126 L203,160 L239,198 L275,233 L311,262 L347,283 L383,297 L419,305 L455,310 L491,312 L527,313 L563,314 L815,314" fill="none" stroke="#996000" stroke-width="3"/>
+    <path d="M95,314 H815" stroke="#996000" stroke-dasharray="5 5"/>
+    <path d="M95,80 V340 H815" fill="none" stroke="#334155" stroke-width="2"/>
+    <g text-anchor="end">
+      <text x="83" y="85">1.0</text>
+      <text x="83" y="150">0.75</text>
+      <text x="83" y="215">0.5</text>
+      <text x="83" y="280">0.25</text>
+      <text x="83" y="345">0</text>
+    </g>
+    <g text-anchor="middle">
+      <text x="95" y="362">0</text>
+      <text x="275" y="362">5</text>
+      <text x="455" y="362">10</text>
+      <text x="635" y="362">15</text>
+      <text x="815" y="362">20</text>
+      <text x="455" y="393">Physical delay |k| Ts (seconds)</text>
+      <text x="26" y="214" transform="rotate(-90 26 214)">Absolute residual auto-correlation</text>
+    </g>
+    <circle cx="131" cy="145" r="6" fill="#00785a" stroke="white" stroke-width="2"/>
+    <path d="M138,147 L192,164" stroke="#00785a"/>
+    <text x="200" y="165" fill="#00664d">0.75 at 1 s: within limit (~0.92)</text>
+    <circle cx="455" cy="111" r="7" fill="#b42318" stroke="white" stroke-width="2"/>
+    <path d="M455,120 V310" stroke="#b42318" stroke-dasharray="4 4"/>
+    <text x="472" y="107" fill="#b42318">0.88 at 10 s: exceeds limit (~0.12)</text>
+    <text x="560" y="260" fill="#996000">Acceptance envelope b(t)</text>
+    <text x="570" y="333" fill="#00664d">Within the allowed region</text>
+    <text x="460" y="427" text-anchor="middle" font-size="14">Positive delays only; negative delays mirror them. Zero lag is not scored. Dots are example values.</text>
+  </g>
+</svg>
